@@ -45,9 +45,9 @@ void carrAbs2(unsigned int n, Carray v, Rarray vabs)
 }
 
 double complex carrDot(unsigned int n, Carray v1, Carray v2) {
-    unsigned int i;
     double complex z = 0 + 0 * I;
-    for (i = 0; i < n; i++) { z += conj(v1[i]) * v2[i]; }
+    #pragma omp parallel for
+    for (unsigned int i = 0; i < n; i++) { z += conj(v1[i]) * v2[i]; }
     return z;
 }
 
