@@ -1,8 +1,6 @@
 #ifndef _array_operations_h
 #define _array_operations_h
 
-#include <omp.h>
-
 // C default library
 #include <math.h>
 
