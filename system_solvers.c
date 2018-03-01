@@ -3,6 +3,8 @@
 
 double cond(unsigned int n, Carray upper, Carray lower, Carray mid)
 {
+    unsigned int i;
+
     // condition numbers
     double maxCond = 1,
            condK   = 1;
@@ -13,7 +15,7 @@ double cond(unsigned int n, Carray upper, Carray lower, Carray mid)
 
     u = mid[0];
     condK = 1;
-    for (int i = 0;  i < n - 1; i++) {
+    for (i = 0;  i < n - 1; i++) {
         l = lower[i] / u;
         u = mid[i+1] - l * upper[i];
         condK = 1 + cabs(upper[i] * l / u) * (2 + condK);
@@ -25,6 +27,7 @@ double cond(unsigned int n, Carray upper, Carray lower, Carray mid)
 
 double errBack(unsigned int n, Carray upper, Carray lower, Carray mid)
 {
+    unsigned int i;
     // Error backward
     double maxErrBack = 1,
            ErrBack    = 1;
@@ -34,7 +37,7 @@ double errBack(unsigned int n, Carray upper, Carray lower, Carray mid)
                    l;
 
     u = mid[0];
-    for (int i = 0;  i < n - 1; i++) {
+    for (i = 0;  i < n - 1; i++) {
         l = lower[i] / u;
         u = mid[i+1] - l * upper[i];
         ErrBack = (cabs(l) * cabs(upper[i]) + cabs(u)) / cabs(mid[i+1]);
@@ -46,10 +49,11 @@ double errBack(unsigned int n, Carray upper, Carray lower, Carray mid)
 
 double complex checkLU(unsigned int n, Carray upper, Carray lower, Carray mid)
 {
+    unsigned int i;
     double complex det0 = 1;
     double complex det1 = mid[0];
     double complex detK;
-    for (int i = 1; i < n; i++) {
+    for (i = 1; i < n; i++) {
         detK = mid[i] * det1 - lower[i-1] * upper[i-1] * det0;
         if (cabs(detK) == 0) { return 0; }
         det0 = det1;

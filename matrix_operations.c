@@ -155,11 +155,12 @@ double complex detTrik(Carray upper, Carray lower, Carray mid, unsigned int k)
 
 Carray detTri(Carray upper, Carray lower, Carray mid, unsigned int n)
 {
+    int i;
     Carray theta = carrDef(n + 1);
 
     theta[0] = 1;
     theta[1] = mid[0];
-    for (int i = 1; i < n; i++) {
+    for (i = 1; i < n; i++) {
         theta[i+1] = mid[i] * theta[i] - lower[i-1] * upper[i-1] * theta[i-1];
     }
     return theta;
@@ -167,11 +168,12 @@ Carray detTri(Carray upper, Carray lower, Carray mid, unsigned int n)
 
 Carray phiTri(Carray upper, Carray lower, Carray mid, unsigned int n)
 {
+    int i;
     Carray phi = carrDef(n + 1);
 
     phi[n]   = 1;
     phi[n-1] = mid[n-1];
-    for (int i = n - 2; i >= 0; i--) {
+    for (i = n - 2; i >= 0; i--) {
         phi[i] = mid[i] * phi[i+1] - lower[i] * upper[i] * phi[i+2];
     }
     return phi;
