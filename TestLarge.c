@@ -13,7 +13,7 @@
 
 int main() {
     
-    int n = 3000;
+    int n = 6000;
     int i, l;
 
     clock_t start, end;

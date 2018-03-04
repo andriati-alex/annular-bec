@@ -1,0 +1,116 @@
+
+	Time taken to obtain inverse: 0.6623
+
+	Time taken for CCS storage: 0.0002
+
+	 *** Pre-Conjugate Gradient ***
+
+	Time: 0.7064, iterated 3 times
+
+0.047 +0.774i
+0.933 -0.351i
+0.218 -0.755i	 . 
+	 . 
+	 . 
+
+0.000 +0.000i
+0.047 -0.774i
+0.933 +0.351i
+
+	 *** Pre-Conjugate Gradient(use M) ***
+
+	Time: 0.3514, iterated 3 times
+
+0.047 +0.774i
+0.933 -0.351i
+0.218 -0.755i	 . 
+	 . 
+	 . 
+
+0.000 +0.000i
+0.047 -0.774i
+0.933 +0.351i
+
+	 *** Conjugate Gradient(CCS) ***
+
+	Time: 1.2347, iterated 9001 times
+
+0.047 +0.774i
+0.933 -0.351i
+0.218 -0.755i	 . 
+	 . 
+	 . 
+
+0.000 +0.000i
+0.047 -0.774i
+0.933 +0.351i
+
+	 *** Pre-Conjugate Gradient(CCS) ***
+
+	Time: 0.3906, iterated 3 times
+
+0.047 +0.774i
+0.933 -0.351i
+0.218 -0.755i	 . 
+	 . 
+	 . 
+
+0.000 +0.000i
+0.047 -0.774i
+0.933 +0.351i
+
+	 *** Pre-Conjugate Gradient(CCS) (use M) ***
+
+	Time: 0.0022, iterated 3 times
+
+0.047 +0.774i
+0.933 -0.351i
+0.218 -0.755i	 . 
+	 . 
+	 . 
+
+0.000 +0.000i
+0.047 -0.774i
+0.933 +0.351i
+
+	 *** Tridiagonal LU ***
+
+	Time: 0.0003
+
+165.965 -168.246i
+-7.450 +80.480i
+112.893 +174.914i	 . 
+	 . 
+	 . 
+
+0.000 +0.000i
+165.968 +168.243i
+-7.451 -80.480i
+
+	 *** Tridiagonal LU-Cyclic(first main diag. = 0)***
+
+	Time: 0.0005
+
+0.047 +0.774i
+0.933 -0.351i
+0.218 -0.755i	 . 
+	 . 
+	 . 
+
+0.000 +0.000i
+0.047 -0.774i
+0.933 +0.351i
+
+	 *** Tridiagonal-Cyclic Sherman-Morrison ***
+
+	Time: 0.0008
+
+0.047 +0.774i
+0.933 -0.351i
+0.218 -0.755i	 . 
+	 . 
+	 . 
+
+0.000 +0.000i
+0.047 -0.774i
+0.933 +0.351i
