@@ -13,7 +13,7 @@
 
 int main() {
     
-    int n = 6000;
+    int n = 20000;
     int i, l;
 
     clock_t start, end;
@@ -33,21 +33,6 @@ int main() {
         RHS[i] = 0.5 + cos(10  * i * PI / n) + I * sin(4 * I * PI / n);
     }
 
-    Cmatrix A = cmatDef(n, n);
-    Cmatrix M = cmatDef(n, n);
-
-    // Matrix
-    cmatFillTri(n, upper, mid, lower, A);
-    A[0][n-1] = upper[n-1];
-    A[n-1][0] = lower[n-1];
-
-    // Compute inverse
-    start = clock();
-    invTri(upper, lower, mid, n, M);
-    end = clock();
-    cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
-    printf("\n\tTime taken to obtain inverse: %.4f", cpu_time_used);
-
     // Compressed Column format
     start = clock();
     CCSmat Accs = CyclicToCCS(n, upper, lower, mid);
@@ -55,63 +40,11 @@ int main() {
     cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
     printf("\n\n\tTime taken for CCS storage: %.4f", cpu_time_used);
 
-    /**************** Conjugate-Gradient ****************
-    printf("\n\n\t ***** Conjugate Gradient *****");
-
-    start = clock();
-    l = CCG(n, A, RHS, ans, 1E-8);
-    end = clock();
-    cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
-    printf("\n\n\tTime: %.4f", cpu_time_used);
-
-    carrPrint(n, ans);
-
-    carrFill(n, 0, ans);
-    
-    /**************** Pre-Conjugate-Gradient ****************/
-    printf("\n\n\t *** Pre-Conjugate Gradient ***");
-
-    start = clock();
-    l = preCCG(n, A, RHS, ans, 1E-8, M);
-    end = clock();
-    cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
-    printf("\n\n\tTime: %.4f, iterated %d times", cpu_time_used, l);
-
-    carrPrint(n, ans);
-
-    carrFill(n, 0, ans);
-    
-    /**************** Pre-Conjugate-Gradient(use M) ****************/
-    printf("\n\n\t *** Pre-Conjugate Gradient(use M) ***");
-
-    start = clock();
-    l = MpreCCG(n, A, RHS, ans, 1E-8, upper, lower, mid);
-    end = clock();
-    cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
-    printf("\n\n\tTime: %.4f, iterated %d times", cpu_time_used, l);
-    
-    carrPrint(n, ans);
-    
-    carrFill(n, 0, ans);
-    
     /**************** Conjugate-Gradient(CCS) ****************/
     printf("\n\n\t *** Conjugate Gradient(CCS) ***");
 
     start = clock();
     l = CCSCCG(n, Accs, RHS, ans, 1E-8);
-    end = clock();
-    cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
-    printf("\n\n\tTime: %.4f, iterated %d times", cpu_time_used, l);
-
-    carrPrint(n, ans);
-
-    carrFill(n, 0, ans);
-
-    /**************** Pre-Conjugate-Gradient(CCS) ****************/
-    printf("\n\n\t *** Pre-Conjugate Gradient(CCS) ***");
-
-    start = clock();
-    l = preCCSCCG(n, Accs, RHS, ans, 1E-8, M);
     end = clock();
     cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
     printf("\n\n\tTime: %.4f, iterated %d times", cpu_time_used, l);
