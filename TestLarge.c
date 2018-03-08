@@ -80,6 +80,28 @@ int main() {
     printf("\n\n\tTime: %.4f", cpu_time_used / 100);
 
     carrPrint(n, ans);
+    
+    /**************** Array Add ****************/
+    printf("\n\n\t *** Array Add ***");
+
+    start = clock();
+    for (i = 0; i < 100; i++) {
+        carrAdd(n, upper, lower, ans);
+    }
+    end = clock();
+    cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
+    printf("\n\n\tTime: %.4f", cpu_time_used / 100);
+    
+    /**************** Array Exp ****************/
+    printf("\n\n\t *** Array Exp ***");
+
+    start = clock();
+    for (i = 0; i < 100; i++) {
+        carrExp(n, 0.5 - 0.43 * I, lower, ans);
+    }
+    end = clock();
+    cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
+    printf("\n\n\tTime: %.4f", cpu_time_used / 100);
 
     printf("\n");
     return 0;
