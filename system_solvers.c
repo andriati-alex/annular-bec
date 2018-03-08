@@ -203,6 +203,7 @@ void triCyclicSM(unsigned int n, Carray upper, Carray lower, Carray mid,
     // top    == upper[n-1];
 
     double complex factor;
+    double complex recover_mid1, recover_midN;
 
     Carray x = carrDef(n);
     Carray w = carrDef(n);
@@ -211,6 +212,10 @@ void triCyclicSM(unsigned int n, Carray upper, Carray lower, Carray mid,
 
     carrFill(n, 0, U);
     carrFill(n, 0, V);
+
+    // In order to can call many times
+    recover_mid1 = mid[0];
+    recover_midN = mid[n - 1];
 
     // Choice of gamma factor
     if (cabs(mid[0]) == 0) { factor = upper[0]; mid[0] = -factor; }
@@ -229,6 +234,10 @@ void triCyclicSM(unsigned int n, Carray upper, Carray lower, Carray mid,
     factor = carrDot2(n, V, x) / (1.0 + carrDot2(n, V, w));
     carrScalar(n, w, factor, w);
     carrSub(n, x, w, ans);
+
+    // give back changed values
+    mid[0] = recover_mid1;
+    mid[n - 1] = recover_midN;
 
     // Free local allocated memory
     free(x);
