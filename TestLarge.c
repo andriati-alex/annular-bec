@@ -13,7 +13,7 @@
 
 int main() {
     
-    int n = 100000;
+    int n = 500000;
     int i, l;
 
     clock_t start, end;
@@ -43,13 +43,13 @@ int main() {
     printf("\n\n\t *** Pre-Conjugate Gradient(CCS) (use M) ***");
 
     start = clock();
-    for (i = 0; i < 20; i++) {
+    for (i = 0; i < 100; i++) {
         carrFill(n, 0.0, ans);
         l = MpreCCSCCG(n, Accs, RHS, ans, 1E-8, upper, lower, mid);
     }
     end = clock();
     cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
-    printf("\n\n\tTime: %.4f, mean of %d runs", cpu_time_used / 20, 20);
+    printf("\n\n\tTime: %.4f, mean of %d runs", cpu_time_used / 100, 100);
     
     carrPrint(n, ans);
 
@@ -57,12 +57,12 @@ int main() {
     printf("\n\n\t *** Tridiagonal LU-Cyclic ***");
 
     start = clock();
-    for (i = 0; i < 20; i++) {
+    for (i = 0; i < 100; i++) {
         triCyclicLU(n, upper, lower, mid, RHS, ans);
     }
     end = clock();
     cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
-    printf("\n\n\tTime: %.4f", cpu_time_used / 20);
+    printf("\n\n\tTime: %.4f", cpu_time_used / 100);
 
     carrPrint(n, ans);
 
@@ -72,12 +72,12 @@ int main() {
     printf("\n\n\t *** Tridiagonal-Cyclic Sherman-Morrison ***");
 
     start = clock();
-    for (i = 0; i < 20; i++) {
+    for (i = 0; i < 100; i++) {
         triCyclicSM(n, upper, lower, mid, RHS, ans);
     }
     end = clock();
     cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
-    printf("\n\n\tTime: %.4f", cpu_time_used / 20);
+    printf("\n\n\tTime: %.4f", cpu_time_used / 100);
 
     carrPrint(n, ans);
 
