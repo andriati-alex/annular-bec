@@ -1,10 +1,10 @@
 
 
-	Time taken for CCS storage: 0.0157
+	Time taken for CCS storage: 0.0066
 
 	 *** Pre-Conjugate Gradient(CCS) (use M) ***
 
-	Time: 0.4819, mean of 100 runs
+	Time: 0.6416, mean of 100 runs
 
 2.843 +10.204i
 -3.882 +6.512i
@@ -18,7 +18,7 @@
 
 	 *** Tridiagonal LU-Cyclic ***
 
-	Time: 0.0621
+	Time: 0.0797
 
 2.843 +10.204i
 -3.882 +6.512i
@@ -32,7 +32,7 @@
 
 	 *** Tridiagonal-Cyclic Sherman-Morrison ***
 
-	Time: 0.0923
+	Time: 0.1670
 
 2.843 +10.204i
 -3.882 +6.512i
@@ -46,8 +46,20 @@
 
 	 *** Array Add ***
 
-	Time: 0.0033
+	Time: 0.0026
 
 	 *** Array Exp ***
 
-	Time: 0.0230
+	Time: 0.0146
+
+	 *** Element-wise Absolute2 ***
+
+	Time: 0.0013
+
+	 *** Vector Modulus ***
+
+	Time: 0.0009
+
+	 *** Scalar Product ***
+
+	Time: 0.0016
