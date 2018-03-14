@@ -12,9 +12,12 @@
 /* Program to test the solvers for Large systems */
 /* ********************************************* */
 
+// 4096    = 2 ^ 12
+// 1048576 = 2 ^ 20
+
 int main() {
     
-    int n = 500000;
+    int n = 1048576;
     int i, l;
 
     clock_t start, end;
@@ -43,7 +46,7 @@ int main() {
     CCSmat Accs = CyclicToCCS(n, upper, lower, mid);
     end = clock();
     cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
-    printf("\n\n\tTime taken for CCS storage: %.4f", cpu_time_used);
+    printf("\n\n\tTime taken for CCS storage: %.9f", cpu_time_used);
 
     /**************** Pre-Conjugate-Gradient(CCS) (use M) ****************/
     printf("\n\n\t *** Pre-Conjugate Gradient(CCS) (use M) ***");
@@ -55,7 +58,7 @@ int main() {
     }
     end = clock();
     cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
-    printf("\n\n\tTime: %.4f, mean of %d runs", cpu_time_used / NLOOP, 100);
+    printf("\n\n\tTime: %.9f, mean of %d runs", cpu_time_used / NLOOP, 100);
     
     carrPrint(n, ans);
 
@@ -68,7 +71,7 @@ int main() {
     }
     end = clock();
     cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
-    printf("\n\n\tTime: %.4f", cpu_time_used / NLOOP);
+    printf("\n\n\tTime: %.9f", cpu_time_used / NLOOP);
 
     carrPrint(n, ans);
 
@@ -83,7 +86,7 @@ int main() {
     }
     end = clock();
     cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
-    printf("\n\n\tTime: %.4f", cpu_time_used / NLOOP);
+    printf("\n\n\tTime: %.9f", cpu_time_used / NLOOP);
 
     carrPrint(n, ans);
     
@@ -96,7 +99,7 @@ int main() {
     }
     end = clock();
     cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
-    printf("\n\n\tTime: %.4f", cpu_time_used / (5 * NLOOP));
+    printf("\n\n\tTime: %.9f", cpu_time_used / (5 * NLOOP));
     
     /**************** Array Exp ****************/
     printf("\n\n\t *** Array Exp ***");
@@ -107,7 +110,7 @@ int main() {
     }
     end = clock();
     cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
-    printf("\n\n\tTime: %.4f", cpu_time_used / (5 * NLOOP));
+    printf("\n\n\tTime: %.9f", cpu_time_used / (5 * NLOOP));
     
     /**************** Element-wise Absolute2 ****************/
     printf("\n\n\t *** Element-wise Absolute2 ***");
@@ -118,7 +121,7 @@ int main() {
     }
     end = clock();
     cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
-    printf("\n\n\tTime: %.4f", cpu_time_used / (5 * NLOOP));
+    printf("\n\n\tTime: %.9f", cpu_time_used / (5 * NLOOP));
 
     /**************** Vector Modulus ****************/
     printf("\n\n\t *** Vector Modulus ***");
@@ -129,7 +132,7 @@ int main() {
     }
     end = clock();
     cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
-    printf("\n\n\tTime: %.4f", cpu_time_used / (5 * NLOOP));
+    printf("\n\n\tTime: %.9f", cpu_time_used / (5 * NLOOP));
     
     /**************** Scalar Product ****************/
     printf("\n\n\t *** Scalar Product ***");
@@ -140,7 +143,7 @@ int main() {
     }
     end = clock();
     cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
-    printf("\n\n\tTime: %.4f", cpu_time_used / (5 * NLOOP));
+    printf("\n\n\tTime: %.9f", cpu_time_used / (5 * NLOOP));
 
     printf("\n");
     return 0;
