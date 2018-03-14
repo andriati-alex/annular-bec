@@ -179,7 +179,7 @@ void triCyclicLU(unsigned int n, Carray upper, Carray lower, Carray mid,
 
     ans[n-1] = z[n-1] / u[n-1];
     // store the last column multiplication in U
-    carrScalar(n - 1, h, ans[n-1], h);
+    carrScalarMultiply(n - 1, h, ans[n-1], h);
     // Additionaly subtract h compared to tridiagonal
     ans[n-2] = (z[n-2] - h[n-2]) / u[n-2];
     for (i = 3; i <= n; i++) {
@@ -232,7 +232,7 @@ void triCyclicSM(unsigned int n, Carray upper, Carray lower, Carray mid,
     triDiag(n, upper, lower, mid, U, w);
 
     factor = carrDot2(n, V, x) / (1.0 + carrDot2(n, V, w));
-    carrScalar(n, w, factor, w);
+    carrScalarMultiply(n, w, factor, w);
     carrSub(n, x, w, ans);
 
     // give back changed values
@@ -264,13 +264,13 @@ int CCG(unsigned int n, Cmatrix A, Carray b, Carray x, double eps)
     while (carrMod(n, r) > eps) {
         cmatvec(n, n, A, d, aux);   // A matrix-vector multiplication
         a = carrMod2(n, r) / carrDot(n, d, aux);
-        carrScalar(n, aux, a, aux);
+        carrScalarMultiply(n, aux, a, aux);
         carrCopy(n, r, prev_r);     // Store (i-1)-th residue to compute beta
         carrSub(n, r, aux, r);      // Update residue
-        carrScalar(n, d, a, aux);
+        carrScalarMultiply(n, d, a, aux);
         carrAdd(n, x, aux, x);      // Update solution
         beta = carrMod2(n, r) / carrMod2(n, prev_r);
-        carrScalar(n, d, beta, aux);
+        carrScalarMultiply(n, d, beta, aux);
         carrAdd(n, r, aux, d);      // Update direction
         l = l + 1;                  // Update iterarion counter
     }
@@ -305,15 +305,15 @@ int preCCG(unsigned int n, Cmatrix A, Carray b, Carray x, double eps,
     while (carrMod(n, r) > eps) {
         cmatvec(n, n, A, d, aux);   // A matrix-vector multiplication
         a = carrDot(n, r, M_r) / carrDot(n, d, aux);
-        carrScalar(n, aux, a, aux);
+        carrScalarMultiply(n, aux, a, aux);
         carrCopy(n, r, prev_r);     // Store (i-1)-th residue to compute beta
         carrSub(n, r, aux, r);      // Update residue
-        carrScalar(n, d, a, aux);
+        carrScalarMultiply(n, d, a, aux);
         carrAdd(n, x, aux, x);      // Update solution
         carrCopy(n, M_r, aux);      // aux get M-1 . r
         cmatvec(n, n, M, r, M_r);   // Store for the next loop
         beta = carrDot(n, r, M_r) / carrDot(n, prev_r, aux);
-        carrScalar(n, d, beta, aux);
+        carrScalarMultiply(n, d, beta, aux);
         carrAdd(n, M_r, aux, d);    // Update direction
         l = l + 1;                  // Update iteration counter
     }
@@ -349,15 +349,15 @@ int MpreCCG(unsigned int n, Cmatrix A, Carray b, Carray x, double eps,
     while (carrMod(n, r) > eps) {
         cmatvec(n, n, A, d, aux);   // A matrix-vector multiplication
         a = carrDot(n, r, M_r) / carrDot(n, d, aux);
-        carrScalar(n, aux, a, aux);
+        carrScalarMultiply(n, aux, a, aux);
         carrCopy(n, r, prev_r);     // Store (i-1)-th residue to compute beta
         carrSub(n, r, aux, r);      // Update residue
-        carrScalar(n, d, a, aux);
+        carrScalarMultiply(n, d, a, aux);
         carrAdd(n, x, aux, x);      // Update solution
         carrCopy(n, M_r, aux);      // aux get M-1 . r
         triDiag(n, upper, lower, mid, r, M_r); // Store for the next loop
         beta = carrDot(n, r, M_r) / carrDot(n, prev_r, aux);
-        carrScalar(n, d, beta, aux);
+        carrScalarMultiply(n, d, beta, aux);
         carrAdd(n, M_r, aux, d);    // Update direction
         l = l + 1;                  // Update iteration counter
     }
@@ -392,15 +392,13 @@ int CCSCCG(unsigned int n, CCSmat A, Carray b, Carray x, double eps)
         carrFill(n, 0, aux); // CCSvec needs array filled with zeros
         CCSvec(n, A->vec, A->col, A->m, d, aux); // matrix-vector mult
         a = carrMod2(n, r) / carrDot(n, d, aux);
-        carrScalar(n, aux, a, aux);
-        carrCopy(n, r, prev_r);     // Store (i-1)-th residue to compute beta
-        carrSub(n, r, aux, r);      // Update residue
-        carrScalar(n, d, a, aux);
-        carrAdd(n, x, aux, x);      // Update solution
+        carrCopy(n, r, prev_r); // Store (i-1)-th residue to compute beta
+        carrUpdate(n, prev_r, -a, aux, r);  // Update residue
+        carrUpdate(n, x, a, d, x);          // Update solution
         beta = carrMod2(n, r) / carrMod2(n, prev_r);
-        carrScalar(n, d, beta, aux);
-        carrAdd(n, r, aux, d);      // Update direction
-        l = l + 1;                  // Update iterarion counter
+        carrScalarMultiply(n, d, beta, aux);
+        carrUpdate(n, r, beta, d, d);   // Update direction
+        l = l + 1;                      // Update iterarion counter
     }
 
     // Free function allocated memory
@@ -435,15 +433,15 @@ int preCCSCCG(unsigned int n, CCSmat A, Carray b, Carray x, double eps,
         carrFill(n, 0, aux); // CCSvec needs array filled with zeros
         CCSvec(n, A->vec, A->col, A->m, d, aux); // matrix-vector mult
         a = carrDot(n, r, M_r) / carrDot(n, d, aux);
-        carrScalar(n, aux, a, aux);
+        carrScalarMultiply(n, aux, a, aux);
         carrCopy(n, r, prev_r);     // Store (i-1)-th residue to compute beta
         carrSub(n, r, aux, r);      // Update residue
-        carrScalar(n, d, a, aux);
+        carrScalarMultiply(n, d, a, aux);
         carrAdd(n, x, aux, x);      // Update solution
         carrCopy(n, M_r, aux);      // aux get M-1 . r
         cmatvec(n, n, M, r, M_r);   // Store for the next loop
         beta = carrDot(n, r, M_r) / carrDot(n, prev_r, aux);
-        carrScalar(n, d, beta, aux);
+        carrScalarMultiply(n, d, beta, aux);
         carrAdd(n, M_r, aux, d);    // Update direction
         l = l + 1;                  // Update iteration counter
     }
@@ -459,7 +457,7 @@ int preCCSCCG(unsigned int n, CCSmat A, Carray b, Carray x, double eps,
 }
 
 int MpreCCSCCG(unsigned int n, CCSmat A, Carray b, Carray x, double eps, 
-            Carray upper, Carray lower, Carray mid)
+               Carray upper, Carray lower, Carray mid)
 {
     // Scalars from algorithm
     double complex a;
@@ -478,20 +476,17 @@ int MpreCCSCCG(unsigned int n, CCSmat A, Carray b, Carray x, double eps,
     triDiag(n, upper, lower, mid, r, d);
     carrCopy(n, d, M_r);
     while (carrMod(n, r) > eps) {
-        carrFill(n, 0, aux); // CCSvec needs array filled with zeros
+        carrFill(n, 0, aux);    // CCSvec needs array filled with zeros
         CCSvec(n, A->vec, A->col, A->m, d, aux); // matrix-vector mult
         a = carrDot(n, r, M_r) / carrDot(n, d, aux);
-        carrScalar(n, aux, a, aux);
-        carrCopy(n, r, prev_r);     // Store (i-1)-th residue to compute beta
-        carrSub(n, r, aux, r);      // Update residue
-        carrScalar(n, d, a, aux);
-        carrAdd(n, x, aux, x);      // Update solution
-        carrCopy(n, M_r, aux);      // aux get M-1 . r
+        carrCopy(n, r, prev_r); // Store (i-1)-th residue to compute beta
+        carrUpdate(n, prev_r, -a, aux, r);  // Update residue
+        carrUpdate(n, x, a, d, x);          // Update solution
+        carrCopy(n, M_r, aux);              // aux get M-1 . r
         triDiag(n, upper, lower, mid, r, M_r); // Store for the next loop
         beta = carrDot(n, r, M_r) / carrDot(n, prev_r, aux);
-        carrScalar(n, d, beta, aux);
-        carrAdd(n, M_r, aux, d);    // Update direction
-        l = l + 1;                  // Update iteration counter
+        carrUpdate(n, M_r, beta, d, d);     // Update direction
+        l = l + 1;                          // Update iteration counter
     }
 
     // Free function allocated memory

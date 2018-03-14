@@ -26,16 +26,19 @@ void carrAdd(unsigned int n, Carray v1, Carray v2, Carray v);
 void carrSub(unsigned int n, Carray v1, Carray v2, Carray v);
 
 // Each position product
-void carrProd(unsigned int n, Carray v1, Carray v2, Carray v);
+void carrMultiply(unsigned int n, Carray v1, Carray v2, Carray v);
 
 // multiply all elements by a complex scalar
-void carrScalar(unsigned int n, Carray v, double complex z, Carray ans);
+void carrScalarMultiply(unsigned int n, Carray v, double complex z, Carray ans);
+
+// Add element-wise a scalar
+void carrScalarAdd(unsigned int n, Carray v, double complex z, Carray ans);
 
 // Each position division
 void carrDiv(unsigned int n, Carray v1, Carray v2, Carray v);
 
 // Update-like operation v[i] = v1[i] + z * v2[i];
-void carrMix(unsigned int n, double complex z, Carray v1, Carray v2, Carray v);
+void carrUpdate(unsigned int n, Carray v1, double complex z, Carray v2, Carray v);
 
 // Each position conjugation
 void carrConj(unsigned int n, Carray v, Carray v_conj);

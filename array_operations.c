@@ -19,16 +19,19 @@ void carrAdd(unsigned int n, Carray v1, Carray v2, Carray v)
 void carrSub(unsigned int n, Carray v1, Carray v2, Carray v)
 { unsigned int i; for (i = 0; i < n; i++) { v[i] = v1[i] - v2[i]; } }
 
-void carrProd(unsigned int n, Carray v1, Carray v2, Carray v)
+void carrMultiply(unsigned int n, Carray v1, Carray v2, Carray v)
 { unsigned int i; for (i = 0; i < n; i++) { v[i] = v1[i] * v2[i]; } }
 
-void carrScalar(unsigned int n, Carray v, double complex z, Carray ans)
+void carrScalarMultiply(unsigned int n, Carray v, double complex z, Carray ans)
 { unsigned int i; for (i = 0; i < n; i++) { ans[i] = v[i] * z; } }
+
+void carrScalarAdd(unsigned int n, Carray v, double complex z, Carray ans)
+{ unsigned int i; for (i = 0; i < n; i++) { ans[i] = v[i] + z; } }
 
 void carrDiv(unsigned int n, Carray v1, Carray v2, Carray v)
 { unsigned int i; for (i = 0; i < n; i++) { v[i] = v1[i] / v2[i]; } }
 
-void carrMix(unsigned int n, double complex z, Carray v1, Carray v2, Carray v)
+void carrUpdate(unsigned int n, Carray v1, double complex z, Carray v2, Carray v)
 { unsigned int i; for (i = 0; i < n; i++) { v[i] = v1[i] + z * v2[i]; } }
 
 void carrConj(unsigned int n, Carray v, Carray v_conj)
