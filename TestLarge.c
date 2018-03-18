@@ -17,7 +17,7 @@
 
 int main() {
     
-    int n = 1048576;
+    int n = 4096;
     int i, l;
 
     clock_t start, end;
@@ -117,7 +117,7 @@ int main() {
 
     start = clock();
     for (i = 0; i < 5 * NLOOP; i++) {
-        carrAbs2(n, lower, ansR);
+        carrAbs(n, lower, ansR);
     }
     end = clock();
     cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
