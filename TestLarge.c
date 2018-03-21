@@ -17,7 +17,7 @@
 
 int main() {
     
-    int n = 4096;
+    int n = 1048576;
     int i, l;
 
     clock_t start, end;
@@ -90,6 +90,17 @@ int main() {
 
     carrPrint(n, ans);
     
+    /**************** CCSmatrix times vector ****************/
+    printf("\n\n\t *** CCSmatrix times vector ***");
+
+    start = clock();
+    for (i = 0; i < 5 * NLOOP; i++) {
+        CCSvec(n, Accs->vec, Accs->col, Accs->m, upper, ans);
+    }
+    end = clock();
+    cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
+    printf("\n\n\tTime: %.9f", cpu_time_used / 5);
+
     /**************** Array Add ****************/
     printf("\n\n\t *** Array Add ***");
 
