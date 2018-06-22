@@ -37,7 +37,7 @@ gp_header = $(linalg_header) 		\
 # ************
 
 time_evolution : libgp.a exe/time_evolution.c $(gp_header)
-	gcc -o time_evolution src/time_evolution.c 			\
+	gcc -o time_evolution exe/time_evolution.c 			\
 		-L${MKLROOT}/lib/intel64 						\
 		-Wl,--no-as-needed 								\
 		-lmkl_intel_ilp64 -lmkl_gnu_thread -lmkl_core 	\
@@ -45,7 +45,7 @@ time_evolution : libgp.a exe/time_evolution.c $(gp_header)
 		-L./lib -I./include -lgp -O3
 
 itime_propagate : libgp.a exe/itime_propagate.c $(gp_header)
-	gcc -o itime_propagate src/itime_propagate.c 		\
+	gcc -o itime_propagate exe/itime_propagate.c 		\
 		-L${MKLROOT}/lib/intel64 						\
 		-Wl,--no-as-needed 								\
 		-lmkl_intel_ilp64 -lmkl_gnu_thread -lmkl_core 	\

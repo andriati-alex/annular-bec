@@ -51,6 +51,6 @@ def anim_frame(i):
     return line,
 
 anim = animation.FuncAnimation(fig, anim_frame, init_func=init,
-       frames=Smod2.shape[0], interval=200, blit=True);
+       frames=Smod2.shape[0], interval=20, blit=True);
 
 plt.show();
