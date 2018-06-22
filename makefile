@@ -1,39 +1,144 @@
-# run in command line: $ make
 
-objects =  array_memory.o system_solvers.o matrix_operations.o \
-		   array_operations.o
+# ***************************** MAKEFILE ***************************** #
 
-TestLarge : libAAlinalg.a TestLarge.c array_operations.h system_solvers.h \
-			matrix_operations.h array_memory.h
-	icc -o TestLarge -static -O3 TestLarge.c \
-		-L$(HOME)/AndriatiLibrary/linear-algebra -lAAlinalg
+# $ make main_program
 
-# Prepara a biblioteca para compilar o client
-libAAlinalg.a : $(objects)
-	ar rcs libAAlinalg.a $(objects)
-#	mkdir ~/NavalBattle
-#	mkdir ~/NavalBattle/lib
-#	mv libnavalbattle.so ~/NavalBattle/lib
+obj_linalg = array_memory.o 	  \
+			 array_operations.o   \
+			 matrix_operations.o  \
+			 rmatrix_operations.o \
+		   	 iterative_solver.o   \
+			 tridiagonal_solver.o
 
-array_memory.o : array_memory.c array_memory.h
-	icc -c -O3 -fPIC array_memory.c
+obj_gp = $(obj_linalg)   \
+		 time_routine.o  \
+		 itime_routine.o \
+		 rk4.o calculus.o
 
-array_operations.o : array_operations.c array_operations.h
-	icc -c -O3 -fPIC array_operations.c
+linalg_header = include/array.h 			 \
+				include/array_memory.h		 \
+				include/array_operations.h   \
+				include/matrix_operations.h  \
+				include/rmatrix_operations.h \
+	  		    include/tridiagonal_solver.h \
+				include/iterative_solver.h
 
-matrix_operations.o : matrix_operations.c matrix_operations.h
-	icc -c -O3 -fPIC matrix_operations.c
+gp_header = $(linalg_header) 		\
+			include/time_routine.h 	\
+			include/itime_routine.h \
+			include/rk4.h 			\
+			include/calculus.h
 
-system_solvers.o : system_solvers.c system_solvers.h \
-	array_operations.o matrix_operations.o
-	icc -c -O3 -fPIC system_solvers.c
 
-# O traco antes do rm (-rm) indica que o comando sera executado mesmo
-# na presenca de erros.
+
+
+
+# Main program
+# ************
+
+time_evolution : libgp.a exe/time_evolution.c $(gp_header)
+	gcc -o time_evolution src/time_evolution.c 			\
+		-L${MKLROOT}/lib/intel64 						\
+		-Wl,--no-as-needed 								\
+		-lmkl_intel_ilp64 -lmkl_gnu_thread -lmkl_core 	\
+		-lm -fopenmp 									\
+		-L./lib -I./include -lgp -O3
+
+itime_propagate : libgp.a exe/itime_propagate.c $(gp_header)
+	gcc -o itime_propagate src/itime_propagate.c 		\
+		-L${MKLROOT}/lib/intel64 						\
+		-Wl,--no-as-needed 								\
+		-lmkl_intel_ilp64 -lmkl_gnu_thread -lmkl_core 	\
+		-lm -fopenmp 									\
+		-L./lib -I./include -lgp -O3
+
+
+
+
+
+# Libraries to be linked
+# **********************
+
+libgp.a : $(obj_gp)
+	ar rcs libgp.a $(obj_gp)
+	mv libgp.a lib
+	mv $(obj_gp) build
+
+
+
+
+
+# Object files to the library
+# ***************************
+
+array_memory.o : src/array_memory.c include/array_memory.h
+	gcc -c -O3 src/array_memory.c
+
+
+
+
+
+array_operations.o : src/array_operations.c include/array_operations.h
+	gcc -c -O3 -fopenmp src/array_operations.c
+
+
+
+
+
+matrix_operations.o : src/matrix_operations.c include/matrix_operations.h
+	gcc -c -O3 -fopenmp src/matrix_operations.c
+
+
+
+
+
+rmatrix_operations.o : src/rmatrix_operations.c include/rmatrix_operations.h
+	gcc -c -O3 -fopenmp src/rmatrix_operations.c
+
+
+
+
+
+tridiagonal_solver.o : src/tridiagonal_solver.c include/tridiagonal_solver.h
+	gcc -c -O3 -fopenmp src/tridiagonal_solver.c
+
+
+
+
+
+iterative_solver.o : src/iterative_solver.c	include/iterative_solver.h
+	gcc -c -O3 -fopenmp src/iterative_solver.c
+
+
+
+
+
+time_routine.o : src/time_routine.c include/time_routine.h
+	gcc -c -O3 -fopenmp 							  \
+		-lmkl_intel_ilp64 -lmkl_gnu_thread -lmkl_core \
+		src/time_routine.c
+
+
+
+
+
+itime_routine.o : src/itime_routine.c include/itime_routine.h
+	gcc -c -O3 -fopenmp 							  \
+		-lmkl_intel_ilp64 -lmkl_gnu_thread -lmkl_core \
+		src/itime_routine.c
+
+
+rk4.o : src/rk4.c include/rk4.h
+	gcc -c -O3 -fopenmp src/rk4.c
+
+
+calculus.o : src/calculus.c include/calculus.h
+	gcc -c -O3 -fopenmp 							  \
+		-lmkl_intel_ilp64 -lmkl_gnu_thread -lmkl_core \
+		src/calculus.c
+
+
 clean :
-	-rm $(objects)
-	-rm libAAlinalg.a
-	-rm TestLarge
-#	-rm ~/NavalBattle/lib/libnavalbattle.so
-#	-rmdir ~/NavalBattle/lib
-#	-rmdir ~/NavalBattle
+	-rm build/*.o
+	-rm lib/lib*
+	-rm time_evolution
