@@ -1,8 +1,8 @@
 /* Program to test the solvers for Large systems */
 /* ********************************************* */
 
-#include "../../include/tridiagonal_solver.h"
-#include "../../include/iterative_solver.h"
+#include "../include/tridiagonal_solver.h"
+#include "../include/iterative_solver.h"
 
 #include <time.h>
 // For measure time (Serial Code) see:

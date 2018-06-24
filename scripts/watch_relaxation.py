@@ -14,7 +14,10 @@ import matplotlib as mpl;
     CALL
     ****
 
-    $ python watch_evolution.py file_id
+    $ python watch_evolution.py file_id fram_step
+    
+    file_id    - A valid name after running time_evolution
+    frame_step - Jump some time steps of solution to show a shorter movie
 
 """
 
@@ -25,9 +28,10 @@ import matplotlib.pyplot as plt;
 from matplotlib import animation;
 
 fname = sys.argv[1];
+step  = int(sys.argv[2]);
 
 S = np.loadtxt('../gp_data/' + fname + '_itime.dat', dtype=np.complex128);
-Smod2 = np.absolute(S) ** 2;
+Smod2 = np.absolute(S)[::step,:] ** 2;
 
 domain = np.loadtxt('../gp_data/' + fname + '_idomain.dat', dtype=np.float64);
 
@@ -38,8 +42,8 @@ x1 = domain[0];
 x2 = domain[1];
 x  = np.linspace(x1, x2, S.shape[1]);
 
-fig   = plt.figure(figsize=(10, 8));
-ax    = plt.axes(xlim=(x1, x2), ylim=(y1, y2));
+fig = plt.figure(figsize=(10, 8));
+ax  = plt.axes(xlim=(x1, x2), ylim=(y1, y2));
 ax.plot(x, Smod2[0,:], 'r', label='guess');
 ax.legend(loc='upper right', fontsize=14);
 line, = ax.plot([], [], lw=2);
@@ -55,6 +59,4 @@ def anim_frame(i):
 anim = animation.FuncAnimation(fig, anim_frame, init_func=init,
        frames=Smod2.shape[0], interval=40, blit=True);
 
-anim.save('/home/andriati/teste.mp4', fps=30, extra_args=['-vcodec', 'libx264']);
-
-# plt.show();
+plt.show();

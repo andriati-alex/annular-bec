@@ -22,4 +22,7 @@ void dxFFT(int n, Carray f, double dx, Carray dfdx);
 void dxCyclic(int n, Carray f, double dx, Carray dfdx);
 /* Compute using finite centered differences with periodic boundary */
 
+double complex Functional(int M, double dx, double a2, double complex a1,
+                          double inter, Rarray V, Carray f);
+
 #endif

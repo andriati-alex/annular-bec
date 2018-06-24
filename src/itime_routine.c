@@ -327,7 +327,7 @@ void iSMlaststep(int M, int N, double dx, double dT, double a2,
 
         // Update solution (solution of linear part in stepexp)
         carrMultiply(M, linpart, stepexp, S);
-        
+
         carrAbs2(M, S, abs2);
         // Renormalize
         NormStep = norm / sqrt(Rsimps(M, abs2, dx));

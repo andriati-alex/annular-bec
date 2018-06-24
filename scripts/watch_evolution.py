@@ -14,7 +14,10 @@ import matplotlib as mpl;
     CALL
     ****
 
-    $ python watch_evolution.py file_id
+    $ python watch_evolution.py file_id frame_step
+
+    file_id    - A valid name after running time_evolution
+    frame_step - Jump some time steps of solution to show a shorter movie
 
 """
 
@@ -25,9 +28,10 @@ import matplotlib.pyplot as plt;
 from matplotlib import animation;
 
 fname = sys.argv[1];
+step  = int(sys.argv[2]);
 
 S = np.loadtxt('../gp_data/' + fname + '_time.dat', dtype=np.complex128);
-Smod2 = np.absolute(S) ** 2;
+Smod2 = np.absolute(S)[::step,:] ** 2;
 
 domain = np.loadtxt('../gp_data/' + fname + '_domain.dat', dtype=np.float64);
 

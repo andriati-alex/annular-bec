@@ -64,7 +64,7 @@ while r.successful() and i < t.size:
     S[i,:] = r.y;
     i = i + 1;
 
-path = '/home/andriati/AndriatiLibrary/linear-algebra/test_out/'
+path = '/home/andriati/AndriatiLibrary/annular-bec/test_out/'
 M  = np.loadtxt(path + 'test_ode.dat', dtype=np.complex128);
 
 fig, ax = plt.subplots(1, 3, figsize=(12, 4), sharex=True);

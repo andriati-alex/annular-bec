@@ -21,7 +21,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-path = '/home/andriati/AndriatiLibrary/linear-algebra/test_out/'
+path = '/home/andriati/AndriatiLibrary/annular-bec/test_out/'
 M = np.loadtxt(path + 'calculus_out.dat', dtype=np.complex128);
 
 x = np.linspace(-8, 8, M.shape[1]);

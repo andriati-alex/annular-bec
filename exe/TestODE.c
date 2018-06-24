@@ -1,5 +1,5 @@
-#include "../../include/rk4.h"
-#include "../../include/array_operations.h"
+#include "../include/rk4.h"
+#include "../include/array_operations.h"
 
 /* ********************************************
  *

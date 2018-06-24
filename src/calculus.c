@@ -70,5 +70,48 @@ void dxCyclic(int n, Carray f, double dx, Carray dfdx)
 
     dfdx[0]   = (f[1] - f[n-1]) * r;
     dfdx[n-1] = (f[0] - f[n-2]) * r;
-    for (i = 1; i < n - 1; i++) { dfdx[i] = (f[i+1] - f[i-1]) * r; }
+    for (i = 1; i < n - 1; i++) dfdx[i] = (f[i+1] - f[i-1]) * r;
+}
+
+double complex Functional(int M, double dx, double a2, double complex a1,
+                          double inter, Rarray V, Carray f)
+{
+    int i;
+    double norm;
+    double complex E;
+
+    Carray DF = carrDef(M);
+    Rarray abs2F = rarrDef(M);
+    Rarray abs2DF = rarrDef(M);
+    Carray Int = carrDef(M);
+
+    #pragma omp parallel sections
+    {
+    #pragma omp section
+    {
+        dxCyclic(M, f, dx, DF);
+            carrAbs2(M, DF, abs2DF);
+    }
+    #pragma omp section
+    {
+        carrAbs2(M, f, abs2F);
+        for (i = 0; i < M; i++) Int[i] = (V[i] + inter * abs2F[i]) * abs2F[i];
+    }
+    }
+
+    #pragma parallel for private(i)
+    for (i = 0; i < M; i++) Int[i] += a2 * abs2DF[i] + a1 * conj(f[i]) * DF[i];
+
+    #pragma omp parallel sections
+    {
+        #pragma omp section
+        { E = Csimps(M, Int, dx);    }
+        #pragma omp section
+        { norm = sqrt(Rsimps(M, abs2F, dx)); }
+    }
+
+    // release memory
+    free(DF); free(abs2F); free(abs2DF); free(Int);
+
+    return E / norm;
 }

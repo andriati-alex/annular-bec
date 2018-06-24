@@ -1,4 +1,4 @@
-#include "../../include/calculus.h"
+#include "../include/calculus.h"
 
 /* PROGRAM TO TEST DERIVATIVES AND INTEGRALS
  * -----------------------------------------
