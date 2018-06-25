@@ -45,6 +45,9 @@ void setValueRCCS(int n, int i, int j, int col, double z, RCCSmat M)
     M->col[i + n * j] = col;
 }
 
+void addValueRCCS(int n, int i, int j, double z, RCCSmat M)
+{ M->vec[i + n * j] += z; }
+
 RCCSmat triToRCCS(int n, Rarray upper, Rarray lower, Rarray mid)
 {   /* Given three diagonals construct CCS matrix format */
     unsigned int j;

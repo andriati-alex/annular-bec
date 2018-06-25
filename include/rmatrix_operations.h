@@ -54,6 +54,9 @@ RCCSmat CyclicToRCCS(int n, Rarray upper, Rarray lower, Rarray mid);
 void setValueRCCS(int n, int i, int j, int col, double z, RCCSmat M);
 /* Set a value in the i row and original column number col */
 
+void addValueRCCS(int n, int i, int j, double z, RCCSmat M);
+/* Add a value in the i row and CCS column(not the true index) position j */
+
 RCCSmat emptyRCCS(int n, int max_nonzeros);
 /* Initialize an empty CCS matrix */
 
