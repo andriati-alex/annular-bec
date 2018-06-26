@@ -21,7 +21,7 @@ import matplotlib as mpl;
 
 """
 
-# SETUP PLOT PARAMS   #
+#  SETUP PLOT PARAMS  #
 mpl.use('Qt5Agg');
 # IMPORT PLOT MODULES #
 import matplotlib.pyplot as plt;
@@ -33,6 +33,8 @@ step  = int(sys.argv[2]);
 S = np.loadtxt('../gp_data/' + fname + '_itime.dat', dtype=np.complex128);
 Smod2 = np.absolute(S)[::step,:] ** 2;
 
+E = np.loadtxt('../gp_data/' + fname + '_ienergy.dat', dtype=np.float64);
+
 domain = np.loadtxt('../gp_data/' + fname + '_idomain.dat', dtype=np.float64);
 
 y2 = Smod2.max() + 0.1 * (Smod2.max() - Smod2.min());
@@ -41,6 +43,8 @@ y1 = Smod2.min() - 0.1 * (Smod2.max() - Smod2.min());
 x1 = domain[0];
 x2 = domain[1];
 x  = np.linspace(x1, x2, S.shape[1]);
+
+plt.plot(E);
 
 fig = plt.figure(figsize=(10, 8));
 ax  = plt.axes(xlim=(x1, x2), ylim=(y1, y2));

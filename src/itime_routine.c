@@ -1,7 +1,7 @@
 #include "../include/itime_routine.h"
 
 void iCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
-           double inter, Rarray V, int cyclic, Cmatrix S)
+           double inter, Rarray V, int cyclic, Cmatrix S, Carray E)
 {
     unsigned int i, j;
     double Idt = - dT;
@@ -18,8 +18,10 @@ void iCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
     Carray mid   = carrDef(M);
     Carray rhs   = carrDef(M);
 
+    // Initialize the norm and energy of initial guess
     carrAbs2(M, S[0], abs2);
     double NormStep, norm = sqrt(Rsimps(M, abs2, dx));
+    E[0] = Functional(M, dx, a2, a1, inter / 2, V, S[0]);
 
     /*                 ****************************                 */
     /*                 Setup Right-Hand-Side matrix                 */
@@ -61,7 +63,7 @@ void iCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
     else        { lower[M-1] = 0;                                          }
 
     /* Apply Split step and solve separately nonlinear and linear part */
-    /*******************************************************************/
+    /* *************************************************************** */
 
     for (i = 0; i < N; i++) {
         // Apply exponential with nonlinear part
@@ -72,12 +74,16 @@ void iCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
         CCSvec(M, rhs_mat->vec, rhs_mat->col, rhs_mat->m, linpart, rhs);
         triCyclicSM(M, upper, lower, mid, rhs, linpart);
 
-        // Update solution (solution of linear part in stepexp)
+        // Apply again the nonlinear part from split-step
         carrMultiply(M, linpart, stepexp, S[i+1]);
         carrAbs2(M, S[i+1], abs2);
-        // Renormalize
+
+        // Renormalization
         NormStep = norm / sqrt(Rsimps(M, abs2, dx));
         for (j = 0; j < M; j++) S[i+1][j] = NormStep * S[i+1][j];
+
+        // Energy
+        E[i+1] = Functional(M, dx, a2, a1, inter / 2, V, S[i+1]);
     }
 
     free(stepexp);
@@ -91,7 +97,7 @@ void iCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
 }
 
 void iCNLU(int M, int N, double dx, double dT, double a2, double complex a1,
-           double inter, Rarray V, int cyclic, Cmatrix S)
+           double inter, Rarray V, int cyclic, Cmatrix S, Carray E)
 {
     unsigned int i, j;
     double Idt = - dT;
@@ -108,8 +114,10 @@ void iCNLU(int M, int N, double dx, double dT, double a2, double complex a1,
     Carray mid   = carrDef(M);
     Carray rhs   = carrDef(M);
     
+    // Initialize the norm and energy of initial guess
     carrAbs2(M, S[0], abs2);
     double NormStep, norm = sqrt(Rsimps(M, abs2, dx));
+    E[0] = Functional(M, dx, a2, a1, inter / 2, V, S[0]);
 
     /*                 ****************************                 */
     /*                 Setup Right-Hand-Side matrix                 */
@@ -162,13 +170,16 @@ void iCNLU(int M, int N, double dx, double dT, double a2, double complex a1,
         CCSvec(M, rhs_mat->vec, rhs_mat->col, rhs_mat->m, linpart, rhs);
         triCyclicLU(M, upper, lower, mid, rhs, linpart);
 
-        // Update solution (solution of linear part in stepexp)
+        // Apply again the nonlinear part from split-step
         carrMultiply(M, linpart, stepexp, S[i+1]);
-        
         carrAbs2(M, S[i+1], abs2);
+
         // Renormalize
         NormStep = norm / sqrt(Rsimps(M, abs2, dx));
         for (j = 0; j < M; j++) S[i+1][j] = NormStep * S[i+1][j];
+
+        // Energy
+        E[i + 1] = Functional(M, dx, a2, a1, inter / 2, V, S[i + 1]);
     }
 
     free(stepexp);
@@ -182,7 +193,7 @@ void iCNLU(int M, int N, double dx, double dT, double a2, double complex a1,
 }
 
 void ispectral(int M, int N, double dx, double dT, double a2, double complex a1,
-               double inter, Rarray V, Cmatrix S)
+               double inter, Rarray V, Cmatrix S, Carray E)
 {
     int i, j;
     double freq;
@@ -199,8 +210,10 @@ void ispectral(int M, int N, double dx, double dT, double a2, double complex a1,
     Carray stepexp = carrDef(M);  // Exponential of potential
     Carray back_fft = carrDef(M); // back to position space
     
+    // Initialize the norm and energy of initial guess
     carrAbs2(M, S[0], abs2);
     double NormStep, norm = sqrt(Rsimps(M, abs2, dx));
+    E[0] = Functional(M, dx, a2, a1, inter / 2, V, S[0]);
 
     /*************** setup descriptor (MKL implementation) **************/
 
@@ -223,7 +236,7 @@ void ispectral(int M, int N, double dx, double dT, double a2, double complex a1,
     }
     
     /* Apply Split step and solve separately nonlinear and linear part */
-    /*******************************************************************/
+    /* *************************************************************** */
 
     for (i = 0; i < N; i++) {
         // Apply exponential of potential together nonlinear part
@@ -231,15 +244,19 @@ void ispectral(int M, int N, double dx, double dT, double a2, double complex a1,
         rcarrExp(M, Idt / 2, out, stepexp);
         carrMultiply(M, stepexp, S[i], S[i+1]);
 
-        s = DftiComputeForward(desc, S[i+1]);  // go to momentum space
+        s = DftiComputeForward(desc, S[i+1]);       // go to momentum space
         carrMultiply(M, exp_der, S[i+1], back_fft); // apply derivatives
         s = DftiComputeBackward(desc, back_fft);    // back to real space
         carrMultiply(M, stepexp, back_fft, S[i+1]);
         
         carrAbs2(M, S[i+1], abs2);
-        // Renormalize
+
+        // Renormalization
         NormStep = norm / sqrt(Rsimps(M, abs2, dx));
         for (j = 0; j < M; j++) S[i+1][j] = NormStep * S[i+1][j];
+
+        // Energy
+        E[i] = Functional(M, dx, a2, a1, inter / 2, V, S[i]);
     }
 
     s = DftiFreeDescriptor(&desc);

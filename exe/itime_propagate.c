@@ -138,7 +138,7 @@ int main(int argc, char * argv[])
     strcpy(fname_in, "setup/");
     strcat(fname_in, argv[3]);
     strcat(fname_in, "_eq.dat");
-    
+
     printf("\nLooking for %s\n", fname_in);
 
     eq_setup_file = fopen(fname_in, "r");
@@ -164,7 +164,8 @@ int main(int argc, char * argv[])
     double start, time_used; // show time taken for time routine solver
     double real, imag;       // to read data from file
 
-    Cmatrix S = cmatDef(N + 1, M + 1); // matrix to store each step solution
+    Cmatrix S = cmatDef(N + 1, M + 1);  // matrix to store each step solution
+    Carray  E = carrDef(N + 1);         // array with values of energy
 
     strcpy(fname_in, "setup/");
     strcat(fname_in, argv[3]);
@@ -190,17 +191,17 @@ int main(int argc, char * argv[])
     start  = omp_get_wtime();
     switch (solverId) {
         case 1:
-            iCNSM(M + 1, N, dx, dt, a2, a1, inter, V, 1, S);
+            iCNSM(M + 1, N, dx, dt, a2, a1, inter, V, 1, S, E);
             time_used = (double) (omp_get_wtime() - start);
             printf("\nTime taken to solve(SM) : %.3f seconds\n", time_used);
             break;
         case 2:
-            iCNLU(M + 1, N, dx, dt, a2, a1, inter, V, 1, S);
+            iCNLU(M + 1, N, dx, dt, a2, a1, inter, V, 1, S, E);
             time_used = (double) (omp_get_wtime() - start);
             printf("\nTime taken to solve(LU) : %.3f seconds\n", time_used);
             break;
         case 3:
-            ispectral(M + 1, N, dx, dt, a2, a1, inter, V, S);
+            ispectral(M + 1, N, dx, dt, a2, a1, inter, V, S, E);
             time_used = (double) (omp_get_wtime() - start);
             printf("\nTime taken to solve(FFT) : %.3f seconds\n", time_used);
             break;
@@ -218,6 +219,7 @@ int main(int argc, char * argv[])
     printf("\nRecording data ...\n");
     cmat_txt(fname_out, N + 1, 10, M + 1, 1, S);
     
+    /* Record domain of solution */
     strcpy(fname_out, "../gp_data/");
     strcat(fname_out, argv[3]);
     strcat(fname_out, "_idomain.dat");
@@ -231,12 +233,26 @@ int main(int argc, char * argv[])
 
     fclose(out_data);
 
+    /****************************/
+    /* Record array with Energy */
+    strcpy(fname_out, "../gp_data/");
+    strcat(fname_out, argv[3]);
+    strcat(fname_out, "_ienergy.dat");
+ 
+    out_data = fopen(fname_out, "w");
+
+    if (out_data == NULL)  // impossible to open file
+    { printf("ERROR: impossible to open file %s\n", fname_out); return -1; }
+
+    for (int i = 0; i < N + 1; i++) fprintf(out_data, "%.14E ", creal(E[i]));
+
+    fclose(out_data);
+    /****************************/
+
     /* release memory */
     /* ************** */
 
-    free(x);
-    free(V);
-    cmatFree(N + 1, S);
+    free(x); free(V); free(E); cmatFree(N + 1, S);
 
     /* END */
 

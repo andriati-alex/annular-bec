@@ -36,13 +36,13 @@
  */
 
 void iCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
-           double inter, Rarray V, int cyclic, Cmatrix S);
+           double inter, Rarray V, int cyclic, Cmatrix S, Carray E);
 
 void iCNLU(int M, int N, double dx, double dT, double a2, double complex a1,
-           double inter, Rarray V, int cyclic, Cmatrix S);
+           double inter, Rarray V, int cyclic, Cmatrix S, Carray E);
 
 void ispectral(int M, int N, double dx, double dT, double a2,
-               double complex a1, double inter, Rarray V, Cmatrix S);
+               double complex a1, double inter, Rarray V, Cmatrix S, Carray E);
 
 void iSMlaststep(int M, int N, double dx, double dT, double a2,
                  double complex a1, double inter, Rarray V, int cyclic,
