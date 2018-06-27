@@ -13,7 +13,9 @@ obj_linalg = array_memory.o 	  \
 obj_gp = $(obj_linalg)   \
 		 time_routine.o  \
 		 itime_routine.o \
-		 rk4.o calculus.o
+		 calculus.o      \
+		 NewtonCG.o      \
+		 rk4.o
 
 linalg_header = include/array.h 			 \
 				include/array_memory.h		 \
@@ -26,8 +28,9 @@ linalg_header = include/array.h 			 \
 gp_header = $(linalg_header) 		\
 			include/time_routine.h 	\
 			include/itime_routine.h \
-			include/rk4.h 			\
-			include/calculus.h
+			include/calculus.h      \
+			include/NewtonCG.h      \
+			include/rk4.h
 
 
 
@@ -52,6 +55,13 @@ itime_propagate : libgp.a exe/itime_propagate.c $(gp_header)
 		-lm -fopenmp 									\
 		-L./lib -I./include -lgp -O3
 
+mu_steady : libgp.a exe/mu_steady.c $(gp_header)
+	gcc -o mu_steady exe/mu_steady.c 					\
+		-L${MKLROOT}/lib/intel64 						\
+		-Wl,--no-as-needed 								\
+		-lmkl_intel_ilp64 -lmkl_gnu_thread -lmkl_core 	\
+		-lm -fopenmp 									\
+		-L./lib -I./include -lgp -O3
 
 
 
@@ -137,6 +147,8 @@ calculus.o : src/calculus.c include/calculus.h
 		-lmkl_intel_ilp64 -lmkl_gnu_thread -lmkl_core \
 		src/calculus.c
 
+NewtonCG.o : src/NewtonCG.c include/NewtonCG.h
+	gcc -c -O3 -fopenmp src/NewtonCG.c
 
 clean :
 	-rm build/*.o

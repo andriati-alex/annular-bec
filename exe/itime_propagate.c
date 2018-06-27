@@ -82,6 +82,15 @@
 int main(int argc, char * argv[])
 {
 
+    /* DEFINE THE NUMBER OF THREADS BASED ON THE COMPUTER */
+    mkl_set_num_threads(omp_get_max_threads() / 2);
+    omp_set_num_threads(omp_get_max_threads() / 2);
+    
+    double start, time_used; // show time taken for time routine solver
+
+    // Useless returned values
+    int trash;
+
     if (argc < 4 || argc > 5)
     {
         printf("\nInvalid number of command line arguments, ");
@@ -89,15 +98,20 @@ int main(int argc, char * argv[])
         return -1;
     }
 
-    /* Setup domain of solution and method to solve */
-    /* ******************************************** */
+
+
+    /*          ********************************************          */
+    /*          Setup domain of solution and method to solve          */
+    /*          ********************************************          */
+
+
 
     double x1, x2, dx, dt;  // Position domain = [x1, x2] interval
     unsigned int M, N;      // M is number of dx, N number of time steps
     unsigned int solverId;  // Specify method to solve linear part
     Rarray x;               // Discretized positions Vector
 
-    char fname_in[30];      // file configuration names
+    char fname_in[40];      // file configuration names
     FILE * eq_setup_file;   // pointer to file
 
     strcpy(fname_in, "setup/");
@@ -111,10 +125,11 @@ int main(int argc, char * argv[])
     if (eq_setup_file == NULL)  // impossible to open file
     { printf("ERROR: impossible to open file %s\n", fname_in); return -1; }
 
-    fscanf(eq_setup_file, "%lf %lf %d", &x1, &x2, &M);
+    trash = fscanf(eq_setup_file, "%lf %lf %d", &x1, &x2, &M);
 
     fclose(eq_setup_file); // finish reading of file
 
+    /*** Command line arguments ***/
     sscanf(argv[1], "%lf", &dt);
     sscanf(argv[2], "%d",  &N);
     if (argc == 5) { sscanf(argv[4], "%d",  &solverId); }
@@ -124,15 +139,21 @@ int main(int argc, char * argv[])
     x  = rarrDef(M + 1);
     rarrFillInc(M + 1, x1, dx, x);
 
-    /* Setup equation parameters */
-    /* ************************* */
+
+
+    /*                    *************************                    */
+    /*                    Setup equation parameters                    */
+    /*                    *************************                    */
     
+
+
     double a2,                  // second order derivative coef.
            inter,               // interaction strength coef.
            lambda,              // potential parameter
-           a1real,
            a1imag;
+
     double complex a1;          // First order derivative coef.
+
     Rarray V = rarrDef(M + 1);  // Potential in discretized positions
     
     strcpy(fname_in, "setup/");
@@ -146,22 +167,26 @@ int main(int argc, char * argv[])
     if (eq_setup_file == NULL)  // impossible to open file
     { printf("ERROR: impossible to open file %s\n", fname_in); return -1; }
 
-    fscanf(eq_setup_file, "%lf %lf %lf %lf %lf",
-           &a2, &a1real, &a1imag, &inter, &lambda);
+    trash = fscanf(eq_setup_file, "%lf %lf %lf %lf",
+                   &a2, &a1imag, &inter, &lambda);
 
     fclose(eq_setup_file); // finish reading of file
 
-    a1 = a1real + a1imag * I;
+    a1 = 0 + a1imag * I;
 
     rarrFill(M + 1, 0, V);
     V[M/2] = lambda / dx;
 
     printf("\nEquation coef. and domain successfully setted up.\n");
 
-    /* Evolve solution from an initial state */
-    /* ************************************* */
 
-    double start, time_used; // show time taken for time routine solver
+
+    /*              *************************************              */
+    /*              Evolve solution from an initial state              */
+    /*              *************************************              */
+
+
+
     double real, imag;       // to read data from file
 
     Cmatrix S = cmatDef(N + 1, M + 1);  // matrix to store each step solution
@@ -180,7 +205,7 @@ int main(int argc, char * argv[])
 
     for (int i = 0; i < M + 1; i++)
     {
-        fscanf(eq_setup_file, " (%lf+%lfj)", &real, &imag);
+        trash = fscanf(eq_setup_file, " (%lf+%lfj)", &real, &imag);
         S[0][i] = real + I * imag;
     }
 
@@ -207,10 +232,15 @@ int main(int argc, char * argv[])
             break;
     }
 
-    /* Record solution data */
-    /* ******************** */
 
-    char fname_out[30];
+
+    /*                          ***********                          */
+    /*                          Record data                          */
+    /*                          ***********                          */
+
+
+
+    char fname_out[40];
 
     strcpy(fname_out, "../gp_data/");
     strcat(fname_out, argv[3]);
@@ -218,7 +248,7 @@ int main(int argc, char * argv[])
 
     printf("\nRecording data ...\n");
     cmat_txt(fname_out, N + 1, 10, M + 1, 1, S);
-    
+
     /* Record domain of solution */
     strcpy(fname_out, "../gp_data/");
     strcat(fname_out, argv[3]);
@@ -233,8 +263,8 @@ int main(int argc, char * argv[])
 
     fclose(out_data);
 
-    /****************************/
-    /* Record array with Energy */
+    /*** Record array with Energy ***/
+
     strcpy(fname_out, "../gp_data/");
     strcat(fname_out, argv[3]);
     strcat(fname_out, "_ienergy.dat");
@@ -247,10 +277,8 @@ int main(int argc, char * argv[])
     for (int i = 0; i < N + 1; i++) fprintf(out_data, "%.14E ", creal(E[i]));
 
     fclose(out_data);
-    /****************************/
 
-    /* release memory */
-    /* ************** */
+    /*** release memory ***/
 
     free(x); free(V); free(E); cmatFree(N + 1, S);
 

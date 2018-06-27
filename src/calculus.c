@@ -73,6 +73,31 @@ void dxCyclic(int n, Carray f, double dx, Carray dfdx)
     for (i = 1; i < n - 1; i++) dfdx[i] = (f[i+1] - f[i-1]) * r;
 }
 
+void applyL0(int n, Carray f, double dx, double a2, double complex a1, 
+             Rarray V, double inter, Carray L0f)
+{
+    int i;
+    double complex ddx = a1 / (2 * dx);
+    double abs2, d2dx = a2 / (dx * dx);
+
+    for (i = 1; i < n - 1; i++) {
+        abs2 = creal(f[i]) * creal(f[i]) + cimag(f[i]) * cimag(f[i]);
+        L0f[i] =  (f[i + 1] - f[i - 1]) * ddx;
+        L0f[i] += (f[i + 1] - 2 * f[i] + f[i - 1]) * d2dx;
+        L0f[i] += f[i] * (V[i] + inter * abs2);
+    }
+    
+    abs2 = creal(f[0]) * creal(f[0]) + cimag(f[0]) * cimag(f[0]);
+    L0f[0] =  (f[1] - f[n - 1]) * ddx;
+    L0f[0] += (f[1] - 2 * f[0] + f[n - 1]) * d2dx;
+    L0f[0] += f[0] * (V[0] + inter * abs2);
+    
+    abs2 = creal(f[n-1]) * creal(f[n-1]) + cimag(f[n-1]) * cimag(f[n-1]);
+    L0f[n-1] =  (f[0] - f[n - 2]) * ddx;
+    L0f[n-1] += (f[0] - 2 * f[n-1] + f[n - 2]) * d2dx;
+    L0f[n-1] += f[n-1] * (V[n-1] + inter * abs2);
+}
+
 double complex Functional(int M, double dx, double a2, double complex a1,
                           double inter, Rarray V, Carray f)
 {
