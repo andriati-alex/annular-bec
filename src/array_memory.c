@@ -119,6 +119,35 @@ void rarrPrint(int n, Rarray v)
     }
 }
 
+void carr_txt(char fname [], int M, Carray v)
+{
+    int j;
+
+    FILE * data_file = fopen(fname, "w");
+
+    if (data_file == NULL)
+    {   // impossible to open file with the given name
+        printf("ERROR: impossible to open file %s\n", fname);
+        return;
+    }
+
+    for (j = 0; j < M; j ++) {
+        if (cimag(v[j]) > 0) {
+            fprintf(data_file, "(%.15E+%.15Ej) ", creal(v[j]), cimag(v[j]));
+        }
+        else {
+            if (cimag(v[j]) == 0) {
+                fprintf(data_file, "(%.15E+%.15Ej) ", creal(v[j]), 0.0);
+            }
+            else {
+                fprintf(data_file, "(%.15E%.15Ej) ", creal(v[j]), cimag(v[j]));
+            }
+        }
+    }
+
+    fclose(data_file);
+}
+
 void cmat_txt(char fname [],
               int N, int row_step, int M, int col_step, Cmatrix S)
 {
@@ -134,27 +163,22 @@ void cmat_txt(char fname [],
 
     for (i = 0; i < N; i += row_step) {
         for (j = 0; j < M; j += col_step) {
-            if (cimag(S[i][j]) > 0)
-            {
+            if (cimag(S[i][j]) > 0) {
                 fprintf(data_file, "(%.15E+%.15Ej) ",
-                        creal(S[i][j]), cimag(S[i][j]));
+                creal(S[i][j]), cimag(S[i][j]));
             }
-            else
-            {
-                if (cimag(S[i][j]) == 0)
-                {
+            else {
+                if (cimag(S[i][j]) == 0) {
                     fprintf(data_file, "(%.15E+%.15Ej) ",
-                            creal(S[i][j]), 0.0);
+                    creal(S[i][j]), 0.0);
                 }
-                else
-                {
+                else {
                     fprintf(data_file, "(%.15E%.15Ej) ",
-                            creal(S[i][j]), cimag(S[i][j]));
+                    creal(S[i][j]), cimag(S[i][j]));
                 }
             }
         }
         fprintf(data_file, "\n");
     }
-
     fclose(data_file);
 }

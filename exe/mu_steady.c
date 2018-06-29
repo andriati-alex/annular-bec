@@ -46,7 +46,7 @@
  * CALL
  * ****
  *
- * ./time_evolution mu fileId
+ * ./mu_steady mu fileId
  *
  * OUTPUT FILES
  * ************
@@ -63,6 +63,8 @@ int main(int argc, char * argv[])
     double start, time_used; // show time taken for time routine solver
 
     int trash; // Useless returned values
+
+    struct IterNCG It;
 
     if (argc != 3)
     {
@@ -152,17 +154,15 @@ int main(int argc, char * argv[])
 
 
 
-    /*              *************************************              */
-    /*              Evolve solution from an initial state              */
-    /*              *************************************              */
+    /*        ************************************************        */
+    /*          APPLY NEWTON-CG ROUTINE TO FIND STEADY STATE          */
+    /*        ************************************************        */
 
 
 
-    int ni, cgi; // Count number of iterations
     double real, imag; // to read data from file
 
     Carray f0 = carrDef(M + 1); // Initial attempt
-    Carray S  = carrDef(M + 1); // Store solution
 
     strcpy(fname_in, "setup/");
     strcat(fname_in, argv[2]);
@@ -187,8 +187,10 @@ int main(int argc, char * argv[])
 
     start  = omp_get_wtime();
     time_used = (double) (omp_get_wtime() - start);
-    ncg(M, dx, a2, a1, inter, mu, V, f0, S, &ni, &cgi);
-    printf("\nTime taken NewtonCG : %.3f seconds\n", time_used);
+    It = ncg(M + 1, 1E-7, 50, dx, a2, a1, inter, mu, V, f0);
+    printf("\nTime taken NewtonCG : %.3f ms\n", time_used * 1E3);
+
+    iteration_info(It);
 
 
 
@@ -198,9 +200,22 @@ int main(int argc, char * argv[])
 
 
 
+    char fname_out[50];
+
+    strcpy(fname_out, "../gp_data/");
+    strcat(fname_out, argv[2]);
+    strcat(fname_out, "_mustate.dat");
+
+    printf("\nRecording data ...\n");
+    carr_txt(fname_out, M + 1, f0);
+
+    strcpy(fname_out, "../gp_data/");
+    strcat(fname_out, argv[2]);
+    strcat(fname_out, "_mudomain.dat");
+
     /*** release memory ***/
 
-    free(x); free(V); free(f0); free(S);
+    free(x); free(V); free(f0);
 
     /* END */
 

@@ -57,6 +57,12 @@ int main() {
 
 
 
+    start = omp_get_wtime();
+    for (i = 0; i < 1000; i++)
+        cints[n - 1] = Functional(n, dx, -1, 0, -1, rints, f);
+    time_used = (double) (omp_get_wtime() - start) / 1000;
+    printf("\n\n\tFunctional took %.6f ms", time_used * 1000);
+
     for (i = 0; i < n - 1; i++) {
         cints[i] = Csimps(i + 1, f, dx);
         rints[i] = Rsimps(i + 1, freal, dx);

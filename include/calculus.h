@@ -26,6 +26,6 @@ double complex Functional(int M, double dx, double a2, double complex a1,
                           double inter, Rarray V, Carray f);
 
 void applyL0(int n, Carray f, double dx, double a2, double complex a1, 
-             Rarray V, double inter, Carray L0f);
+             Rarray V, double inter, double mu, Carray L0f);
 
 #endif

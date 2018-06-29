@@ -55,6 +55,9 @@ void carrPrint(int n, Carray v); // as column matrix
 
 void rarrPrint(int n, Rarray v); // as column matrix
 
+// Print array in a text file suitable to import with python
+void carr_txt(char fname [], int M, Carray v);
+    
 // Print matrix in a text file suitable to import with python
 void cmat_txt(char fname [],
               int N, int row_step, int M, int col_step, Cmatrix S);

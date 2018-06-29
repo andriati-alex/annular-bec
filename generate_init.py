@@ -45,7 +45,7 @@ def FourierLocModes(x, a, c, n):
 
 def BrightSoliton(x, a, c):
     numerator = a * np.exp(0.5j * c * x * np.sqrt(2), dtype=lc);
-    denominator = np.cosh(a * x, dtype=lf);
+    denominator = np.cosh(a * x / np.sqrt(2), dtype=lf);
     return numerator / denominator;
 
 def DarkSolitonModes(x, a, b, c, n):
