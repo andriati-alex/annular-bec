@@ -130,7 +130,7 @@ double complex Functional(int M, double dx, double a2, double complex a1,
     for (i = 0; i < M; i++)
         Int[i] += - a2 * abs2DF[i] + a1 * conj(f[i]) * DF[i];
 
-    #pragma omp parallel sections lastprivate(E, norm)
+    #pragma omp parallel sections
     {
         #pragma omp section
         { E = Csimps(M, Int, dx);      }

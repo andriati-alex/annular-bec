@@ -84,6 +84,7 @@ void iCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
 
         // Energy
         E[i+1] = Functional(M, dx, a2, a1, inter / 2, V, S[i+1]);
+        Idt += 1.5 * Idt / N;
     }
 
     free(stepexp);

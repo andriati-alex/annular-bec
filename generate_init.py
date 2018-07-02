@@ -53,8 +53,8 @@ def DarkSolitonModes(x, a, b, c, n):
     N = np.sqrt( simps(abs(S)**2, dx=(x[1]-x[0])) );
     # periodic frequency modes
     k = np.arange(1, n + 1) * 2 * np.pi / (x[-1] - x[0]);
-    t = (np.random.random(int(n)) - 0.5) / 2;
-    weights = t * b / np.arange(1, int(n) + 1);
+    t = (np.random.random(int(n)) - 0.5) / 3;
+    weights = t * b / ( np.arange(1, int(n) + 1) );
     for i in range(int(n)):
         S = S + weights[i] * np.exp(1.0j * k[i] * x);
     return S * N / np.sqrt( simps(abs(S)**2, dx=(x[1]-x[0])) );
