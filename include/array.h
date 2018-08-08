@@ -30,6 +30,8 @@ typedef double         ** restrict Rmatrix;
 typedef double complex *  restrict Carray;
 typedef double complex ** restrict Cmatrix;
 
+typedef double complex **** restrict TwoBodyMat;
+
 
 
 

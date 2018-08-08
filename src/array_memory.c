@@ -32,6 +32,27 @@ Cmatrix cmatDef(int m, int n)
     return M;
 }
 
+TwoBodyMat TBmatDef(int M)
+{
+    int i, k, j;
+    TwoBodyMat rho2;
+    rho2 = (double complex **** restrict) malloc(M * sizeof(double complex ***));
+    for (i = 0; i < M; i++)
+    {
+        rho2[i] = (double complex ***)malloc(M * sizeof(double complex **));
+        for (j = 0; j < M; j++)
+        {
+            rho2[i][j] = (double complex **)malloc(M * sizeof(double complex *));
+            for (k = 0; k < M; k++)
+            {
+            rho2[i][j][k] = (double complex *)malloc(M * sizeof(double complex));
+            }
+        }
+    }
+
+    return rho2;
+}
+
 
 
 /* ======================================================================== */

@@ -17,6 +17,7 @@ Rmatrix rmatDef(int m, int n);
 // Allocate complex matrix with m rows and n columns
 Cmatrix cmatDef(int m, int n);
 
+TwoBodyMat TBmatDef(int M);
 
 
 /* ======================================================================== */
