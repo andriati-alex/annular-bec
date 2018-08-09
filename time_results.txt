@@ -1,0 +1,34 @@
+
+	 Time to setup rho (Npar = 11, Morb = 9): 80.422ms
+
+	 Time to setup rho2 (Npar = 11, Morb = 9): 2199.210ms
+
+andriati@alex-laptop[18:21:19]:~/AndriatiLibrary/annular-bec
+$ ./coef 100 2
+
+	 Time to setup rho (Npar = 100, Morb = 2): 0.046ms
+
+	 Time to setup rho2 (Npar = 100, Morb = 2): 0.118ms
+
+andriati@alex-laptop[18:21:45]:~/AndriatiLibrary/annular-bec
+$ ./coef 100 3
+
+	 Time to setup rho (Npar = 100, Morb = 3): 1.825ms
+
+	 Time to setup rho2 (Npar = 100, Morb = 3): 6.491ms
+
+andriati@alex-laptop[18:21:47]:~/AndriatiLibrary/annular-bec
+$ ./coef 400 2
+
+	 Time to setup rho (Npar = 400, Morb = 2): 0.605ms
+
+	 Time to setup rho2 (Npar = 400, Morb = 2): 1.141ms
+
+andriati@alex-laptop[18:21:53]:~/AndriatiLibrary/annular-bec
+$ ./coef 400 3
+
+	 Time to setup rho (Npar = 400, Morb = 3): 70.571ms
+
+	 Time to setup rho2 (Npar = 400, Morb = 3): 272.546ms
+
+

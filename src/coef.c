@@ -11,10 +11,10 @@
 
 long fac(int n);
 long NC(int N, int M);
-void IndexToFock(long k, int N, int M, int ** NCmat, int * restrict v);
-long FockToIndex(int N, int M, int ** NCmat, int * restrict v);
-void BuildRho(int N, int M, int ** NCmat, Carray C, Cmatrix rho);
-void BuildRho2(int N, int M, int ** NCmat, Carray C, TwoBodyMat rho);
+void IndexToFock(long k, int N, int M, long ** NCmat, int * v);
+long FockToIndex(int N, int M, long ** NCmat, int * v);
+void BuildRho(int N, int M, long ** NCmat, Carray C, Cmatrix rho);
+void BuildRho2(int N, int M, long ** NCmat, Carray C, Carray rho);
 
 long fac(int n)
 {
@@ -30,7 +30,7 @@ long NC(int N, int M)
     return n / fac(M - 1);
 }
 
-void IndexToFock(long k, int N, int M, int ** NCmat, int * restrict v)
+void IndexToFock(long k, int N, int M, long ** NCmat, int * v)
 {
     long x;
     int  i,
@@ -38,7 +38,8 @@ void IndexToFock(long k, int N, int M, int ** NCmat, int * restrict v)
 
     for (i = 0; i < M; i++) v[i] = 0;
 
-    /* Put the particles in orbitals while has combinations to spend */
+    /*** Put the particles in orbitals while has combinations to spend ***/
+
     while ( k > 0 )
     {
         while ( k - NCmat[N][m] < 0 ) m = m - 1;
@@ -52,11 +53,12 @@ void IndexToFock(long k, int N, int M, int ** NCmat, int * restrict v)
         }
     }
 
-    /* Put the rest of particles in the first orbital */
+    /***   Put the rest of particles in the first orbital   ***/
+
     for (i = N; i > 0; i--) v[0] = v[0] + 1;
 }
 
-long FockToIndex(int N, int M, int ** NCmat, int * restrict v)
+long FockToIndex(int N, int M, long ** NCmat, int * v)
 {
     int  i, n;
     long k = 0;
@@ -75,11 +77,11 @@ long FockToIndex(int N, int M, int ** NCmat, int * restrict v)
     return k;
 }
 
-void BuildRho(int N, int M, int ** NCmat, Carray C, Cmatrix rho)
+void BuildRho(int N, int M, long ** NCmat, Carray C, Cmatrix rho)
 {
     long i, // long indices to number coeficients
          j,
-         nc = NC(N, M);
+         nc = NCmat[N][M];
     int  k, // int indices to density matrix (M x M)
          l;
 
@@ -87,7 +89,7 @@ void BuildRho(int N, int M, int ** NCmat, Carray C, Cmatrix rho)
            sqrtOf;
 
     /* occupation number vector in each iteration */
-    int * restrict v = (int *) malloc(M * sizeof(int));
+    int * v = (int *) malloc(M * sizeof(int));
 
     /* Initialize the density matrix with zero */
     for (k = 0; k < M; k++)
@@ -126,21 +128,28 @@ void BuildRho(int N, int M, int ** NCmat, Carray C, Cmatrix rho)
     free(v);
 }
 
-void BuildRho2(int N, int M, int ** NCmat, Carray C, TwoBodyMat rho)
+void BuildRho2(int N, int M, long ** NCmat, Carray C, Carray rho)
 {
     long i, // long indices to number coeficients
          j,
-         nc = NC(N, M);
+         nc = NCmat[N][M];
     int  k, // int indices to density matrix (M x M)
          s,
          q,
          l;
 
+    int M2 = M * M,
+        M3 = M * M * M;
+
     double mod2,    // |Cj| ^ 2
            sqrtOf;  // Factors from the action of creation/annihilation
 
-    /* occupation number vector in each iteration */
-    int * restrict v = (int *) malloc(M * sizeof(int));
+    /***   occupation number vector in each iteration   ***/
+
+    int * v = (int *) malloc(M * sizeof(int));
+
+    // Clean up any value before start
+    for (k = 0; k < M * M * M * M; k++) rho[k] = 0;
 
     for (i = 0; i < nc; i++)
     {
@@ -148,7 +157,8 @@ void BuildRho2(int N, int M, int ** NCmat, Carray C, TwoBodyMat rho)
         mod2 = creal(C[i]) * creal(C[i]) + cimag(C[i]) * cimag(C[i]);
 
         /****************************** Rule 1 ******************************/
-        for (k = 0; k < M; k++) rho[k][k][k][k] += mod2 * v[k] * (v[k] - 1);
+        for (k = 0; k < M; k++)
+            rho[k + M * k + M2 * k + M3 * k] += mod2 * v[k] * (v[k] - 1);
         
         /****************************** Rule 2 ******************************/
 
@@ -157,10 +167,10 @@ void BuildRho2(int N, int M, int ** NCmat, Carray C, TwoBodyMat rho)
             for (s = k + 1; s < M; s++)
             {
                 sqrtOf = mod2 * v[k] * v[s];
-                rho[k][s][k][s] += sqrtOf;
-                rho[s][k][k][s] += sqrtOf;
-                rho[s][k][s][k] += sqrtOf;
-                rho[k][s][s][k] += sqrtOf;
+                rho[k + s * M + k * M2 + s * M3] += sqrtOf;
+                rho[s + k * M + k * M2 + s * M3] += sqrtOf;
+                rho[s + k * M + s * M2 + k * M3] += sqrtOf;
+                rho[k + s * M + s * M2 + k * M3] += sqrtOf;
             }
         }
 
@@ -175,7 +185,7 @@ void BuildRho2(int N, int M, int ** NCmat, Carray C, TwoBodyMat rho)
                 v[k] -= 2;
                 v[q] += 2;
                 j = FockToIndex(N, M, NCmat, v);
-                rho[k][k][q][q] += conj(C[i]) * C[j] * sqrtOf;
+                rho[k + k * M + q * M2 + q * M3] += conj(C[i]) * C[j] * sqrtOf;
                 v[k] += 2;
                 v[q] -= 2;
             }
@@ -192,7 +202,7 @@ void BuildRho2(int N, int M, int ** NCmat, Carray C, TwoBodyMat rho)
                 v[k] -= 1;
                 v[l] += 1;
                 j = FockToIndex(N, M, NCmat, v);
-                rho[k][k][k][l] += conj(C[i]) * C[j] * sqrtOf;
+                rho[k + k * M + k * M2 + l * M3] += conj(C[i]) * C[j] * sqrtOf;
                 v[k] += 1;
                 v[l] -= 1;
             }
@@ -209,7 +219,7 @@ void BuildRho2(int N, int M, int ** NCmat, Carray C, TwoBodyMat rho)
                 v[k] -= 1;
                 v[s] += 1;
                 j = FockToIndex(N, M, NCmat, v);
-                rho[k][s][s][s] += conj(C[i]) * C[j] * sqrtOf;
+                rho[k + s * M + s * M2 + s * M3] += conj(C[i]) * C[j] * sqrtOf;
                 v[k] += 1;
                 v[s] -= 1;
             }
@@ -229,7 +239,7 @@ void BuildRho2(int N, int M, int ** NCmat, Carray C, TwoBodyMat rho)
                     v[l] += 1;
                     v[q] += 1;
                     j = FockToIndex(N, M, NCmat, v);
-                    rho[k][k][q][l] += conj(C[i]) * C[j] * sqrtOf;
+                    rho[k + k*M + q*M2 + l*M3] += conj(C[i]) * C[j] * sqrtOf;
                     v[k] += 2;
                     v[l] -= 1;
                     v[q] -= 1;
@@ -249,7 +259,7 @@ void BuildRho2(int N, int M, int ** NCmat, Carray C, TwoBodyMat rho)
                     v[l] += 1;
                     v[q] += 1;
                     j = FockToIndex(N, M, NCmat, v);
-                    rho[k][k][q][l] += conj(C[i]) * C[j] * sqrtOf;
+                    rho[k + k*M + q*M2 + l*M3] += conj(C[i]) * C[j] * sqrtOf;
                     v[k] += 2;
                     v[l] -= 1;
                     v[q] -= 1;
@@ -269,7 +279,7 @@ void BuildRho2(int N, int M, int ** NCmat, Carray C, TwoBodyMat rho)
                     v[l] += 1;
                     v[q] += 1;
                     j = FockToIndex(N, M, NCmat, v);
-                    rho[k][k][q][l] += conj(C[i]) * C[j] * sqrtOf;
+                    rho[k + k*M + q*M2 + l*M3] += conj(C[i]) * C[j] * sqrtOf;
                     v[k] += 2;
                     v[l] -= 1;
                     v[q] -= 1;
@@ -290,7 +300,7 @@ void BuildRho2(int N, int M, int ** NCmat, Carray C, TwoBodyMat rho)
                     v[k] -= 1;
                     v[l] += 1;
                     j = FockToIndex(N, M, NCmat, v);
-                    rho[k][s][s][l] += conj(C[i]) * C[j] * sqrtOf;
+                    rho[k + s*M + s*M2 + l*M3] += conj(C[i]) * C[j] * sqrtOf;
                     v[k] += 1;
                     v[l] -= 1;
                 }
@@ -308,7 +318,7 @@ void BuildRho2(int N, int M, int ** NCmat, Carray C, TwoBodyMat rho)
                     v[k] -= 1;
                     v[l] += 1;
                     j = FockToIndex(N, M, NCmat, v);
-                    rho[k][s][s][l] += conj(C[i]) * C[j] * sqrtOf;
+                    rho[k + s*M + s*M2 + l*M3] += conj(C[i]) * C[j] * sqrtOf;
                     v[k] += 1;
                     v[l] -= 1;
                 }
@@ -326,7 +336,7 @@ void BuildRho2(int N, int M, int ** NCmat, Carray C, TwoBodyMat rho)
                     v[k] -= 1;
                     v[l] += 1;
                     j = FockToIndex(N, M, NCmat, v);
-                    rho[k][s][s][l] += conj(C[i]) * C[j] * sqrtOf;
+                    rho[k + s*M + s*M2 + l*M3] += conj(C[i]) * C[j] * sqrtOf;
                     v[k] += 1;
                     v[l] -= 1;
                 }
@@ -353,7 +363,7 @@ void BuildRho2(int N, int M, int ** NCmat, Carray C, TwoBodyMat rho)
                         v[s] -= 1;
                         v[q] += 1;
                         v[l] += 1;
-                        rho[k][s][q][l] += conj(C[i]) * C[j] * sqrtOf;
+                        rho[k+s*M+q*M2+l*M3] += conj(C[i]) * C[j] * sqrtOf;
                         v[k] += 1;
                         v[s] += 1;
                         v[q] -= 1;
@@ -374,7 +384,8 @@ void BuildRho2(int N, int M, int ** NCmat, Carray C, TwoBodyMat rho)
 
     for (k = 0; k < M; k++)
     {
-        for (q = k + 1; q < M; q++) rho[q][q][k][k] = conj(rho[k][k][q][q]);
+        for (q = k + 1; q < M; q++)
+            rho[q + q*M + k*M2 + k*M3] = conj(rho[k + k*M + q*M2 + q*M3]);
     }
     
     /****************************** CC Rule 4 ******************************/
@@ -383,9 +394,9 @@ void BuildRho2(int N, int M, int ** NCmat, Carray C, TwoBodyMat rho)
     {
         for (l = k + 1; l < M; l++)
         {
-            rho[k][k][l][k] = rho[k][k][k][l];
-            rho[l][k][k][k] = conj(rho[k][k][k][l]);
-            rho[k][l][k][k] = rho[l][k][k][k];
+            rho[k + k*M + l*M2 + k*M3] = rho[k + k*M + k*M2 + l*M3];
+            rho[l + k*M + k*M2 + k*M3] = conj(rho[k + k*M + k*M2 + l*M3]);
+            rho[k + l*M + k*M2 + k*M3] = rho[l + k*M + k*M2 + k*M3];
         }
     }
     
@@ -395,9 +406,9 @@ void BuildRho2(int N, int M, int ** NCmat, Carray C, TwoBodyMat rho)
     {
         for (s = k + 1; s < M; s++)
         {
-            rho[s][k][s][s] = rho[k][s][s][s];
-            rho[s][s][s][k] = conj(rho[k][s][s][s]);
-            rho[s][s][k][s] = rho[s][s][s][k];
+            rho[s + k*M + s*M2 + s*M3] = rho[k + s*M + s*M2 + s*M3];
+            rho[s + s*M + s*M2 + k*M3] = conj(rho[k + s*M + s*M2 + s*M3]);
+            rho[s + s*M + k*M2 + s*M3] = rho[s + s*M + s*M2 + k*M3];
         }
     }
     
@@ -409,22 +420,22 @@ void BuildRho2(int N, int M, int ** NCmat, Carray C, TwoBodyMat rho)
         {
             for (l = q + 1; l < M; l++)
             {
-                rho[k][k][l][q] = rho[k][k][q][l];
-                rho[l][q][k][k] = conj(rho[k][k][q][l]);
-                rho[q][l][k][k] = rho[l][q][k][k];
+                rho[k + k*M + l*M2 + q*M3] = rho[k + k*M + q*M2 + l*M3];
+                rho[l + q*M + k*M2 + k*M3] = conj(rho[k + k*M + q*M2 + l*M3]);
+                rho[q + l*M + k*M2 + k*M3] = rho[l + q*M + k*M2 + k*M3];
             }
         }
     }
-    
+
     for (q = 0; q < M; q++)
     {
         for (k = q + 1; k < M; k++)
         {
             for (l = k + 1; l < M; l++)
             {
-                rho[k][k][l][q] = rho[k][k][q][l];
-                rho[l][q][k][k] = conj(rho[k][k][q][l]);
-                rho[q][l][k][k] = rho[l][q][k][k];
+                rho[k + k*M + l*M2 + q*M3] = rho[k + k*M + q*M2 + l*M3];
+                rho[l + q*M + k*M2 + k*M3] = conj(rho[k + k*M + q*M2 + l*M3]);
+                rho[q + l*M + k*M2 + k*M3] = rho[l + q*M + k*M2 + k*M3];
             }
         }
     }
@@ -435,9 +446,9 @@ void BuildRho2(int N, int M, int ** NCmat, Carray C, TwoBodyMat rho)
         {
             for (k = l + 1; k < M; k++)
             {
-                rho[k][k][l][q] = rho[k][k][q][l];
-                rho[l][q][k][k] = conj(rho[k][k][q][l]);
-                rho[q][l][k][k] = rho[l][q][k][k];
+                rho[k + k*M + l*M2 + q*M3] = rho[k + k*M + q*M2 + l*M3];
+                rho[l + q*M + k*M2 + k*M3] = conj(rho[k + k*M + q*M2 + l*M3]);
+                rho[q + l*M + k*M2 + k*M3] = rho[l + q*M + k*M2 + k*M3];
             }
         }
     }
@@ -450,13 +461,13 @@ void BuildRho2(int N, int M, int ** NCmat, Carray C, TwoBodyMat rho)
         {
             for (l = k + 1; l < M; l++)
             {
-                rho[k][s][l][s] = rho[k][s][s][l];
-                rho[s][k][l][s] = rho[k][s][s][l];
-                rho[s][k][s][l] = rho[k][s][s][l];
-                rho[l][s][s][k] = conj(rho[k][s][s][l]);
-                rho[s][l][s][k] = rho[l][s][s][k];
-                rho[s][l][k][s] = rho[l][s][s][k];
-                rho[l][s][k][s] = rho[l][s][s][k];
+                rho[k + s*M + l*M2 + s*M3] = rho[k + s*M + s*M2 + l*M3];
+                rho[s + k*M + l*M2 + s*M3] = rho[k + s*M + s*M2 + l*M3];
+                rho[s + k*M + s*M2 + l*M3] = rho[k + s*M + s*M2 + l*M3];
+                rho[l + s*M + s*M2 + k*M3] = conj(rho[k + s*M + s*M2 + l*M3]);
+                rho[s + l*M + s*M2 + k*M3] = rho[l + s*M + s*M2 + k*M3];
+                rho[s + l*M + k*M2 + s*M3] = rho[l + s*M + s*M2 + k*M3];
+                rho[l + s*M + k*M2 + s*M3] = rho[l + s*M + s*M2 + k*M3];
             }
         }
     }
@@ -467,13 +478,13 @@ void BuildRho2(int N, int M, int ** NCmat, Carray C, TwoBodyMat rho)
         {
             for (l = s + 1; l < M; l++)
             {
-                rho[k][s][l][s] = rho[k][s][s][l];
-                rho[s][k][l][s] = rho[k][s][s][l];
-                rho[s][k][s][l] = rho[k][s][s][l];
-                rho[l][s][s][k] = conj(rho[k][s][s][l]);
-                rho[s][l][s][k] = rho[l][s][s][k];
-                rho[s][l][k][s] = rho[l][s][s][k];
-                rho[l][s][k][s] = rho[l][s][s][k];
+                rho[k + s*M + l*M2 + s*M3] = rho[k + s*M + s*M2 + l*M3];
+                rho[s + k*M + l*M2 + s*M3] = rho[k + s*M + s*M2 + l*M3];
+                rho[s + k*M + s*M2 + l*M3] = rho[k + s*M + s*M2 + l*M3];
+                rho[l + s*M + s*M2 + k*M3] = conj(rho[k + s*M + s*M2 + l*M3]);
+                rho[s + l*M + s*M2 + k*M3] = rho[l + s*M + s*M2 + k*M3];
+                rho[s + l*M + k*M2 + s*M3] = rho[l + s*M + s*M2 + k*M3];
+                rho[l + s*M + k*M2 + s*M3] = rho[l + s*M + s*M2 + k*M3];
             }
         }
     }
@@ -484,13 +495,13 @@ void BuildRho2(int N, int M, int ** NCmat, Carray C, TwoBodyMat rho)
         {
             for (s = l + 1; s < M; s++)
             {
-                rho[k][s][l][s] = rho[k][s][s][l];
-                rho[s][k][l][s] = rho[k][s][s][l];
-                rho[s][k][s][l] = rho[k][s][s][l];
-                rho[l][s][s][k] = conj(rho[k][s][s][l]);
-                rho[s][l][s][k] = rho[l][s][s][k];
-                rho[s][l][k][s] = rho[l][s][s][k];
-                rho[l][s][k][s] = rho[l][s][s][k];
+                rho[k + s*M + l*M2 + s*M3] = rho[k + s*M + s*M2 + l*M3];
+                rho[s + k*M + l*M2 + s*M3] = rho[k + s*M + s*M2 + l*M3];
+                rho[s + k*M + s*M2 + l*M3] = rho[k + s*M + s*M2 + l*M3];
+                rho[l + s*M + s*M2 + k*M3] = conj(rho[k + s*M + s*M2 + l*M3]);
+                rho[s + l*M + s*M2 + k*M3] = rho[l + s*M + s*M2 + k*M3];
+                rho[s + l*M + k*M2 + s*M3] = rho[l + s*M + s*M2 + k*M3];
+                rho[l + s*M + k*M2 + s*M3] = rho[l + s*M + s*M2 + k*M3];
             }
         }
     }
@@ -503,45 +514,141 @@ int main(int argc, char * argv[])
     clock_t start, end;
     double cpu_time;
 
-    int N, M;
-    sscanf(argv[1], "%d", &N);
-    sscanf(argv[2], "%d", &M);
-    
-    Carray C = carrDef(NC(N,M));
-    Cmatrix rho = cmatDef(M, M);
-    TwoBodyMat rho2 = TBmatDef(M);
+    int Npar, // Number of particles
+        Morb, // Number of orbitals
+        i,
+        j;
 
-    /* Pre-define values of combinatorial problem to be used */
+    sscanf(argv[1], "%d", &Npar);
+    sscanf(argv[2], "%d", &Morb);
 
-    int ** NCmat = (int **) malloc((N + 1) * sizeof(int * ));
-    for (int i = 0; i < N + 1; i++)
-        NCmat[i] = (int *) malloc((M + 1) * sizeof(int));
-    for (int i = 0; i < N + 1; i++)
+    /***   Pre-define values of combinatorial problem to be used   ***/
+
+    printf("\nTotal number of coeficients: %ld\n", NC(Npar, Morb));
+
+    long ** NCmat;
+    NCmat = (long ** ) malloc((Npar + 1) * sizeof(long * ));
+
+    for (i = 0; i < Npar + 1; i++)
+        NCmat[i] = (long * ) malloc((Morb + 1) * sizeof(long));
+
+    for (i = 0; i < Npar + 1; i++)
     {
-        for (int j = 1; j < M + 1; j++) NCmat[i][j] = NC(i, j);
+        NCmat[i][0] = 0;
+        for (j = 1; j < Morb + 1; j++) NCmat[i][j] = NC(i, j);
     }
 
-    /* Array of Coeficients */
-    
+    Carray C = carrDef( NC( Npar, Morb ) );     // Coeficients of superposition
+    Cmatrix rho = cmatDef( Morb,  Morb);        // onde-body density matrix
+    Carray rho2 = carrDef(Morb*Morb*Morb*Morb); // two-body density matrix
 
-    carrFill(NC(N,M), (cos(PI / 6) + sin(PI / 6) * I) / sqrt(NC(N, M)), C);
+    /***   Setup array of coeficients   ***/
 
-    BuildRho2(N, M, NCmat, C, rho2);
+    carrFill(NC(Npar, Morb), 
+             (cos(PI / 6) + sin(PI / 6) * I) / sqrt(NC(Npar, Morb)), C);
 
-    printf("\n\nrho2[2][1][1][0] = %7.4lf %7.4lf", creal(rho2[2][1][1][0]), cimag(rho2[2][1][1][0]));
+    /***   Time performance to setup One-Body part   ***/
 
     start = clock();
-    for (int i = 0; i < 10; i++) BuildRho(N, M, NCmat, C, rho);
+
+    for (i = 0; i < 10; i++) BuildRho(Npar, Morb, NCmat, C, rho);
+
     end = clock();
-    cpu_time = ((double) (end - start)) / CLOCKS_PER_SEC;
-    printf("\n Time to setup rho: %.3fms", cpu_time * 100);
 
+    cpu_time = ((double) (end - start)) / CLOCKS_PER_SEC * 100;
 
-    for (int i = 0; i < N + 1; i++) free(NCmat[i]);
-    free(NCmat);
-    cmatFree(M, rho);
+    printf("\n\tTime to setup rho  (Npar = %d, Morb = %d): %.3fms", 
+            Npar, Morb, cpu_time);
+
+    /***   Time performance to setup Two-Body part   ***/
+
+    start = clock();
+
+    BuildRho2(Npar, Morb, NCmat, C, rho2);
+    BuildRho2(Npar, Morb, NCmat, C, rho2);
+
+    end = clock();
+    
+    cpu_time = ((double) (end - start)) / CLOCKS_PER_SEC * 500;
+
+    printf("\n\n\tTime to setup rho2 (Npar = %d, Morb = %d): %.3fms", 
+            Npar, Morb, cpu_time);
+
+    /***   Release Memory   ***/
+
+    for (i = 0; i < Npar + 1; i++) free(NCmat[i]); free(NCmat);
+
+    cmatFree(Morb, rho);
+
+    free(rho2);
+
     free(C);
 
-    printf("\n");
+    /***   Print Some Value for the case N = M = 3   ***/
+
+    Npar = 3;
+    Morb = 3;
+    
+    NCmat = (long ** ) malloc((Npar + 1) * sizeof(long * ));
+
+    for (i = 0; i < Npar + 1; i++)
+        NCmat[i] = (long * ) malloc((Morb + 1) * sizeof(long));
+
+    for (i = 0; i < Npar + 1; i++)
+    {
+        NCmat[i][0] = 0;
+        for (j = 1; j < Morb + 1; j++) NCmat[i][j] = NC(i, j);
+    }
+    
+    C = carrDef( NC( Npar, Morb ) );
+
+    carrFill(NC(Npar, Morb), 1, C);
+
+    C[2] = - 1 * I; C[5] = 1 + 1 * I; C[6] = 1 - 1 * I; C[8] = 0;
+    
+    rho = cmatDef( Morb,  Morb);        // onde-body density matrix
+    rho2 = carrDef(Morb*Morb*Morb*Morb); // two-body density matrix
+    
+    BuildRho(Npar, Morb, NCmat, C, rho);
+    BuildRho(Npar, Morb, NCmat, C, rho);
+    
+    BuildRho2(Npar, Morb, NCmat, C, rho2);
+    BuildRho2(Npar, Morb, NCmat, C, rho2);
+
+    printf("\n\nMatrix rho for N = M = 3\n");
+    for (i = 0; i < Morb; i++)
+    {
+        printf("\n\t|");
+        for (j = 0; j < Morb; j++)
+        {
+            printf("  %7.3lf %7.3lfj |", creal(rho[i][j]), cimag(rho[i][j]));
+        }
+    }
+
+    printf("\n\nrho2[1,1,0,2] = %7.3lf %7.3lf", creal(rho2[1 + 3 + 2 * 27]),
+            cimag(rho2[1 + 3 + 2 * 27]));
+    printf("\n\nrho2[2,0,1,1] = %7.3lf %7.3lf", creal(rho2[2 + 9 + 27]),
+            cimag(rho2[2 + 9 + 27]));
+    printf("\n\nrho2[1,1,1,0] = %7.3lf %7.3lf", creal(rho2[1 + 3 + 1 * 9]),
+            cimag(rho2[1 + 3 + 1 * 9]));
+    printf("\n\nrho2[1,1,0,1] = %7.3lf %7.3lf", creal(rho2[1 + 3 + 27]),
+            cimag(rho2[1 + 3 + 27]));
+    printf("\n\nrho2[1,2,2,0] = %7.3lf %7.3lf", creal(rho2[1 + 6 + 18]),
+            cimag(rho2[1 + 6 + 18]));
+    printf("\n\nrho2[0,2,2,1] = %7.3lf %7.3lf", creal(rho2[6 + 18 + 27]),
+            cimag(rho2[6 + 18 + 27]));
+
+    
+    /***   Release Memory   ***/
+
+    for (i = 0; i < Npar + 1; i++) free(NCmat[i]); free(NCmat);
+
+    cmatFree(Morb, rho);
+
+    free(rho2);
+
+    free(C);
+
+    printf("\n\n");
     return 0;
 }
