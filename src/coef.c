@@ -363,6 +363,7 @@ void BuildRho2(int N, int M, long ** NCmat, Carray C, Carray rho)
                         v[s] -= 1;
                         v[q] += 1;
                         v[l] += 1;
+                        j = FockToIndex(N, M, NCmat, v);
                         rho[k+s*M+q*M2+l*M3] += conj(C[i]) * C[j] * sqrtOf;
                         v[k] += 1;
                         v[s] += 1;
@@ -587,7 +588,7 @@ int main(int argc, char * argv[])
     /***   Print Some Value for the case N = M = 3   ***/
 
     Npar = 3;
-    Morb = 3;
+    Morb = 4;
     
     NCmat = (long ** ) malloc((Npar + 1) * sizeof(long * ));
 
@@ -606,7 +607,7 @@ int main(int argc, char * argv[])
 
     C[2] = - 1 * I; C[5] = 1 + 1 * I; C[6] = 1 - 1 * I; C[8] = 0;
     
-    rho = cmatDef( Morb,  Morb);        // onde-body density matrix
+    rho = cmatDef( Morb,  Morb);         // onde-body density matrix
     rho2 = carrDef(Morb*Morb*Morb*Morb); // two-body density matrix
     
     BuildRho(Npar, Morb, NCmat, C, rho);
@@ -625,18 +626,10 @@ int main(int argc, char * argv[])
         }
     }
 
-    printf("\n\nrho2[1,1,0,2] = %7.3lf %7.3lf", creal(rho2[1 + 3 + 2 * 27]),
-            cimag(rho2[1 + 3 + 2 * 27]));
-    printf("\n\nrho2[2,0,1,1] = %7.3lf %7.3lf", creal(rho2[2 + 9 + 27]),
-            cimag(rho2[2 + 9 + 27]));
-    printf("\n\nrho2[1,1,1,0] = %7.3lf %7.3lf", creal(rho2[1 + 3 + 1 * 9]),
-            cimag(rho2[1 + 3 + 1 * 9]));
-    printf("\n\nrho2[1,1,0,1] = %7.3lf %7.3lf", creal(rho2[1 + 3 + 27]),
-            cimag(rho2[1 + 3 + 27]));
-    printf("\n\nrho2[1,2,2,0] = %7.3lf %7.3lf", creal(rho2[1 + 6 + 18]),
-            cimag(rho2[1 + 6 + 18]));
-    printf("\n\nrho2[0,2,2,1] = %7.3lf %7.3lf", creal(rho2[6 + 18 + 27]),
-            cimag(rho2[6 + 18 + 27]));
+    printf("\n\nrho2[0,1,2,3] = %7.3lf %7.3lf", creal(rho2[4 + 2*16 + 3*64]),
+            cimag(rho2[4 + 2*16 + 3*64]));
+    printf("\n\nrho2[3,2,0,1] = %7.3lf %7.3lf", creal(rho2[3 + 2*4 + 64]),
+            cimag(rho2[3 + 2*4 + 64]));
 
     
     /***   Release Memory   ***/
