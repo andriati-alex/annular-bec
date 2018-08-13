@@ -128,6 +128,62 @@ void BuildRho(int N, int M, long ** NCmat, Carray C, Cmatrix rho)
     free(v);
 }
 
+void BuildRhoP(int N, int M, long ** NCmat, Carray C, Cmatrix rho)
+{
+    long i, // long indices to number coeficients
+         j,
+         nc = NCmat[N][M];
+    int  k, // int indices to density matrix (M x M)
+         l;
+
+    double mod2,
+           sqrtOf;
+
+    double complex RHO_kk,
+                   RHO_kl;
+
+    /* occupation number vector in each iteration */
+    int * v = (int *) malloc(M * sizeof(int));
+
+    for (k = 0; k < M; k++)
+    {
+        RHO_kk = 0;
+        for (i = 0; i < nc; i++)
+        {
+            IndexToFock(i, N, M, NCmat, v);
+            mod2 = creal(C[i]) * creal(C[i]) + cimag(C[i]) * cimag(C[i]);
+            RHO_kk += mod2 * v[k];
+        }
+        rho[k][k] = RHO_kk;
+
+        for (l = k + 1; l < M; l++)
+        {
+            RHO_kl = 0;
+            for (i = 0; i < nc; i++)
+            {
+                IndexToFock(i, N, M, NCmat, v);
+                if (v[k] < 1) continue;
+                sqrtOf = sqrt((v[l] + 1) * v[k]);
+                v[k] -= 1;
+                v[l] += 1;
+                j = FockToIndex(N, M, NCmat, v);
+                RHO_kl += conj(C[i]) * C[j] * sqrtOf;
+                v[k] += 1;
+                v[l] -= 1;
+            }
+            rho[k][l] = RHO_kl;
+        }
+    }
+
+    /* Use hermiticity of density matrix to fill lower part */
+    for (k = 0; k < M; k++)
+    {
+        for (l = k + 1; l < M; l++) rho[l][k] = conj(rho[k][l]);
+    }
+
+    free(v);
+}
+
 void BuildRho2(int N, int M, long ** NCmat, Carray C, Carray rho)
 {
     long i, // long indices to number coeficients
@@ -552,7 +608,7 @@ int main(int argc, char * argv[])
 
     start = clock();
 
-    for (i = 0; i < 10; i++) BuildRho(Npar, Morb, NCmat, C, rho);
+    for (i = 0; i < 10; i++) BuildRhoP(Npar, Morb, NCmat, C, rho);
 
     end = clock();
 
@@ -588,7 +644,7 @@ int main(int argc, char * argv[])
     /***   Print Some Value for the case N = M = 3   ***/
 
     Npar = 3;
-    Morb = 4;
+    Morb = 3;
     
     NCmat = (long ** ) malloc((Npar + 1) * sizeof(long * ));
 
@@ -610,8 +666,8 @@ int main(int argc, char * argv[])
     rho = cmatDef( Morb,  Morb);         // onde-body density matrix
     rho2 = carrDef(Morb*Morb*Morb*Morb); // two-body density matrix
     
-    BuildRho(Npar, Morb, NCmat, C, rho);
-    BuildRho(Npar, Morb, NCmat, C, rho);
+    BuildRhoP(Npar, Morb, NCmat, C, rho);
+    BuildRhoP(Npar, Morb, NCmat, C, rho);
     
     BuildRho2(Npar, Morb, NCmat, C, rho2);
     BuildRho2(Npar, Morb, NCmat, C, rho2);
@@ -626,10 +682,17 @@ int main(int argc, char * argv[])
         }
     }
 
-    printf("\n\nrho2[0,1,2,3] = %7.3lf %7.3lf", creal(rho2[4 + 2*16 + 3*64]),
-            cimag(rho2[4 + 2*16 + 3*64]));
-    printf("\n\nrho2[3,2,0,1] = %7.3lf %7.3lf", creal(rho2[3 + 2*4 + 64]),
-            cimag(rho2[3 + 2*4 + 64]));
+    printf("\n\nrho2[1,1,0,2] = %7.3lf %7.3lf", creal(rho2[1 + 3 + 2*27]),
+            cimag(rho2[1 + 3 + 2*27]));
+    
+    printf("\n\nrho2[1,2,2,0] = %7.3lf %7.3lf", creal(rho2[1 + 6 + 18]),
+            cimag(rho2[1 + 6 + 18]));
+    
+    printf("\n\nrho2[1,2,2,1] = %7.3lf %7.3lf", creal(rho2[1 + 6 + 18 + 27]),
+            cimag(rho2[1 + 6 + 18 + 27]));
+    
+    printf("\n\nrho2[1,1,1,0] = %7.3lf %7.3lf", creal(rho2[1 + 3 + 9]),
+            cimag(rho2[1 + 3 + 9]));
 
     
     /***   Release Memory   ***/
