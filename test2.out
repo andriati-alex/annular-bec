@@ -1,9 +1,9 @@
 
-Total number of coeficients: 19448
+Total number of coeficients: 5151
 
-	Time to setup rho  (Npar = 10, Morb = 8): 122.686ms
+	Time to setup rho  (Npar = 100, Morb = 3): 3.343ms
 
-	Time to setup rho2 (Npar = 10, Morb = 8): 1625.398ms
+	Time to setup rho2 (Npar = 100, Morb = 3): 7.669ms
 
 Matrix rho for N = M = 3
 
