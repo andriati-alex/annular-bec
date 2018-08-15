@@ -148,7 +148,7 @@ void BuildRhoP(int N, int M, long ** NCmat, int ** IF, Carray C, Cmatrix rho)
     for (k = 0; k < M; k++)
     {
         RHO_kk = 0;
-        #pragma omp parallel shared(k,M,N,nc,C,NCmat,IF) private(i,mod2) \
+        #pragma omp parallel shared(k,nc,C,IF) private(i,mod2) \
         reduction(+:RHO_kk)
         {
             #pragma omp for schedule(static)
@@ -163,7 +163,7 @@ void BuildRhoP(int N, int M, long ** NCmat, int ** IF, Carray C, Cmatrix rho)
         for (l = k + 1; l < M; l++)
         {
             RHO_kl = 0;
-            #pragma omp parallel shared(l,k,M,N,nc,C,NCmat,IF) private(i,j,v) \
+            #pragma omp parallel shared(l,k,M,N,nc,C,NCmat,IF) private(i,j,q,v) \
             reduction(+:RHO_kl)
             {
                 v = (int *) malloc(M * sizeof(int));
@@ -1062,7 +1062,7 @@ void BuildRho2(int N, int M, long ** NCmat, Carray C, Carray rho)
 int main(int argc, char * argv[])
 {
 
-    omp_set_num_threads(2);
+    omp_set_num_threads(6);
 
     clock_t start, end;
     double time_used;
@@ -1111,7 +1111,7 @@ int main(int argc, char * argv[])
         ItoFock[k] = (int * ) malloc(Morb * sizeof(int));
         IndexToFock(k, Npar, Morb, NCmat, ItoFock[k]);
     }
-
+    
     /***   Time performance to setup One-Body part   ***/
 
     startP = omp_get_wtime();
@@ -1180,8 +1180,8 @@ int main(int argc, char * argv[])
     rho = cmatDef( Morb,  Morb);         // onde-body density matrix
     rho2 = carrDef(Morb*Morb*Morb*Morb); // two-body density matrix
     
-    BuildRhoP(Npar, Morb, NCmat, ItoFock, C, rho);
-    BuildRhoP(Npar, Morb, NCmat, ItoFock, C, rho);
+    BuildRho(Npar, Morb, NCmat, C, rho);
+    BuildRho(Npar, Morb, NCmat, C, rho);
     
     BuildRho2P(Npar, Morb, NCmat, ItoFock, C, rho2);
     BuildRho2P(Npar, Morb, NCmat, ItoFock, C, rho2);
