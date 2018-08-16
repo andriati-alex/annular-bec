@@ -38,7 +38,7 @@ void IndexToFock(long k, int N, int M, long ** NCmat, int * v)
 
     for (i = 0; i < M; i++) v[i] = 0;
 
-    /*** Put the particles in orbitals while has combinations to spend ***/
+    /***  Put the particles in orbitals while has combinations to spend  ***/
 
     while ( k > 0 )
     {
@@ -53,7 +53,7 @@ void IndexToFock(long k, int N, int M, long ** NCmat, int * v)
         }
     }
 
-    /***   Put the rest of particles in the first orbital   ***/
+    /**********  Put the rest of particles in the first orbital  **********/
 
     for (i = N; i > 0; i--) v[0] = v[0] + 1;
 }
@@ -63,10 +63,11 @@ long FockToIndex(int N, int M, long ** NCmat, int * v)
     int  i, n;
     long k = 0;
 
-    /* Empty one by one orbital starting from the last one */
+    /*******  Empty one by one orbital starting from the last one  *******/
+
     for (i = M - 1; i > 0; i--)
     {
-        n = v[i]; // Number of particles in current orbital
+        n = v[i]; // Number of particles in the orbital
         while (n > 0)
         {
             k = k + NCmat[N][i]; // number of combinations needed
@@ -163,7 +164,8 @@ void BuildRhoP(int N, int M, long ** NCmat, int ** IF, Carray C, Cmatrix rho)
         for (l = k + 1; l < M; l++)
         {
             RHO_kl = 0;
-            #pragma omp parallel shared(l,k,M,N,nc,C,NCmat,IF) private(i,j,q,v) \
+            #pragma omp parallel \
+            shared(l,k,M,N,nc,C,NCmat,IF) private(i,j,q,v)
             reduction(+:RHO_kl)
             {
                 v = (int *) malloc(M * sizeof(int));
@@ -179,13 +181,14 @@ void BuildRhoP(int N, int M, long ** NCmat, int ** IF, Carray C, Cmatrix rho)
                     v[l] -= 1;
                     RHO_kl += conj(C[i]) * C[j] * sqrt((v[l] + 1) * v[k]);
                 }
-                free(v);
+                free(v); // Each thread release its vector
             }
             rho[k][l] = RHO_kl;
         }
     }
 
-    /* Use hermiticity of density matrix to fill lower part */
+    /*******  Use hermiticity of density matrix to fill lower part  *******/
+
     for (k = 0; k < M; k++)
     {
         for (l = k + 1; l < M; l++) rho[l][k] = conj(rho[k][l]);
@@ -198,17 +201,17 @@ void BuildRho2P(int N, int M, long ** NCmat, int ** IF, Carray C, Carray rho)
     long i, // long indices to number coeficients
          j,
          nc = NCmat[N][M];
-    int  k, // int indices to density matrix (M x M)
+    int  k, // int indices to density matrix (M x M x M x M)
          s,
          q,
          l,
-         t;
+         t; // To copy the fock vector
 
     int M2 = M * M,
         M3 = M * M * M;
 
-    double mod2,    // |Cj| ^ 2
-           sqrtOf;  // Factors from the action of creation/annihilation
+    double mod2,   // |Cj| ^ 2
+           sqrtOf; // Factors from the action of creation/annihilation
 
     double complex RHO;
 
@@ -522,7 +525,8 @@ void BuildRho2P(int N, int M, long ** NCmat, int ** IF, Carray C, Carray rho)
                 {
                     RHO = 0;
                     if (l == k || l == s || l == q) continue;
-                    #pragma omp parallel private(i,j,t,sqrtOf,v) reduction(+:RHO)
+                    #pragma omp parallel private(i,j,t,sqrtOf,v) \
+                    reduction(+:RHO)
                     {
                         v = (int *) malloc(M * sizeof(int));
                         #pragma omp for
@@ -541,13 +545,10 @@ void BuildRho2P(int N, int M, long ** NCmat, int ** IF, Carray C, Carray rho)
                         free(v);
                     }
                     rho[k+s*M+q*M2+l*M3] = RHO;
-                }
-                // Finish l loop
-            }
-            // Finish q loop
-        }
-        // Finish s loop
-    }
+                } // Finish l loop
+            } // Finish q loop
+        } // Finish s loop
+    } // Finish k loop
 
     /****************************** CC Rule 3 ******************************/
 
@@ -675,7 +676,7 @@ void BuildRho2P(int N, int M, long ** NCmat, int ** IF, Carray C, Carray rho)
         }
     }
 
-    /* END ROUTINE */
+    // END ROUTINE
 }
 
 void BuildRho2(int N, int M, long ** NCmat, Carray C, Carray rho)
@@ -1061,8 +1062,7 @@ void BuildRho2(int N, int M, long ** NCmat, Carray C, Carray rho)
 
 int main(int argc, char * argv[])
 {
-
-    omp_set_num_threads(6);
+    omp_set_num_threads(omp_get_max_threads() / 2);
 
     clock_t start, end;
     double time_used;
@@ -1078,7 +1078,11 @@ int main(int argc, char * argv[])
     sscanf(argv[1], "%d", &Npar);
     sscanf(argv[2], "%d", &Morb);
 
+
+
     /***   Pre-define values of combinatorial problem to be used   ***/
+
+
 
     printf("\nTotal number of coeficients: %ld\n", NC(Npar, Morb));
 
@@ -1094,25 +1098,43 @@ int main(int argc, char * argv[])
         for (j = 1; j < Morb + 1; j++) NCmat[i][j] = NC(i, j);
     }
 
+
+    /*********                 Main Variables                 *********/
+
+
+
     Carray C = carrDef( NC( Npar, Morb ) );     // Coeficients of superposition
     Cmatrix rho = cmatDef( Morb,  Morb);        // onde-body density matrix
     Carray rho2 = carrDef(Morb*Morb*Morb*Morb); // two-body density matrix
 
     /***   Setup array of coeficients   ***/
 
-    carrFill(NC(Npar, Morb), 
-             (cos(PI / 6) + sin(PI / 6) * I) / sqrt(NC(Npar, Morb)), C);
+    for (k = 0; k < NCmat[Npar][Morb]; k++)
+    {
+        C[k] = cos(6 * PI / NCmat[Npar][Morb]) + \
+               sin(6 * PI / NCmat[Npar][Morb]) * I;
+        C[k] = C[k] / NCmat[Npar,Morb]; // Normalize
+    }
 
-    // All ocuppation number vectors in a Matrix
+
+
+    /***         All ocuppation number vectors in a Matrix          ***/
+
+
 
     int ** ItoFock = (int **) malloc(NC(Npar, Morb) * sizeof(int *));
+
     for (k = 0; k < NC(Npar, Morb); k++)
     {
         ItoFock[k] = (int * ) malloc(Morb * sizeof(int));
         IndexToFock(k, Npar, Morb, NCmat, ItoFock[k]);
     }
-    
-    /***   Time performance to setup One-Body part   ***/
+
+
+
+    /***          Time performance to setup One-Body part          ***/
+
+
 
     startP = omp_get_wtime();
 
@@ -1123,7 +1145,11 @@ int main(int argc, char * argv[])
     printf("\n\tTime to setup rho  (Npar = %d, Morb = %d): %.3fms", 
             Npar, Morb, time_used);
 
-    /***   Time performance to setup Two-Body part   ***/
+
+
+    /***         Time performance to setup Two-Body part         ***/
+
+
 
     startP = omp_get_wtime();
 
@@ -1136,7 +1162,10 @@ int main(int argc, char * argv[])
             Npar, Morb, time_used);
 
 
-    /***   Release Memory   ***/
+
+    /***                    Release Memory                    ***/
+
+
 
     for (i = 0; i < Npar + 1; i++) free(NCmat[i]); free(NCmat);
     
@@ -1148,7 +1177,11 @@ int main(int argc, char * argv[])
 
     free(C);
 
-    /***   Print Some Value for the case N = M = 3   ***/
+
+
+    /***       Print Some Values for the case N = M = 3       ***/
+
+
 
     Npar = 3;
     Morb = 3;
@@ -1177,8 +1210,8 @@ int main(int argc, char * argv[])
 
     C[2] = - 1 * I; C[5] = 1 + 1 * I; C[6] = 1 - 1 * I; C[8] = 0;
     
-    rho = cmatDef( Morb,  Morb);         // onde-body density matrix
-    rho2 = carrDef(Morb*Morb*Morb*Morb); // two-body density matrix
+    rho = cmatDef( Morb, Morb );                // onde-body density matrix
+    rho2 = carrDef(Morb * Morb * Morb * Morb);  // two-body density matrix
     
     BuildRho(Npar, Morb, NCmat, C, rho);
     BuildRho(Npar, Morb, NCmat, C, rho);
@@ -1208,8 +1241,11 @@ int main(int argc, char * argv[])
     printf("\n\nrho2[1,1,1,0] = %7.3lf %7.3lf", creal(rho2[1 + 3 + 9]),
             cimag(rho2[1 + 3 + 9]));
 
-    
-    /***   Release Memory   ***/
+
+
+    /**************************   Release Memory   **************************/
+
+
 
     for (i = 0; i < Npar + 1; i++) free(NCmat[i]); free(NCmat);
     
