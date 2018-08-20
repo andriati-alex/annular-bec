@@ -40,7 +40,7 @@ CCSmat emptyCCS(int n, int max_nonzeros)
 }
 
 void setValueCCS(int n, int i, int j, int col, double complex z, CCSmat M)
-{   /* j-th non-zero term in the row i and col its true column position */
+{   /* j-th non-zero term in the row i and col its true column index */
     M->vec[i + n * j] = z;
     M->col[i + n * j] = col;
 }
