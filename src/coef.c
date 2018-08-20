@@ -676,9 +676,28 @@ void TBrho(int N, int M, long ** NCmat, int ** IF, Carray C, Carray rho)
     // END ROUTINE
 }
 
-void RHSofODES(int N, int M, int ** IF, long ** NCmat, Carray rhs)
+void RHSofODES(int N, int M, int ** IF, long ** NCmat,
+               Cmatrix Ho, Carray Hint, Carray C, Carray rhs)
 {
-    for (i = 0; i < NCmat[N,M]; i++)
+    long i, // index of coeficient
+         j;
+
+    int  k, // enumerate orbitals
+         l,
+         s,
+         q,
+         t;
+
+    int  M2 = M * M,
+         M3 = M * M * M;
+
+    int * v = (int * ) malloc(M * sizeof(int));
+
+    double sqrtOf;
+
+    double complex rhsI; // line step value of right-hand-side
+
+    for (i = 0; i < NCmat[N][M]; i++)
     {
         rhsI = 0;
 
@@ -741,7 +760,7 @@ void RHSofODES(int N, int M, int ** IF, long ** NCmat, Carray rhs)
 
         for (k = 0; k < M; k++)
         {
-            if (v[k] < 1) continue;
+            if (v[k] < 2) continue;
             for (l = 0; l < M; l++)
             {
                 if (l == k) continue;
@@ -789,7 +808,8 @@ void RHSofODES(int N, int M, int ** IF, long ** NCmat, Carray rhs)
                     v[l] += 1;
                     v[q] += 1;
                     j = FockToIndex(N, M, NCmat, v);
-                    rho[k + k*M + q*M2 + l*M3] += conj(C[i]) * C[j] * sqrtOf;
+                    rhsI += Hint[k + k*M + q*M2 + l*M3] * C[j] * sqrtOf;
+                    rhsI += Hint[k + k*M + l*M2 + q*M3] * C[j] * sqrtOf;
                     v[k] += 2;
                     v[l] -= 1;
                     v[q] -= 1;
@@ -809,7 +829,8 @@ void RHSofODES(int N, int M, int ** IF, long ** NCmat, Carray rhs)
                     v[l] += 1;
                     v[q] += 1;
                     j = FockToIndex(N, M, NCmat, v);
-                    rho[k + k*M + q*M2 + l*M3] += conj(C[i]) * C[j] * sqrtOf;
+                    rhsI += Hint[k + k*M + q*M2 + l*M3] * C[j] * sqrtOf;
+                    rhsI += Hint[k + k*M + l*M2 + q*M3] * C[j] * sqrtOf;
                     v[k] += 2;
                     v[l] -= 1;
                     v[q] -= 1;
@@ -829,30 +850,57 @@ void RHSofODES(int N, int M, int ** IF, long ** NCmat, Carray rhs)
                     v[l] += 1;
                     v[q] += 1;
                     j = FockToIndex(N, M, NCmat, v);
-                    rho[k + k*M + q*M2 + l*M3] += conj(C[i]) * C[j] * sqrtOf;
+                    rhsI += Hint[k + k*M + q*M2 + l*M3] * C[j] * sqrtOf;
+                    rhsI += Hint[k + k*M + l*M2 + q*M3] * C[j] * sqrtOf;
                     v[k] += 2;
                     v[l] -= 1;
                     v[q] -= 1;
                 }
             }
         }
+        
+        /****************************** Rule 6.1 ******************************/
 
-        /****************************** Rule 7 ******************************/
-
-        for (s = 0; s < M; s++)
+        for (q = 0; q < M; q++)
         {
-            for (k = s + 1; k < M; k++)
+            for (k = q + 1; k < M; k++)
             {
                 if (v[k] < 1) continue;
-                for (l = k + 1; l < M; l++)
+                for (s = k + 1; s < M; s++)
                 {
-                    sqrtOf = v[s] * sqrt(v[k] * (v[l] + 1));
+                    if (v[s] < 1) continue;
+                    sqrtOf = sqrt(v[k] * v[s] * (v[q] + 1) * (v[q] + 2));
                     v[k] -= 1;
-                    v[l] += 1;
+                    v[s] -= 1;
+                    v[q] += 2;
                     j = FockToIndex(N, M, NCmat, v);
-                    rho[k + s*M + s*M2 + l*M3] += conj(C[i]) * C[j] * sqrtOf;
+                    rhsI += Hint[k + s*M + q*M2 + q*M3] * C[j] * sqrtOf;
+                    rhsI += Hint[s + k*M + q*M2 + q*M3] * C[j] * sqrtOf;
                     v[k] += 1;
-                    v[l] -= 1;
+                    v[s] += 1;
+                    v[q] -= 2;
+                }
+            }
+        }
+
+        for (k = 0; k < M; k++)
+        {
+            if (v[k] < 1) continue;
+            for (q = k + 1; q < M; q++)
+            {
+                for (s = q + 1; s < M; s++)
+                {
+                    if (v[s] < 1) continue;
+                    sqrtOf = sqrt(v[k] * v[s] * (v[q] + 1) * (v[q] + 2));
+                    v[k] -= 1;
+                    v[s] -= 1;
+                    v[q] += 2;
+                    j = FockToIndex(N, M, NCmat, v);
+                    rhsI += Hint[k + s*M + q*M2 + q*M3] * C[j] * sqrtOf;
+                    rhsI += Hint[s + k*M + q*M2 + q*M3] * C[j] * sqrtOf;
+                    v[k] += 1;
+                    v[s] += 1;
+                    v[q] -= 2;
                 }
             }
         }
@@ -862,31 +910,42 @@ void RHSofODES(int N, int M, int ** IF, long ** NCmat, Carray rhs)
             if (v[k] < 1) continue;
             for (s = k + 1; s < M; s++)
             {
-                for (l = s + 1; l < M; l++)
+                if (v[s] < 1) continue;
+                for (q = s + 1; q < M; q++)
                 {
-                    sqrtOf = v[s] * sqrt(v[k] * (v[l] + 1));
+                    sqrtOf = sqrt(v[k] * v[s] * (v[q] + 1) * (v[q] + 2));
                     v[k] -= 1;
-                    v[l] += 1;
+                    v[s] -= 1;
+                    v[q] += 2;
                     j = FockToIndex(N, M, NCmat, v);
-                    rho[k + s*M + s*M2 + l*M3] += conj(C[i]) * C[j] * sqrtOf;
+                    rhsI += Hint[k + s*M + q*M2 + q*M3] * C[j] * sqrtOf;
+                    rhsI += Hint[s + k*M + q*M2 + q*M3] * C[j] * sqrtOf;
                     v[k] += 1;
-                    v[l] -= 1;
+                    v[s] += 1;
+                    v[q] -= 2;
                 }
             }
         }
-        
-        for (k = 0; k < M; k++)
+
+        /****************************** Rule 7 ******************************/
+
+        for (s = 0; s < M; s++)
         {
-            if (v[k] < 1) continue;
-            for (l = k + 1; l < M; l++)
+            // if (v[s] < 1) continue // may improve performance 
+            for (k = 0; k < M; k++)
             {
-                for (s = l + 1; s < M; s++)
+                if (v[k] < 1 || k == s) continue;
+                for (l = k + 1; l < M; l++)
                 {
+                    if (l == k || l == s) continue;
                     sqrtOf = v[s] * sqrt(v[k] * (v[l] + 1));
                     v[k] -= 1;
                     v[l] += 1;
                     j = FockToIndex(N, M, NCmat, v);
-                    rho[k + s*M + s*M2 + l*M3] += conj(C[i]) * C[j] * sqrtOf;
+                    rhsI += Hint[k + s*M + s*M2 + l*M3] * C[j] * sqrtOf;
+                    rhsI += Hint[s + k*M + s*M2 + l*M3] * C[j] * sqrtOf;
+                    rhsI += Hint[s + k*M + l*M2 + s*M3] * C[j] * sqrtOf;
+                    rhsI += Hint[k + s*M + l*M2 + s*M3] * C[j] * sqrtOf;
                     v[k] += 1;
                     v[l] -= 1;
                 }
@@ -907,13 +966,13 @@ void RHSofODES(int N, int M, int ** IF, long ** NCmat, Carray rhs)
                     for (l = 0; l < M; l ++)
                     {
                         if (l == k || l == s || l == q) continue;
-                        sqrtOf = sqrt(v[k]*v[s]*(v[q] + 1)*(v[l] + 1));
+                        sqrtOf = sqrt(v[k] * v[s] * (v[q] + 1) * (v[l] + 1));
                         v[k] -= 1;
                         v[s] -= 1;
                         v[q] += 1;
                         v[l] += 1;
                         j = FockToIndex(N, M, NCmat, v);
-                        rho[k+s*M+q*M2+l*M3] += conj(C[i]) * C[j] * sqrtOf;
+                        rhsI += Hint[k + s*M + q*M2 + l*M3] * C[j] * sqrtOf;
                         v[k] += 1;
                         v[s] += 1;
                         v[q] -= 1;
@@ -927,4 +986,180 @@ void RHSofODES(int N, int M, int ** IF, long ** NCmat, Carray rhs)
         }
         // Finish k
 
+        rhs[i] = rhsI;
     }
+
+    free(v);
+}
+
+int main(int argc, char * argv[])
+{
+    omp_set_num_threads(omp_get_max_threads() / 2);
+
+    clock_t start, end;
+    double time_used;
+    double startP;
+
+    int Npar, // Number of particles
+        Morb, // Number of orbitals
+        i,
+        j;
+
+    long k;
+
+    sscanf(argv[1], "%d", &Npar);
+    sscanf(argv[2], "%d", &Morb);
+
+
+
+    /***   Pre-define values of combinatorial problem to be used   ***/
+
+
+
+    printf("\nTotal number of coeficients: %ld\n", NC(Npar, Morb));
+
+    long ** NCmat = MountNCmat(Npar, Morb);
+
+
+
+    /*********                 Main Variables                 *********/
+
+
+
+    Carray C = carrDef( NC( Npar, Morb ) );     // Coeficients of superposition
+    Cmatrix rho = cmatDef( Morb,  Morb);        // onde-body density matrix
+    Carray rho2 = carrDef(Morb*Morb*Morb*Morb); // two-body density matrix
+
+    /***   Setup array of coeficients   ***/
+
+    for (k = 0; k < NCmat[Npar][Morb]; k++)
+    {
+        C[k] = cos(6 * PI / NCmat[Npar][Morb]) + \
+               sin(6 * PI / NCmat[Npar][Morb]) * I;
+        C[k] = C[k] / NCmat[Npar][Morb]; // Normalize
+    }
+
+
+
+    /***         All ocuppation number vectors in a Matrix          ***/
+
+
+
+    int ** ItoFock = MountFocks(Npar, Morb, NCmat);
+
+
+
+    /***          Time performance to setup One-Body part          ***/
+
+
+
+    startP = omp_get_wtime();
+
+    for (i = 0; i < 10; i++) OBrho(Npar, Morb, NCmat, ItoFock, C, rho);
+
+    time_used = (double) (omp_get_wtime() - startP) * 100;
+
+    printf("\n\tTime to setup rho  (Npar = %d, Morb = %d): %.3fms", 
+            Npar, Morb, time_used);
+
+
+
+    /***         Time performance to setup Two-Body part         ***/
+
+
+
+    startP = omp_get_wtime();
+
+    TBrho(Npar, Morb, NCmat, ItoFock, C, rho2);
+    TBrho(Npar, Morb, NCmat, ItoFock, C, rho2);
+
+    time_used = (double) (omp_get_wtime() - startP) * 500;
+
+    printf("\n\n\tTime to setup rho2 (Npar = %d, Morb = %d): %.3fms", 
+            Npar, Morb, time_used);
+
+
+
+    /***                    Release Memory                    ***/
+
+
+
+    for (i = 0; i < Npar + 1; i++) free(NCmat[i]); free(NCmat);
+    
+    for (k = 0; k < NC(Npar, Morb); k++) free(ItoFock[k]); free(ItoFock);
+
+    cmatFree(Morb, rho);
+
+    free(rho2);
+
+    free(C);
+
+
+
+    /***       Print Some Values for the case N = M = 3       ***/
+
+
+
+    Npar = 3;
+    Morb = 3;
+    
+    NCmat = MountNCmat(Npar, Morb);
+    
+    ItoFock = MountFocks(Npar, Morb, NCmat);
+    
+    C = carrDef( NC( Npar, Morb ) );
+
+    carrFill(NC(Npar, Morb), 1, C);
+
+    C[2] = - 1 * I; C[5] = 1 + 1 * I; C[6] = 1 - 1 * I; C[8] = 0;
+    
+    rho = cmatDef( Morb, Morb );                // onde-body density matrix
+    rho2 = carrDef(Morb * Morb * Morb * Morb);  // two-body density matrix
+    
+    OBrho(Npar, Morb, NCmat, ItoFock, C, rho);
+    OBrho(Npar, Morb, NCmat, ItoFock, C, rho);
+
+    TBrho(Npar, Morb, NCmat, ItoFock, C, rho2);
+    TBrho(Npar, Morb, NCmat, ItoFock, C, rho2);
+
+    printf("\n\nMatrix rho for N = M = 3\n");
+    for (i = 0; i < Morb; i++)
+    {
+        printf("\n\t|");
+        for (j = 0; j < Morb; j++)
+        {
+            printf("  %7.3lf %7.3lfj |", creal(rho[i][j]), cimag(rho[i][j]));
+        }
+    }
+
+    printf("\n\nrho2[1,1,0,2] = %7.3lf %7.3lf", creal(rho2[1 + 3 + 2*27]),
+            cimag(rho2[1 + 3 + 2*27]));
+    
+    printf("\n\nrho2[1,2,2,0] = %7.3lf %7.3lf", creal(rho2[1 + 6 + 18]),
+            cimag(rho2[1 + 6 + 18]));
+    
+    printf("\n\nrho2[1,2,2,1] = %7.3lf %7.3lf", creal(rho2[1 + 6 + 18 + 27]),
+            cimag(rho2[1 + 6 + 18 + 27]));
+    
+    printf("\n\nrho2[1,1,1,0] = %7.3lf %7.3lf", creal(rho2[1 + 3 + 9]),
+            cimag(rho2[1 + 3 + 9]));
+
+
+
+    /**************************   Release Memory   **************************/
+
+
+
+    for (i = 0; i < Npar + 1; i++) free(NCmat[i]); free(NCmat);
+    
+    for (k = 0; k < NC(Npar, Morb); k++) free(ItoFock[k]); free(ItoFock);
+
+    cmatFree(Morb, rho);
+
+    free(rho2);
+
+    free(C);
+
+    printf("\n\n");
+    return 0;
+}

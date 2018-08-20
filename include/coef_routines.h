@@ -129,4 +129,7 @@ void TBrho(int N, int M, long ** NCmat, int ** IF, Carray C, Carray rho);
  *
  * **********************************************************************/
 
+void RHSofODES(int N, int M, int ** IF, long ** NCmat,
+               Cmatrix Ho, Carray Hint, Carray C, Carray rhs);
+
 #endif
