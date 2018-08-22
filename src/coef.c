@@ -685,8 +685,7 @@ void RHSofODES(int N, int M, int ** IF, long ** NCmat,
     int  k, // enumerate orbitals
          l,
          s,
-         q,
-         t;
+         q;
 
     int  M2 = M * M,
          M3 = M * M * M;
@@ -697,11 +696,18 @@ void RHSofODES(int N, int M, int ** IF, long ** NCmat,
 
     double complex rhsI; // line step value of right-hand-side
 
+    #pragma omp parallel firstprivate(N, M, M2, M3) \
+    private(i, j, k, l, s, q, rhsI, sqrtOf, v)
+    {
+
+    v = (int * ) malloc(M * sizeof(int));
+
+    #pragma omp for
     for (i = 0; i < NCmat[N][M]; i++)
     {
         rhsI = 0;
 
-        for (t = 0; t < M; t++) v[t] = IF[i][t];
+        for (k = 0; k < M; k++) v[k] = IF[i][k];
 
         for (k = 0; k < M; k++)
         {
@@ -988,178 +994,9 @@ void RHSofODES(int N, int M, int ** IF, long ** NCmat,
 
         rhs[i] = rhsI;
     }
-
+    
     free(v);
-}
 
-int main(int argc, char * argv[])
-{
-    omp_set_num_threads(omp_get_max_threads() / 2);
-
-    clock_t start, end;
-    double time_used;
-    double startP;
-
-    int Npar, // Number of particles
-        Morb, // Number of orbitals
-        i,
-        j;
-
-    long k;
-
-    sscanf(argv[1], "%d", &Npar);
-    sscanf(argv[2], "%d", &Morb);
-
-
-
-    /***   Pre-define values of combinatorial problem to be used   ***/
-
-
-
-    printf("\nTotal number of coeficients: %ld\n", NC(Npar, Morb));
-
-    long ** NCmat = MountNCmat(Npar, Morb);
-
-
-
-    /*********                 Main Variables                 *********/
-
-
-
-    Carray C = carrDef( NC( Npar, Morb ) );     // Coeficients of superposition
-    Cmatrix rho = cmatDef( Morb,  Morb);        // onde-body density matrix
-    Carray rho2 = carrDef(Morb*Morb*Morb*Morb); // two-body density matrix
-
-    /***   Setup array of coeficients   ***/
-
-    for (k = 0; k < NCmat[Npar][Morb]; k++)
-    {
-        C[k] = cos(6 * PI / NCmat[Npar][Morb]) + \
-               sin(6 * PI / NCmat[Npar][Morb]) * I;
-        C[k] = C[k] / NCmat[Npar][Morb]; // Normalize
     }
-
-
-
-    /***         All ocuppation number vectors in a Matrix          ***/
-
-
-
-    int ** ItoFock = MountFocks(Npar, Morb, NCmat);
-
-
-
-    /***          Time performance to setup One-Body part          ***/
-
-
-
-    startP = omp_get_wtime();
-
-    for (i = 0; i < 10; i++) OBrho(Npar, Morb, NCmat, ItoFock, C, rho);
-
-    time_used = (double) (omp_get_wtime() - startP) * 100;
-
-    printf("\n\tTime to setup rho  (Npar = %d, Morb = %d): %.3fms", 
-            Npar, Morb, time_used);
-
-
-
-    /***         Time performance to setup Two-Body part         ***/
-
-
-
-    startP = omp_get_wtime();
-
-    TBrho(Npar, Morb, NCmat, ItoFock, C, rho2);
-    TBrho(Npar, Morb, NCmat, ItoFock, C, rho2);
-
-    time_used = (double) (omp_get_wtime() - startP) * 500;
-
-    printf("\n\n\tTime to setup rho2 (Npar = %d, Morb = %d): %.3fms", 
-            Npar, Morb, time_used);
-
-
-
-    /***                    Release Memory                    ***/
-
-
-
-    for (i = 0; i < Npar + 1; i++) free(NCmat[i]); free(NCmat);
-    
-    for (k = 0; k < NC(Npar, Morb); k++) free(ItoFock[k]); free(ItoFock);
-
-    cmatFree(Morb, rho);
-
-    free(rho2);
-
-    free(C);
-
-
-
-    /***       Print Some Values for the case N = M = 3       ***/
-
-
-
-    Npar = 3;
-    Morb = 3;
-    
-    NCmat = MountNCmat(Npar, Morb);
-    
-    ItoFock = MountFocks(Npar, Morb, NCmat);
-    
-    C = carrDef( NC( Npar, Morb ) );
-
-    carrFill(NC(Npar, Morb), 1, C);
-
-    C[2] = - 1 * I; C[5] = 1 + 1 * I; C[6] = 1 - 1 * I; C[8] = 0;
-    
-    rho = cmatDef( Morb, Morb );                // onde-body density matrix
-    rho2 = carrDef(Morb * Morb * Morb * Morb);  // two-body density matrix
-    
-    OBrho(Npar, Morb, NCmat, ItoFock, C, rho);
-    OBrho(Npar, Morb, NCmat, ItoFock, C, rho);
-
-    TBrho(Npar, Morb, NCmat, ItoFock, C, rho2);
-    TBrho(Npar, Morb, NCmat, ItoFock, C, rho2);
-
-    printf("\n\nMatrix rho for N = M = 3\n");
-    for (i = 0; i < Morb; i++)
-    {
-        printf("\n\t|");
-        for (j = 0; j < Morb; j++)
-        {
-            printf("  %7.3lf %7.3lfj |", creal(rho[i][j]), cimag(rho[i][j]));
-        }
-    }
-
-    printf("\n\nrho2[1,1,0,2] = %7.3lf %7.3lf", creal(rho2[1 + 3 + 2*27]),
-            cimag(rho2[1 + 3 + 2*27]));
-    
-    printf("\n\nrho2[1,2,2,0] = %7.3lf %7.3lf", creal(rho2[1 + 6 + 18]),
-            cimag(rho2[1 + 6 + 18]));
-    
-    printf("\n\nrho2[1,2,2,1] = %7.3lf %7.3lf", creal(rho2[1 + 6 + 18 + 27]),
-            cimag(rho2[1 + 6 + 18 + 27]));
-    
-    printf("\n\nrho2[1,1,1,0] = %7.3lf %7.3lf", creal(rho2[1 + 3 + 9]),
-            cimag(rho2[1 + 3 + 9]));
-
-
-
-    /**************************   Release Memory   **************************/
-
-
-
-    for (i = 0; i < Npar + 1; i++) free(NCmat[i]); free(NCmat);
-    
-    for (k = 0; k < NC(Npar, Morb); k++) free(ItoFock[k]); free(ItoFock);
-
-    cmatFree(Morb, rho);
-
-    free(rho2);
-
-    free(C);
-
-    printf("\n\n");
-    return 0;
+    // End of parallel region
 }

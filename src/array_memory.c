@@ -14,6 +14,9 @@ Rarray rarrDef(int n)
 Carray carrDef(int n)
 { return (double complex * restrict) malloc(n * sizeof(double complex)); }
 
+CMKLarray CMKLdef(int n)
+{ return (MKL_Complex16 *) malloc(n * sizeof(MKL_Complex16)); }
+
 Rmatrix rmatDef(int m, int n)
 {   /* Allocate real matrix of m rows by n columns */
     int i;
@@ -30,27 +33,6 @@ Cmatrix cmatDef(int m, int n)
     M = (double complex ** restrict) malloc(m * sizeof(double complex *));
     for (i = 0; i < m; i++) { M[i] = carrDef(n); }
     return M;
-}
-
-TwoBodyMat TBmatDef(int M)
-{
-    int i, k, j;
-    TwoBodyMat rho2;
-    rho2 = (double complex **** restrict) malloc(M * sizeof(double complex ***));
-    for (i = 0; i < M; i++)
-    {
-        rho2[i] = (double complex ***)malloc(M * sizeof(double complex **));
-        for (j = 0; j < M; j++)
-        {
-            rho2[i][j] = (double complex **)malloc(M * sizeof(double complex *));
-            for (k = 0; k < M; k++)
-            {
-            rho2[i][j][k] = (double complex *)malloc(M * sizeof(double complex));
-            }
-        }
-    }
-
-    return rho2;
 }
 
 
@@ -96,48 +78,52 @@ void RCCSFree(RCCSmat M)
 
 
 /* ======================================================================== */
-/* ======================== COMPLEX PRINT SECTION ========================= */
+/* ============================ PRINT SECTION ============================= */
 /* ======================================================================== */
 
 
 
 void cPrint(double complex z)
-{
-    if (cimag(z) > 0) { printf("%2.3E +%.3Ei", creal(z), cimag(z)); }
-    else { 
-        if (cimag(z) == 0) { printf("%2.3E +0.000E+00i", creal(z)); }
-        else               { printf("%2.3E %.3Ei", creal(z), cimag(z)); }
-    }
-}
+{ printf("(%9.2E,%9.2E )", creal(z), cimag(z)); }
 
 void carrPrint(int n, Carray v)
-{
+{   // Print Array as a Column Vector
+
     int i;
-    if (n < 10) {
-        printf("\n"); // print all numbers for short arrays
-        for (i = 0; i < n; i++) { printf("\n"); cPrint(v[i]); }
+
+    if (n < 30)
+    {   // print all numbers for short arrays
+        for (i = 0; i < n; i++) { printf("\n\t"); cPrint(v[i]); }
     }
-    else {
-        printf("\n"); // print first and last three elements
-        for (i = 0; i < 3; i++)   { printf("\n\t"); cPrint(v[i]); }
-        printf("\n\t\t .\n\t\t .\n\t\t .");
-        for (i = n; i > n-3; i--) { printf("\n\t"); cPrint(v[i]); }
+
+    else
+    {   // print first and last 10 elements
+        for (i = 0; i < 10; i++)     printf("\n\t"); cPrint(v[i]);
+        for (i = 0; i < 5; i++)      printf("\n\t           .");
+        for (i = n - 11; i < n; i++) printf("\n\t"); cPrint(v[i]);
     }
+
+    printf("\n");
 }
 
 void rarrPrint(int n, Rarray v)
-{
+{   // Print Array as a column vector
+
     int i;
-    if (n < 10) {
-        printf("\n");
-        for (i = 0; i < n; i++) printf("\n\t%.9f", v[i]);
+
+    if (n < 30)
+    {   // print all numbers for short arrays
+        for (i = 0; i < n; i++) printf("\n\t%9.2E", v[i]);
     }
-    else {
-        printf("\n");
-        for (i = 0; i < 3; i++)   printf("\n\t%.9f", v[i]);
-        printf("\n\t\t .\n\t\t .\n\t\t .");
-        for (i = n; i > n-3; i--) printf("\n\t%.9f", v[i]);
+
+    else
+    {   // print first and last 10 elements
+        for (i = 0; i < 10; i++)     printf("\n\t%9.2E", v[i]);
+        for (i = 0; i < 5; i++)      printf("\n\t     .");
+        for (i = n - 11; i < n; i++) printf("\n\t%9.2E", v[i]);
     }
+
+    printf("\n");
 }
 
 void carr_txt(char fname [], int M, Carray v)

@@ -21,22 +21,39 @@ void rarrFill(int n, double x, Rarray v)
 }
 
 void rarrFillInc(int n, double x0, double dx, Rarray v)
-{
+{   // Fill increasing along the elements with a step dx
+    // starting from initial value x0
     int i;
     v[0] = x0;
-    for (i = 1; i < n; i++) { v[i] = v[i-1] + dx; }
+    for (i = 1; i < n; i++) v[i] = v[i - 1] + dx;
 }
 
 void carrCopy(int n, Carray from, Carray to)
-{ for (int i = 0; i < n; i++) to[i] = from[i]; }
+{ int i; for (i = 0; i < n; i++) to[i] = from[i]; }
 
 void rarrCopy(int n, Rarray from, Rarray to)
-{ for (int i = 0; i < n; i++) to[i] = from[i]; }
+{ int i; for (i = 0; i < n; i++) to[i] = from[i]; }
+
+void fromMKL(int n, CMKLarray a, Carray b)
+{   // Copy data from MKL array to Complex array
+    int i;
+    for (i = 0; i < n; i++) b[i] = a[i].real + I * a[i].imag;
+}
+
+void toMKL(int n, CMKLarray a, Carray b)
+{   // Copy data from Complex array to MKL datatype
+    int i;
+    for (i = 0; i < n; i++)
+    {
+        a[i].real = creal(b[i]);
+        a[i].imag = cimag(b[i]);
+    }
+}
 
 
 
 /*          ***********************************************          */
-/*                   BASIC OPERATIONS ELEMENT-WISE                   */
+/*                   BASIC ELEMENT-WISE OPERATIONS                   */
 /*          ***********************************************          */
 
 
@@ -116,7 +133,8 @@ void rarrAbs2(int n, Rarray v, Rarray vabs)
 void carrAbs2(int n, Carray v, Rarray vabs)
 {
     int i;
-    for (i = 0; i < n; i++) {
+    for (i = 0; i < n; i++)
+    {
         vabs[i] = creal(v[i]) * creal(v[i]) + cimag(v[i]) * cimag(v[i]);
     }
 }
@@ -157,7 +175,8 @@ double carrMod(int n, Carray v)
 {
     double mod = 0;
     int i;
-    for (i = 0; i < n; i++) {
+    for (i = 0; i < n; i++)
+    {
         mod += creal(v[i]) * creal(v[i]) + cimag(v[i]) * cimag(v[i]);
     }
     return sqrt(mod);
@@ -167,10 +186,27 @@ double carrMod2(int n, Carray v)
 {
     double mod = 0;
     int i;
-    for (i = 0; i < n; i++) {
+    for (i = 0; i < n; i++)
+    {
         mod += creal(v[i]) * creal(v[i]) + cimag(v[i]) * cimag(v[i]);
     }
     return mod;
+}
+
+double complex carrReduction(int n, Carray v)
+{
+    double complex red = 0;
+    int i;
+    for (i = 0; i < n; i++) red += v[i];
+    return red;;
+}
+
+double rarrReduction(int n, Rarray v)
+{
+    double red = 0;
+    int i;
+    for (i = 0; i < n; i++) red += v[i];
+    return red;;
 }
 
 

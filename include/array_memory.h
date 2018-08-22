@@ -5,11 +5,22 @@
 #include <stdlib.h>
 #include "array.h"
 
+
+
+/* ======================================================================== */
+/* ======================== ALLOCATE MEMORY SECTION ======================= */
+/* ======================================================================== */
+
+
+
 // Allocate real vector
 Rarray rarrDef(int n);
 
 // Allocate complex vector
 Carray carrDef(int n);
+
+// Allocate MKL's complex vector
+CMKLarray CMKLdef(int n);
 
 // Allocate real matrix with m rows and n columns
 Rmatrix rmatDef(int m, int n);
@@ -17,7 +28,6 @@ Rmatrix rmatDef(int m, int n);
 // Allocate complex matrix with m rows and n columns
 Cmatrix cmatDef(int m, int n);
 
-TwoBodyMat TBmatDef(int M);
 
 
 /* ======================================================================== */

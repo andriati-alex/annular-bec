@@ -9,20 +9,20 @@
 
 
 void cmatFill(int m, int n, double complex z, Cmatrix M)
-{   /* Fill all matrix with a single constant value */
+{   // Fill all matrix with a single constant value
     unsigned int i, j;
     for (i = 0; i < m; i++) { for (j = 0; j < n; j++) { M[i][j] = z; } }
 }
 
 void cmatFillDK(int n, int k, Carray z, Cmatrix M)
-{   /* Fill a diagonal starting from k-column or row */
+{   // Fill a diagonal starting from k-column or row
     unsigned int i;
     if (k >= 0) { for (i = 0; i < n - k; i++) M[i][i+k] = z[i]; }
     else        { for (i = 0; i < n + k; i++) M[i-k][i] = z[i]; }
 }
 
 void cmatFillTri(int n, Carray upper, Carray mid, Carray lower, Cmatrix M)
-{   /* Fill trigiaonal matrix */
+{   // Fill trigiaonal matrix
     cmatFill(n, n, 0, M);
     cmatFillDK(n, -1, lower, M);
     cmatFillDK(n,  1, upper, M);
@@ -30,7 +30,7 @@ void cmatFillTri(int n, Carray upper, Carray mid, Carray lower, Cmatrix M)
 }
 
 CCSmat emptyCCS(int n, int max_nonzeros)
-{
+{   // Give empty CCS matrix with max. number of nonzero elements known
     CCSmat M = (struct CCS * restrict) malloc(sizeof(struct CCS));
     M->m = max_nonzeros;
     M->vec = carrDef(max_nonzeros * n);
@@ -40,13 +40,13 @@ CCSmat emptyCCS(int n, int max_nonzeros)
 }
 
 void setValueCCS(int n, int i, int j, int col, double complex z, CCSmat M)
-{   /* j-th non-zero term in the row i and col its true column index */
+{   // j-th non-zero term in the row i and col its true column index
     M->vec[i + n * j] = z;
     M->col[i + n * j] = col;
 }
 
 CCSmat triToCCS(int n, Carray upper, Carray lower, Carray mid)
-{   /* Given three diagonals construct CCS matrix format */
+{   // Given three diagonals construct CCS matrix format
     unsigned int j;
 
     CCSmat M = (struct CCS * restrict)malloc(sizeof(struct CCS));
@@ -76,7 +76,7 @@ CCSmat triToCCS(int n, Carray upper, Carray lower, Carray mid)
 }
 
 CCSmat CyclicToCCS(int n, Carray upper, Carray lower, Carray mid)
-{   /* Given three diagonals and cyclic terms construct CCS format */
+{   // Given three diagonals and cyclic terms construct CCS format
     unsigned int j;
     
     CCSmat M = (struct CCS * restrict)malloc(sizeof(struct CCS));
@@ -111,6 +111,17 @@ CCSmat CyclicToCCS(int n, Carray upper, Carray lower, Carray mid)
     return M;
 }
 
+void RowMajor(int m, int n, Cmatrix M, Carray v)
+{   // Convert a Matrix to a vector using Row Major storage scheme
+    int i,
+        j;
+
+    for (i = 0; i < m; i++)
+    {
+        for (j = 0; j < n; j++) v[i * m + j] = M[i][j];
+    }
+}
+
 
 
 /*          **********************************************          */
@@ -141,12 +152,13 @@ void CCSvec(int n, Carray vals, int * restrict cols, int m,
             Carray vec, Carray ans)
 {
     unsigned int i, l;
-    #pragma omp parallel for private(l, i)
-    for (i = 0; i < n; i++) {
-        ans[i] = vals[i] * vec[cols[i]];
-        for (l = 1; l < m; l++) {
-            ans[i] += vals[i + l * n] * vec[cols[i + l * n]];
-        }
+    double complex re; // reduction
+    #pragma omp parallel for private(l, i, re)
+    for (i = 0; i < n; i++)
+    {
+        re = vals[i] * vec[cols[i]];
+        for (l = 1; l < m; l++) re += vals[i + l*n] * vec[cols[i + l*n]];
+        ans[i] = re;
     }
 }
 

@@ -42,7 +42,7 @@ void cmatFillDK(int n, int k, Carray z, Cmatrix M);
 
 
 void cmatFillTri(int n, Carray upper, Carray mid, Carray lower, Cmatrix M);
-/* Fill a matrix with just the tridiagonals entries, rest with zeros */
+/*   Fill a matrix with just the tridiagonals entries, rest with zeros   */
 
 
 
@@ -57,17 +57,22 @@ CCSmat triToCCS(int n, Carray upper, Carray lower, Carray mid);
 
 
 CCSmat CyclicToCCS(int n, Carray upper, Carray lower, Carray mid);
-/* Fill in CCS format given tridiagonal cyclic system */
+/*      Fill in CCS format given tridiagonal cyclic system      */
 
 
 
 void setValueCCS(int n, int i, int j, int col, double complex z, CCSmat M);
-/* Set a value in the i row and original column number col */
+/*        Set a value in the i row and original column number col        */
 
 
 
 CCSmat emptyCCS(int n, int max_nonzeros);
-/* Initialize an empty CCS matrix */
+/*    Initialize an empty CCS matrix   */
+
+
+
+void RowMajor(int m, int n, Cmatrix M, Carray v);
+/* Store Matrix M(m x n) in a vector v using Row Major scheme */
 
 
 

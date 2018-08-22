@@ -430,6 +430,7 @@ void BuildRho2(int N, int M, long ** NCmat, Carray C, Carray rho)
     free(v);
 }
 
+
 int main(int argc, char * argv[])
 {
     omp_set_num_threads(omp_get_max_threads() / 2);
@@ -465,6 +466,7 @@ int main(int argc, char * argv[])
 
 
     Carray C = carrDef( NC( Npar, Morb ) );     // Coeficients of superposition
+    Carray rhs = carrDef( NC( Npar, Morb ) );
     Cmatrix rho = cmatDef( Morb,  Morb);        // onde-body density matrix
     Carray rho2 = carrDef(Morb*Morb*Morb*Morb); // two-body density matrix
 
@@ -516,6 +518,14 @@ int main(int argc, char * argv[])
     printf("\n\n\tTime to setup rho2 (Npar = %d, Morb = %d): %.3fms", 
             Npar, Morb, time_used);
 
+    startP = omp_get_wtime();
+
+    RHSofODES(Npar, Morb, ItoFock, NCmat, rho, rho2, C, rhs);
+    RHSofODES(Npar, Morb, ItoFock, NCmat, rho, rho2, C, rhs);
+    
+    time_used = (double) (omp_get_wtime() - startP) * 500;
+    printf("\n\n\tTime to run RHS of ODES: %.3lfms", time_used);
+
 
 
     /***                    Release Memory                    ***/
@@ -523,7 +533,7 @@ int main(int argc, char * argv[])
 
 
     for (i = 0; i < Npar + 1; i++) free(NCmat[i]); free(NCmat);
-    
+
     for (k = 0; k < NC(Npar, Morb); k++) free(ItoFock[k]); free(ItoFock);
 
     cmatFree(Morb, rho);
@@ -531,6 +541,8 @@ int main(int argc, char * argv[])
     free(rho2);
 
     free(C);
+
+    free(rhs);
 
 
 
@@ -563,24 +575,21 @@ int main(int argc, char * argv[])
     printf("\n\nMatrix rho for N = M = 3\n");
     for (i = 0; i < Morb; i++)
     {
-        printf("\n\t|");
+        printf("\n\t");
         for (j = 0; j < Morb; j++)
         {
-            printf("  %7.3lf %7.3lfj |", creal(rho[i][j]), cimag(rho[i][j]));
+            cPrint(rho[i][j]);
+            printf("  ");
         }
     }
 
-    printf("\n\nrho2[1,1,0,2] = %7.3lf %7.3lf", creal(rho2[1 + 3 + 2*27]),
-            cimag(rho2[1 + 3 + 2*27]));
+    printf("\n\nrho2[1,1,0,2] = "); cPrint(rho2[1 + 3 + 2 * 27]);
     
-    printf("\n\nrho2[1,2,2,0] = %7.3lf %7.3lf", creal(rho2[1 + 6 + 18]),
-            cimag(rho2[1 + 6 + 18]));
+    printf("\n\nrho2[1,2,2,0] = "); cPrint(rho2[1 + 2 * 3 + 2 * 9]);
     
-    printf("\n\nrho2[1,2,2,1] = %7.3lf %7.3lf", creal(rho2[1 + 6 + 18 + 27]),
-            cimag(rho2[1 + 6 + 18 + 27]));
+    printf("\n\nrho2[1,2,2,1] = "); cPrint(rho2[1 + 6 + 18 + 27]);
     
-    printf("\n\nrho2[1,1,1,0] = %7.3lf %7.3lf", creal(rho2[1 + 3 + 9]),
-            cimag(rho2[1 + 3 + 9]));
+    printf("\n\nrho2[1,1,1,0] = "); cPrint(rho2[1 + 3 + 9]);
 
 
 

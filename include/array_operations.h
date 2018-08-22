@@ -6,7 +6,7 @@
 #endif
 
 #include <math.h>
-#include "array.h" /* Array Data-type */
+#include "array.h"
 
 
 
@@ -26,6 +26,11 @@ void rarrFillInc(int n, double x0, double dx, Rarray v);
 // Copy elements "from" array "to" array
 void carrCopy(int n, Carray from, Carray to);
 void rarrCopy(int n, Rarray from, Rarray to);
+
+// Convert array datatypes
+void fromMKL(int n, CMKLarray a, Carray b);
+void fromCarray(int n, Carray b, CMKLarray a);
+
 
 
 /*          ***********************************************          */
@@ -102,6 +107,10 @@ double carrMod(int n, Carray v);
 
 // Vector Modulus squared
 double carrMod2(int n, Carray v);
+
+// Sum all elements of a vector
+double complex carrReduction(int n, Carray v);
+double rarrReduction(int n, Rarray v);
 
 
 
