@@ -1,5 +1,102 @@
 #include "../include/MCTDHB_integrator.h"
 
+void Coef_HalfStep(int N, int M, int ** IF, long ** NCmat, Cmatrix Ho,
+                   Carray Hint, Carray C, double dt, Carray Cnext)
+{   // Evolve half time step using Euler-Cauchy method(explicit trapezium)
+
+    long i; // Counter
+
+    Carray Caux = carrDef(NCmat[N][M]);
+
+    RHSofODES(N, M, IF, NCmat, Ho, Hint, C, Caux);
+
+    for (i = 0; i < NCmat[N][M]; i++)
+    {   // Caux will be the vector to call the foward step RHS
+        Caux[i] = (0.5 * dt) * Caux[i] + C[i];
+    }
+
+    // Cnext hold the foward (half)time step RHS of the system, for now
+    RHSofODES(N, M, IF, NCmat, Ho, Hint, Caux, Cnext);
+
+    for (i = 0; i < NCmat[N][M]; i++)
+    {   // Add up the terms to get the solution at next (half)time step
+        Caux[i] = (Caux[i] - C[i]); // The first term we must sum
+        Cnext[i] = C[i] + Caux[i] * 0.5 + Cnext[i] * (0.25 * dt);
+    }
+
+    free(Caux);
+}
+
+void Coef_Step(int N, int M, int ** IF, long ** NCmat, Cmatrix Ho,
+                   Carray Hint, Carray C, double dt, Carray Cnext)
+{   // Evolve half time step using Euler-Cauchy method(explicit trapezium)
+
+    long i; // Counter
+
+    Carray Karg = carrDef(NCmat[N][M]);
+    Carray Kans = carrDef(NCmat[N][M]);
+
+    /***************               COMPUTE K1               ***************/
+
+    RHSofODES(N, M, IF, NCmat, Ho, Hint, C, Kans);
+
+    for (i = 0; i < NCmat[N][M]; i++)
+    {   // Add K1 contribution
+        Cnext[i] = Kans[i];
+        // Prepare next argument to compute K2
+        Karg[i] = C[i] + Kans[i] * 0.5 * dt;
+    }
+
+    /* ================================================================== */
+    /*                                                                    */
+    /*                     Need to update Ho and Hint                     */
+    /*                                                                    */
+    /* ================================================================== */
+    
+    /***************               COMPUTE K2               ***************/
+
+    RHSofODES(N, M, IF, NCmat, Ho, Hint, Karg, Kans);
+
+    for (i = 0; i < NCmat[N][M]; i++)
+    {   // Add K2 contribution
+        Cnext[i] += 2 * Kans[i];
+        // Prepare next argument to compute K3
+        Karg[i] = C[i] + Kans[i] * 0.5 * dt;
+    }
+
+    /***************               COMPUTE K3               ***************/
+
+    RHSofODES(N, M, IF, NCmat, Ho, Hint, Karg, Kans);
+    
+    for (i = 0; i < NCmat[N][M]; i++)
+    {   // Add K3 contribution
+        Cnext[i] += 2 * Kans[i];
+        // Prepare next argument to compute K4
+        Karg[i] = C[i] + Kans[i] * dt;
+    }
+    
+    /* ================================================================== */
+    /*                                                                    */
+    /*                     Need to update Ho and Hint                     */
+    /*                                                                    */
+    /* ================================================================== */
+
+    /***************               COMPUTE K4               ***************/
+
+    RHSofODES(N, M, IF, NCmat, Ho, Hint, Karg, Kans);
+
+    for (i = 0; i < NCmat[N][M]; i++)
+    {   // Add K4 contribution
+        Cnext[i] += Kans[i];
+    }
+
+    // Until now Cnext holds the sum K1 + 2 * K2 + 2 * K3 + K4
+    // from the Fourth order Runge-Kutta algorithm. Therefore:
+    
+    for (i = 0; i < NCmat[N][M]; i++) Cnext[i] = C[i] + Cnext * dt / 6;
+
+}
+
 void FieldStep(Carray C, Cmatrix rho, Carray rho2)
 {
     unsigned int i, j;

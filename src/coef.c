@@ -673,7 +673,7 @@ void TBrho(int N, int M, long ** NCmat, int ** IF, Carray C, Carray rho)
         }
     }
 
-    // END ROUTINE
+    /**********                  END OF ROUTINE                  **********/
 }
 
 void RHSofODES(int N, int M, int ** IF, long ** NCmat,
@@ -690,9 +690,9 @@ void RHSofODES(int N, int M, int ** IF, long ** NCmat,
     int  M2 = M * M,
          M3 = M * M * M;
 
-    int * v = (int * ) malloc(M * sizeof(int));
+    int * v; // Occupation vector on each iteration
 
-    double sqrtOf;
+    double sqrtOf; // Factor proportional to occupation on a given orbital
 
     double complex rhsI; // line step value of right-hand-side
 
@@ -983,20 +983,17 @@ void RHSofODES(int N, int M, int ** IF, long ** NCmat,
                         v[s] += 1;
                         v[q] -= 1;
                         v[l] -= 1;
-                    }
-                    // Finish l
-                }
-                // Finish q
-            }
-            // Finish s
-        }
-        // Finish k
+                    }   // Finish l
+                }       // Finish q
+            }           // Finish s
+        }               // Finish k
 
         rhs[i] = rhsI;
     }
     
     free(v);
 
-    }
-    // End of parallel region
+    } // End of parallel region
+    
+    /**********                  END OF ROUTINE                  **********/
 }
