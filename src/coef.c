@@ -677,7 +677,8 @@ void TBrho(int N, int M, long ** NCmat, int ** IF, Carray C, Carray rho)
 }
 
 void RHSofODES(int N, int M, int ** IF, long ** NCmat,
-               Cmatrix Ho, Carray Hint, Carray C, Carray rhs)
+               Cmatrix Ho, Carray Hint, Carray C, Carray rhs,
+               OrbitalSet Old, OrbitalSet New)
 {
     long i, // index of coeficient
          j;
@@ -688,13 +689,28 @@ void RHSofODES(int N, int M, int ** IF, long ** NCmat,
          q;
 
     int  M2 = M * M,
-         M3 = M * M * M;
+         M3 = M * M * M; // To go through the rho2 indices
 
     int * v; // Occupation vector on each iteration
 
     double sqrtOf; // Factor proportional to occupation on a given orbital
 
-    double complex rhsI; // line step value of right-hand-side
+    double complex rhsI; // line step value of right-hand-side for C
+
+    /* ================================================================== */
+    /*                                                                    */
+    /*                   Setup Ho and Hint with orbital                   */
+    /*                                                                    */
+    /* ================================================================== */
+
+    SetupHo(Old, a2, a1, V, Ho);
+    SetupHint(Old, inter, Hint);
+    
+    /* ================================================================== */
+    /*                                                                    */
+    /*                      Apply RHS of coeficients                      */
+    /*                                                                    */
+    /* ================================================================== */
 
     #pragma omp parallel firstprivate(N, M, M2, M3) \
     private(i, j, k, l, s, q, rhsI, sqrtOf, v)
@@ -988,12 +1004,34 @@ void RHSofODES(int N, int M, int ** IF, long ** NCmat,
             }           // Finish s
         }               // Finish k
 
-        rhs[i] = rhsI;
+        rhs[i] = - I * rhsI;
     }
     
     free(v);
 
     } // End of parallel region
     
+    /* ================================================================== */
+    /*                                                                    */
+    /*                        Apply RHS of Orbitals                       */
+    /*                                                                    */
+    /* ================================================================== */
+
+
+    OBrho(N, M, NCmat, IF, C, rho);
+    TBrho(N, M, NCmat, IF, C, rho2);
+
+    Omat = OldOrb->O;
+
+    for (k = 0; k < M; k++)
+    {
+        for (j = 0; j < OldOrb->Mdx; j++)
+        {   // Add up contribution from projection of linear part
+            for (s = 0; s < M; s++) Proj_Ho += Ho[i][k] * Omat[s][j];
+            // Add up contribution from projection of nonlinear part
+            Omat[k][j] = Proj_Ho + Proj_Hint(rho_inv, rho2, Hint);
+    }
+
+
     /**********                  END OF ROUTINE                  **********/
 }

@@ -1,5 +1,93 @@
 #include "../include/MCTDHB_integrator.h"
 
+struct orbitals
+{
+    int Morb;   // Number of orbitals
+    int Mdx;    // Number of division between xi and xf
+    double dx;  // spatial step
+    double xi;
+    double xf;
+    Cmatrix O;  // Values of orbitals on each position (Morb x Mdx)
+};
+
+typedef struct orbitals * OritalSet;
+
+void SetupHo(OrbitalSet psi, double a2, double complex a1, Rarray V, Cmatrix Ho)
+{
+    int i,
+        j,
+        k,
+        M = psi->Morb,
+        N = psi->Mdx;
+
+    Carray ddxi = carrDef(N);
+    Carray ddxj = carrDef(N);
+    Carray toInt = carrDef(N);
+
+    Cmatrix Omat = psi->O;
+
+    for (i = 0; i < M; i++)
+    {
+        dxCyclic(N, Omat[i], psi->dx, ddxi);
+        for (j = i; j < M; j++)
+        {
+            dxCyclic(N, Omat[j], psi->dx, ddxj);
+            for (k = 0; k < N; k++)
+            {
+                toInt[k] = - a2 * conj(ddxi[k]) * ddxj[k]    \
+                           + a1 * conj(Omat[i][k]) * ddxj[k] \
+                           + V[k] * conj(Omat[i][k]) * Omat[j][k];
+            }
+            Ho[i][j] = Csimps(N, toInt, psi->dx);
+            Ho[j][i] = conj(H[i][j]);
+        }
+    }
+
+    free(ddxi); free(ddxj); free(toInt);
+}
+
+void SetupHint(OrbitalSet psi, double inter, Cmatrix Hint)
+{
+    int i,
+        k,
+        s,
+        q,
+        l,
+        M = psi->Morb,
+        N = psi->Mdx;
+
+    double complex res;
+
+    Carray toInt = carrDef(N);
+
+    Cmatrix Omat = psi->O;
+
+    for (k = 0; k < M; k++)
+    {
+        for (s = k; s < M; s++)
+        {
+            for (q = 0; q < M; q++)
+            {
+                for (l = q; l < M; l++)
+                {
+                    for (i = 0; i < N; i++)
+                    {
+                        toInt[i] = conj(Omat[k][i] * Omat[s][i]) * \
+                                   Omat[q][i] * Omag[l][i];
+                    }
+                    res = inter * Csimps(N, toInt, psi->dx);
+                    Hint[k + s * M + q * M2 + l * M3] = res;
+                    Hint[k + s * M + l * M2 + q * M3] = res;
+                    Hint[s + k * M + q * M2 + l * M3] = res;
+                    Hint[s + k * M + l * M2 + q * M3] = res;
+                }   // Take advantage of the symmetry
+            }
+        }
+    }
+
+    free(toInt);
+}
+
 void Coef_HalfStep(int N, int M, int ** IF, long ** NCmat, Cmatrix Ho,
                    Carray Hint, Carray C, double dt, Carray Cnext)
 {   // Evolve half time step using Euler-Cauchy method(explicit trapezium)
@@ -28,7 +116,7 @@ void Coef_HalfStep(int N, int M, int ** IF, long ** NCmat, Cmatrix Ho,
 }
 
 void Coef_Step(int N, int M, int ** IF, long ** NCmat, Cmatrix Ho,
-                   Carray Hint, Carray C, double dt, Carray Cnext)
+               Carray Hint, Carray C, double dt, Carray Cnext)
 {   // Evolve half time step using Euler-Cauchy method(explicit trapezium)
 
     long i; // Counter
@@ -97,7 +185,7 @@ void Coef_Step(int N, int M, int ** IF, long ** NCmat, Cmatrix Ho,
 
 }
 
-void FieldStep(Carray C, Cmatrix rho, Carray rho2)
+void Field_Step(Carray C, Cmatrix rho_inv, Carray rho2)
 {
     unsigned int i, j;
     double complex Idt = 0.0 - dt * I;
