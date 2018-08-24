@@ -227,6 +227,11 @@ int main(int argc, char * argv[])
             time_used = (double) (omp_get_wtime() - start);
             printf("\nTime taken to solve(FFT) : %.3f seconds\n", time_used);
             break;
+        case 4:
+            RK4gp(M + 1, N, dx, dt, a2, a1, inter, V, 1, S);
+            time_used = (double) (omp_get_wtime() - start);
+            printf("\nTime taken to solve(RK4) : %.3f seconds\n", time_used);
+            break;
     }
 
 

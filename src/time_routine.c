@@ -411,3 +411,184 @@ void lastStep(int M, int N, double dx, double dt, double a2, double complex a1,
     free(Sstep);
     CCSFree(rhs_mat);
 }
+
+void ApplyRHS(int M, double inter, Carray S, Carray rhs)
+{   // The Right-Hand-Side function to evolve with Runge-Kutta
+
+    int i;
+
+    for (i = 0; i < M; i++)
+    {
+        rhs[i] = inter * (creal(S[i]) * creal(S[i]) + cimag(S[i]) * cimag(S[i])) * S[i];
+    }
+
+    for (i = 0; i < M - 1; i++) rhs[i] = (-1.0) * I * rhs[i];
+}
+
+void RK4gp(int M, int N, double dx, double dt, double a2, double complex a1,
+           double inter, Rarray V, int cyclic, Cmatrix S)
+{   // Evolve Gross-Pitaevskii using 4-th order Runge-Kutta
+    int i,
+        j;
+
+    Carray karg = carrDef(M);
+    Carray kans = carrDef(M);
+
+    // Used to apply nonlinear part
+    Carray linpart = carrDef(M);
+    Rarray abs2    = rarrDef(M); // abs square of wave function
+
+    // used to store matrix elements of linear part
+    Carray upper = carrDef(M);
+    Carray lower = carrDef(M);
+    Carray mid   = carrDef(M);
+    Carray rhs   = carrDef(M);
+
+    /*                 ****************************                 */
+    /*                 Setup Right-Hand-Side matrix                 */
+    /*                 ****************************                 */
+
+    // fill main diagonal (use upper as auxiliar pointer)
+    carrFill(M, - a2 * dt / dx / dx + I, upper);
+    rcarrUpdate(M, upper, dt, V, mid);
+
+    // fill upper diagonal
+    carrFill(M, a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, upper);
+    if (cyclic) { upper[M-1] = a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
+    else        { upper[M-1] = 0;                                        }
+
+    // fill lower diagonal
+    carrFill(M, a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, lower);
+    if (cyclic) { lower[M-1] = a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
+    else        { lower[M-1] = 0;                                        }
+
+    // Store in CCS format
+    CCSmat rhs_mat = CyclicToCCS(M, upper, lower, mid);
+
+    /*                *******************************                */
+    /*                Setup Cyclic tridiagonal matrix                */
+    /*                *******************************                */
+
+    // fill main diagonal (use upper as auxiliar pointer)
+    carrFill(M, a2 * dt / dx /dx + I, upper);
+    rcarrUpdate(M, upper, -dt, V, mid);
+
+    // fill upper diagonal
+    carrFill(M, - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, upper);
+    if (cyclic) { upper[M-1] = - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
+    else        { upper[M-1] = 0;                                          }
+
+    // fill lower diagonal
+    carrFill(M, - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, lower);
+    if (cyclic) { lower[M-1] = - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
+    else        { lower[M-1] = 0;                                          }
+
+    /* Apply Split step and solve separately nonlinear and linear part */
+    /* *************************************************************** */
+
+    dt = dt / 2;
+
+    for (i = 0; i < N; i++) {
+        // Apply exponential with nonlinear part
+
+        // Compute k1 in kans
+        ApplyRHS(M, inter, S[i], kans);
+
+        for (j = 0; j < M; j++)
+        {   // Add up contribution from k1
+            linpart[j] = kans[j];
+            // Argument to give k2
+            karg[j] = S[i][j] + 0.5 * dt * kans[j];
+        }
+        
+        // Compute k2 in kans
+        ApplyRHS(M, inter, karg, kans);
+
+        for (j = 0; j < M; j++)
+        {   // Add up contribution from k2
+            linpart[j] += 2 * kans[j];
+            // Argument to give k3
+            karg[j] = S[i][j] + 0.5 * dt * kans[j];
+        }
+        
+        // Compute k3 in kans
+        ApplyRHS(M, inter, karg, kans);
+
+        for (j = 0; j < M; j++)
+        {   // Add up contribution from k3
+            linpart[j] += 2 * kans[j];
+            // Argument to give k4
+            karg[j] = S[i][j] + dt * kans[j];
+        }
+
+        // Compute k4 in kans
+        ApplyRHS(M, inter, karg, kans);
+
+        for (j = 0; j < M; j++)
+        {   // Add up contribution from k4
+            linpart[j] += kans[j];
+        }
+        
+        for (j = 0; j < M; j++)
+        {   // Finish RK4
+            linpart[j] = S[i][j] + linpart[j] * dt / 6;
+        }
+
+        // Solve linear part
+        CCSvec(M, rhs_mat->vec, rhs_mat->col, rhs_mat->m, linpart, rhs);
+        triCyclicSM(M, upper, lower, mid, rhs, linpart);
+
+        // Compute k1 in kans
+        ApplyRHS(M, inter, linpart, kans);
+
+        for (j = 0; j < M; j++)
+        {   // Add up contribution from k1
+            S[i + 1][j] = kans[j];
+            // Argument to give k2
+            karg[j] = linpart[j] + 0.5 * dt * kans[j];
+        }
+        
+        // Compute k2 in kans
+        ApplyRHS(M, inter, karg, kans);
+
+        for (j = 0; j < M; j++)
+        {   // Add up contribution from k2
+            S[i + 1][j] += 2 * kans[j];
+            // Argument to give k3
+            karg[j] = linpart[j] + 0.5 * dt * kans[j];
+        }
+        
+        // Compute k3 in kans
+        ApplyRHS(M, inter, karg, kans);
+
+        for (j = 0; j < M; j++)
+        {   // Add up contribution from k3
+            S[i + 1][j] += 2 * kans[j];
+            // Argument to give k4
+            karg[j] = linpart[j] + dt * kans[j];
+        }
+        
+        // Compute k4 in kans
+        ApplyRHS(M, inter, karg, kans);
+
+        for (j = 0; j < M; j++)
+        {   // Add up contribution from k2
+            S[i + 1][j] += kans[j];
+        }
+
+        for (j = 0; j < M; j++)
+        {   // Finish RK4
+            S[i + 1][j] = linpart[j] + S[i + 1][j] * dt / 6;
+        }
+    }
+
+    free(linpart);
+    free(upper);
+    free(lower);
+    free(mid);
+    free(rhs);
+    CCSFree(rhs_mat);
+
+    free(karg);
+    free(kans);
+}

@@ -53,4 +53,9 @@ void lastStep(int M, int N, double dx, double dt, double a2, double complex a1,
               double inter, Rarray V, int cyclic, Carray S);
 /* Return just an array with the last time step obtained */
 
+void ApplyRHS(int M, double inter, Carray S, Carray rhs);
+
+void RK4gp(int M, int N, double dx, double dt, double a2, double complex a1,
+           double inter, Rarray V, int cyclic, Cmatrix S);
+
 #endif
