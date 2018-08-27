@@ -2,12 +2,12 @@
 
 struct orbitals
 {
-    int Morb;   // Number of orbitals
-    int Mdx;    // Number of division between xi and xf
+    int Morb;   // # of orbitals
+    int Mp;     // # discretized positions (# of divisions + 1)
     double dx;  // spatial step
     double xi;
     double xf;
-    Cmatrix O;  // Values of orbitals on each position (Morb x Mdx)
+    Cmatrix O;  // Values of orbitals on each position (Morb x M)
 };
 
 typedef struct orbitals * MCorital;
@@ -23,6 +23,35 @@ struct coeficients
 };
 
 typedef struct coeficients * MCcoef;
+
+struct eq_parameters
+{
+    double a2;
+    double inter;
+    double complex a1;
+    Rarray V;
+};
+
+typedef struct eq_parameters * EqSetup;
+
+MCorbital AllocOrb(int Morb, int M)
+{
+    MCorbital psi = (MCorbital) malloc(sizeof(struct orbitals));
+    psi->O = cmatDef(Morb, M);
+    return psi;
+}
+
+MCcoef AllocCoef(int Morb, int Npar)
+{
+    MCcoef Coef = (MCcoef) malloc(sizeof(struct coeficients));
+    Coef->Npar = Npar;
+    Coef->Morb = Morb;
+    Coef->NCmat = MountNCmat(Npar, Morb);
+    Coef->nc = Coef->NCmat[Npar][Morb];
+    Coef->IF = MountFocks(Npar, Morb, Coef->NCmat);
+    Coef->C = carrDef(Coef->nc);
+    return Coef;
+}
 
 void SetupHo(MCorbital psi, double a2, double complex a1, Rarray V, Cmatrix Ho)
 {
@@ -100,6 +129,65 @@ void SetupHint(MCorbital psi, double inter, Cmatrix Hint)
     free(toInt);
 }
 
+double complex Proj_Hint(int M, int k, int i, Cmatrix rho_inv, Carray rho2,
+                         Carray Hint)
+{
+    int j,
+        s,
+        q,
+        l,
+        i_rho2,
+        i_Hint;
+
+    double complex ans = 0;
+
+    for (j = 0; j <M; j++)
+    {
+        for (s = 0; s < M; s++)
+        {
+            for (q = 0; q < M; q++)
+            {
+                for (l = 0; l < M; l++)
+                {
+                    i_rho2 = j + s * M + q * M * M + l * M * M * M;
+                    i_Hint = i + s * M + l * M * M + q * M * M * M;
+                    ans += rho_inv[k][j] * rho2[i_rho2] * Hint[i_Hint];
+                }
+            }
+        }
+    }
+
+    return ans;
+}
+
+double complex NonLinear(int M, int k, int n, MCorbital psi, Cmatrix rho_inv,
+                         Carray rho2)
+{
+    int j,
+        s,
+        q,
+        l,
+        i_rho2;
+
+    Cmatrix Omat = psi->O;
+
+    for (j = 0; j < M; j++)
+    {
+        for (s = 0; s < M; s++)
+        {
+            for (q = 0; q < M; q++)
+            {
+                for (l = 0; l < M; l++)
+                {
+                    i_rho2 = j + s * M + q * M * M + l * M * M * M;
+                    ans += rho_inv[k][j] * rho2[i_rho2] * \
+                           conj(Omat[s][n]) * Omat[l][n] * Omat[q][n];
+                }
+            }
+        }
+    }
+}
+
 void RK4step(MCorbitals psi, MCcoef coef, EqSetup eq, double dt)
 {   // Apply 4-th order Runge-Kutta routine given a time step
 
@@ -121,7 +209,7 @@ void RK4step(MCorbitals psi, MCcoef coef, EqSetup eq, double dt)
 
     /***************               COMPUTE K1               ***************/
 
-    RHSforRK4(coef, psi, Crhs, Orhs, Ho, Hint);
+    RHSforRK4(coef, psi, eq, Ho, Hint, Crhs, Orhs);
 
     for (i = 0; i < coef->nc; i++)
     {   // Add K1 contribution
@@ -142,7 +230,7 @@ void RK4step(MCorbitals psi, MCcoef coef, EqSetup eq, double dt)
 
     /***************               COMPUTE K2               ***************/
 
-    RHSforRK4(Carg, Oarg, Crhs, Orhs, Ho, Hint);
+    RHSforRK4(Carg, Oarg, eq, Ho, Hint, Crhs, Orhs);
 
     for (i = 0; i < coef->nc; i++)
     {   // Add K2 contribution
@@ -163,7 +251,7 @@ void RK4step(MCorbitals psi, MCcoef coef, EqSetup eq, double dt)
 
     /***************               COMPUTE K3               ***************/
 
-    RHSforRK4(Carg, Oarg, Crhs, Orhs, Ho, Hint);
+    RHSforRK4(Carg, Oarg, eq, Ho, Hint, Crhs, Orhs);
 
     for (i = 0; i < coef->nc; i++)
     {   // Add K3 contribution
@@ -184,7 +272,7 @@ void RK4step(MCorbitals psi, MCcoef coef, EqSetup eq, double dt)
 
     /***************               COMPUTE K4               ***************/
 
-    RHSforRK4(Carg, Oarg, Crhs, Orhs, Ho, Hint);
+    RHSforRK4(Carg, Oarg, eq, Ho, Hint, Crhs, Orhs);
 
     for (i = 0; i < coef->nc; i++)
     {   // Add K4 contribution
@@ -219,67 +307,9 @@ void RK4step(MCorbitals psi, MCcoef coef, EqSetup eq, double dt)
     cmatFree(M, Onew);
 }
 
-double complex Proj_Hint(int M, int k, int s,
-        Cmatrix rho_inv, Carray rho2, Carray Hint)
-{
-    int j,
-        i,
-        q,
-        l,
-        i_rho2,
-        i_Hint;
 
-    double complex ans = 0;
-
-    for (j = 0; j <M; j++)
-    {
-        for (i = 0; i < M; i++)
-        {
-            for (q = 0; q < M; q++)
-            {
-                for (l = 0; l < M; l++)
-                {
-                    i_rho2 = j + i * M + q * M * M + l * M * M * M;
-                    i_Hint = s + i * M + l * M * M + q * M * M * M;
-                    ans += rho_inv[k][j] * rho2[i_rho2] * Hint[i_Hint];
-                }
-            }
-        }
-    }
-
-    return ans;
-}
-
-double complex NonLinear(int k, int n, MCorbital psi,
-                         Cmatrix rho_inv, Carray rho2)
-{
-    int j,
-        i,
-        q,
-        l,
-        i_rho2;
-
-    Cmatrix Omat = psi->O;
-
-    for (j = 0; j <M; j++)
-    {
-        for (i = 0; i < M; i++)
-        {
-            for (q = 0; q < M; q++)
-            {
-                for (l = 0; l < M; l++)
-                {
-                    i_rho2 = j + i * M + q * M * M + l * M * M * M;
-                    ans += rho_inv[k][j] * rho2[i_rho2] * \
-                           conj(Omat[i][n]) * Omat[l][n] * Omat[q][n];
-                }
-            }
-        }
-    }
-}
-
-void RHSforRK4(MCcoef coef, MCorbital psi, Carray newC, Cmatrix newOrb,
-               Cmatrix Ho, Carray Hint)
+void RHSforRK4(MCcoef coef, MCorbital psi, EqSetup eq, Cmatrix Ho, Carray Hint,
+               Carray newC, Cmatrix newOrb)
 {
     long i, // index of coeficient
          j;
@@ -288,16 +318,7 @@ void RHSforRK4(MCcoef coef, MCorbital psi, Carray newC, Cmatrix newOrb,
          l,
          s,
          q;
-
-    int  M2 = M * M, // To assist accessing two-body matrix elements
-         M3 = M * M * M;
-
-    int * v; // Occupation vector on each iteration
-
-    double sqrtOf; // Factor proportional to occupation on a given orbital
-
-    double complex rhsI; // line step value of right-hand-side for C
-
+    
     /* ================================================================== */
     /*                                                                    */
     /*                     Name variables from struct                     */
@@ -313,14 +334,50 @@ void RHSforRK4(MCcoef coef, MCorbital psi, Carray newC, Cmatrix newOrb,
 
     Carray C = coef->C;
 
+    Cmatrix Omat = psi->O;
+    
+    /* ================================================================== */
+    /*                                                                    */
+    /*                        Auxiliary variables                         */
+    /*                                                                    */
+    /* ================================================================== */
+
+    int  M2 = M * M,
+         M3 = M * M * M; // To assist accessing two-body matrix elements
+
+    int * v;             // Occupation vector on each iteration
+
+    double sqrtOf;       // Factor from creation/annihilation operator
+
+    double complex rhsI, // line step value of right-hand-side for C
+                   Proj; // Hold value of projector contribution for orbitals
+
+    rhsI = 0;
+    Proj = 0;
+
+    /* ================================================================== */
+    /*                                                                    */
+    /*                       Setup Density Matrices                       */
+    /*                                                                    */
+    /* ================================================================== */
+
+    Cmatrix rho = cmatDef(M, M);
+    Cmatrix rho_inv = cmatDef(M, M);
+    Carray rho2 = carrDef(M * M * M * M);
+
+    OBrho(N, M, NCmat, IF, C, rho);
+    TBrho(N, M, NCmat, IF, C, rho2);
+
+    HermitianInv(M, rho, rho_inv); // Needed in nonlinear orbital part
+
     /* ================================================================== */
     /*                                                                    */
     /*                Setup Ho and Hint given the orbitals                */
     /*                                                                    */
     /* ================================================================== */
 
-    SetupHo(psi, a2, a1, V, Ho);
-    SetupHint(psi, inter, Hint);
+    SetupHo(psi, eq->a2, eq->a1, eq->V, Ho);
+    SetupHint(psi, eq->inter, Hint);
 
     /* ================================================================== */
     /*                                                                    */
@@ -363,7 +420,7 @@ void RHSforRK4(MCcoef coef, MCorbital psi, Carray newC, Cmatrix newOrb,
                 v[l] -= 1;
             }
         }
-        
+
         /* ============================================================== */
         /*                                                                */
         /*                      Two-body contribution                     */
@@ -617,8 +674,7 @@ void RHSforRK4(MCcoef coef, MCorbital psi, Carray newC, Cmatrix newOrb,
                 for (q = 0; q < M; q++)
                 {
                     if (q == s || q == k) continue;
-                    for (l = 0; l < M; l ++)
-                    {
+                    for (l = 0; l < M; l ++){
                         if (l == k || l == s || l == q) continue;
                         sqrtOf = sqrt(v[k] * v[s] * (v[q] + 1) * (v[l] + 1));
                         v[k] -= 1;
@@ -649,26 +705,24 @@ void RHSforRK4(MCcoef coef, MCorbital psi, Carray newC, Cmatrix newOrb,
     /*                                                                    */
     /* ================================================================== */
 
-    OBrho(N, M, NCmat, IF, C, rho);
-    TBrho(N, M, NCmat, IF, C, rho2);
-
-    Omat = psi->O;
-
     for (k = 0; k < M; k++)
     {   // Take k orbital
-        for (j = 0; j < OldOrb->Mdx; j++)
+        Proj = 0;
+        for (j = 0; j < psi->Mdx; j++)
         {   // At discretized position j
-
             for (s = 0; s < M; s++)
             {   // projection over 's' orbitals
-                Proj += ( Ho[s][k] + Proj_Hint(M,k,s,rho_inv,rho2,Hint) ) \
-                        * Omat[s][j];
+                Proj += Ho[s][k] * Omat[s][j] 
+                Proj += Proj_Hint(M, k, s, rho_inv, rho2, Hint) * Omat[s][j];
             }
-
-            newOrb[k][j] = Proj + NonLinear(k, j, psi, rho_inv, rho2);
+            newOrb[k][j] = -I * (Proj + \
+                           eq->inter * NonLinear(M, k, j, psi, rho_inv, rho2));
         }
     }
 
+    free(rho2);
+    cmatFree(M, rho);
+    cmatFree(M, rho_inv);
 
     /**********                  END OF ROUTINE                  **********/
 }
