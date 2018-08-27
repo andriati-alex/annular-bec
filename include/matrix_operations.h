@@ -117,6 +117,9 @@ void cmatmat(int m, int n, int l, Cmatrix M, Cmatrix A, Cmatrix ans);
  *
  * *************************************************/
 
+int HermitianInv(int M, Cmatrix A, Cmatrix A_inv);
+/* Invert an hermitian matrix */
+
 
 
 /*          ***********************************************          */
