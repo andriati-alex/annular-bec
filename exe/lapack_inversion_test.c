@@ -1,7 +1,7 @@
 /*
  * compile with intel mkl installation:
  *
- * gcc -o test exe/lapack_inversion_test.c  -L${MKLROOT}/lib/intel64 -Wl,--no-as-needed -lmkl_intel_ilp64 -lmkl_gnu_thread -lmkl_core -lgomp -lm -ldl
+ * gcc -o test exe/lapack_inversion_test.c  -L${MKLROOT}/lib/intel64 -Wl,--no-as-needed -lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core -lgomp -lm -ldl
  *
  */
 
@@ -28,13 +28,13 @@ int main(int argc, char * argv[])
 
     sscanf(argv[1], "%d", &N);
 
-    int * ipiv = (int *) malloc(N * sizeof(int));
+    lapack_int * ipiv = (lapack_int *) malloc(N * sizeof(lapack_int));
 
     MKL_Complex16 x; x.real = 0; x.imag = 0;
 
-    MKL_Complex16 * A = malloc(N * N * sizeof(MKL_Complex16));
-    MKL_Complex16 * Acopy = malloc(N * N * sizeof(MKL_Complex16));
-    MKL_Complex16 * Id = malloc(N * N * sizeof(MKL_Complex16));
+    MKL_Complex16 * A = (MKL_Complex16 *) malloc(N * N * sizeof(MKL_Complex16));
+    MKL_Complex16 * Acopy = (MKL_Complex16 *) malloc(N * N * sizeof(MKL_Complex16));
+    MKL_Complex16 * Id = (MKL_Complex16 *) malloc(N * N * sizeof(MKL_Complex16));
 
     for (i = 0; i < N; i++)
     {   // Row major storage
