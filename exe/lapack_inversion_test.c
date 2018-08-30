@@ -1,3 +1,10 @@
+/*
+ * compile with intel mkl installation:
+ *
+ * gcc -o test exe/lapack_inversion_test.c  -L${MKLROOT}/lib/intel64 -Wl,--no-as-needed -lmkl_intel_ilp64 -lmkl_gnu_thread -lmkl_core -lgomp -lm -ldl
+ *
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <mkl.h>
@@ -12,7 +19,8 @@ int main(int argc, char * argv[])
 {
     int j, // counter
         i, // counter
-        N; // The size of the Matrix
+        N, // The size of the Matrix
+        k;
 
     double arg,
            start,
@@ -21,6 +29,8 @@ int main(int argc, char * argv[])
     sscanf(argv[1], "%d", &N);
 
     int * ipiv = (int *) malloc(N * sizeof(int));
+
+    MKL_Complex16 x; x.real = 0; x.imag = 0;
 
     MKL_Complex16 * A = malloc(N * N * sizeof(MKL_Complex16));
     MKL_Complex16 * Acopy = malloc(N * N * sizeof(MKL_Complex16));
@@ -58,20 +68,29 @@ int main(int argc, char * argv[])
 
     printf("\n\nLapacke returned : %d\n", i);
 
-    printf("\n\nInverted matrix: \n");
+    printf("\n\nIf there was any problem print identity: \n");
 
     for (i = 0; i < N; i++)
     {
         printf("\n\t|");
         for (j = 0; j < N; j++)
         {
-            printf(" (%6.3lf,%6.3lf) |", Id[i * N + j].real, Id[i * N + j].imag);
+            x.real = 0;
+            x.imag = 0;
+            for (k = 0; k < N; k++)
+            {
+                x.real += Id[i*N + k].real * Acopy[k*N + j].real;
+                x.real -= Id[i*N + k].imag * Acopy[k*N + j].imag;
+                x.imag += Id[i*N + k].real * Acopy[k*N + j].imag;
+                x.imag += Id[i*N + k].imag * Acopy[k*N + j].real;
+            }
+            printf(" (%6.3lf,%6.3lf) |", x.real, x.imag);
         }
     }
 
-    // free(ipiv);
-    free(A);
-    // free(Id);
+    free(A); //if one try to free does not work with N >= 4 !!!!
+    free(Id);
+    free(ipiv);
 
     printf("\n\n");
     return 0;
