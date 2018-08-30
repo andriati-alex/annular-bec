@@ -48,6 +48,7 @@
 /************************ Constants ***********************/
 
 #define LAPACK_ROW_MAJOR 101
+#define LAPACK_COL_MAJOR 102
 #define PI 3.141592653589793
 
 

@@ -172,17 +172,17 @@ void CCSvec(int n, Carray vals, int * restrict cols, int m,
 
 int HermitianInv(int M, Cmatrix A, Cmatrix A_inv)
 {
-    int i,
-        j,
-        l;
+    int i, // counter
+        j, // counter
+        l; // lapack success parameter
 
     int * ipiv = (int *) malloc(M * sizeof(int));
 
-    CMKLarray ArrayForm = CMKLdef(M * M);
-    CMKLarray Id = CMKLdef(M * M);
+    CMKLarray ArrayForm = CMKLdef(M * M); // To call zhesv routine
+    CMKLarray Id = CMKLdef(M * M);        // Identity matrix
 
     for (i = 0; i < M; i++)
-    {   // Setup Row-Major array matrix to use lapack
+    {   // Setup (L)ower triangular part as a Row-Major-Array to use lapack
         ArrayForm[i * M + i].real = creal(A[i][i]);
         ArrayForm[i * M + i].imag = 0;
         Id[i * M + i].real = 1;
@@ -191,6 +191,8 @@ int HermitianInv(int M, Cmatrix A, Cmatrix A_inv)
         {
             ArrayForm[i * M + j].real = creal(A[i][j]);
             ArrayForm[i * M + j].imag = cimag(A[i][j]);
+            ArrayForm[j * M + i].real = 0; // symbolic values
+            ArrayForm[j * M + i].imag = 0; // for upper triangular par
             Id[i * M + j].real = 0;
             Id[i * M + j].imag = 0;
             Id[j * M + i].real = 0;
@@ -201,12 +203,10 @@ int HermitianInv(int M, Cmatrix A, Cmatrix A_inv)
     l = LAPACKE_zhesv(LAPACK_ROW_MAJOR, 'L', M, M, ArrayForm, M, ipiv, Id, M);
 
     for (i = 0; i < M; i++)
-    {
-        A_inv[i][i] = Id[i * M + i].real;
-        for (j = 0; j < i; j++)
+    {   // Cast in Cmatrix form
+        for (j = 0; j < M; j++)
         {
             A_inv[i][j] = Id[i * M + j].real + I * Id[i * M + j].imag;
-            A_inv[j][i] = conj(A[i][j]);
         }
     }
 

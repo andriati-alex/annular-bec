@@ -43,7 +43,7 @@ time_evolution : libgp.a exe/time_evolution.c $(gp_header)
 	gcc -o time_evolution exe/time_evolution.c          \
 		-L${MKLROOT}/lib/intel64                        \
 		-Wl,--no-as-needed                              \
-		-lmkl_intel_ilp64 -lmkl_gnu_thread -lmkl_core   \
+		-lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core    \
 		-lm -fopenmp                                    \
 		-L./lib -I./include -lgp -O3
 
@@ -51,7 +51,7 @@ itime_propagate : libgp.a exe/itime_propagate.c $(gp_header)
 	gcc -o itime_propagate exe/itime_propagate.c        \
 		-L${MKLROOT}/lib/intel64                        \
 		-Wl,--no-as-needed                              \
-		-lmkl_intel_ilp64 -lmkl_gnu_thread -lmkl_core   \
+		-lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core   \
 		-lm -fopenmp                                    \
 		-L./lib -I./include -lgp -O3
 
@@ -59,7 +59,7 @@ mu_steady : libgp.a exe/mu_steady.c $(gp_header)
 	gcc -o mu_steady exe/mu_steady.c                    \
 		-L${MKLROOT}/lib/intel64                        \
 		-Wl,--no-as-needed                              \
-		-lmkl_intel_ilp64 -lmkl_gnu_thread -lmkl_core   \
+		-lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core   \
 		-lm -fopenmp                                    \
 		-L./lib -I./include -lgp -O3
 
@@ -96,7 +96,8 @@ array_operations.o : src/array_operations.c include/array_operations.h
 
 
 matrix_operations.o : src/matrix_operations.c include/matrix_operations.h
-	gcc -c -O3 -fopenmp src/matrix_operations.c
+	gcc -c -O3 -fopenmp -lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core -lgomp \
+	src/matrix_operations.c
 
 
 
@@ -124,8 +125,8 @@ iterative_solver.o : src/iterative_solver.c	include/iterative_solver.h
 
 
 time_routine.o : src/time_routine.c include/time_routine.h
-	gcc -c -O3 -fopenmp                               \
-		-lmkl_intel_ilp64 -lmkl_gnu_thread -lmkl_core \
+	gcc -c -O3 -fopenmp                              \
+		-lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core \
 		src/time_routine.c
 
 
@@ -133,8 +134,8 @@ time_routine.o : src/time_routine.c include/time_routine.h
 
 
 itime_routine.o : src/itime_routine.c include/itime_routine.h
-	gcc -c -O3 -fopenmp                               \
-		-lmkl_intel_ilp64 -lmkl_gnu_thread -lmkl_core \
+	gcc -c -O3 -fopenmp                              \
+		-lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core \
 		src/itime_routine.c
 
 
@@ -143,8 +144,8 @@ rk4.o : src/rk4.c include/rk4.h
 
 
 calculus.o : src/calculus.c include/calculus.h
-	gcc -c -O3 -fopenmp                               \
-		-lmkl_intel_ilp64 -lmkl_gnu_thread -lmkl_core \
+	gcc -c -O3 -fopenmp                              \
+		-lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core \
 		src/calculus.c
 
 NewtonCG.o : src/NewtonCG.c include/NewtonCG.h

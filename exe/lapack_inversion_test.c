@@ -1,7 +1,7 @@
 /*
  * compile with intel mkl installation:
  *
- * gcc -o test exe/lapack_inversion_test.c  -L${MKLROOT}/lib/intel64 -Wl,--no-as-needed -lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core -lgomp -lm -ldl
+gcc -o test exe/lapack_inversion_test.c -L${MKLROOT}/lib/intel64 -Wl,--no-as-needed -lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core -lgomp -lm -lgp -L./lib -I./include
  *
  */
 
@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <mkl.h>
 #include <math.h>
+#include "../include/matrix_operations.h"
 
 #define PI 3.141592653589793 // to define matrix entries
 
@@ -22,49 +23,27 @@ int main(int argc, char * argv[])
         N, // The size of the Matrix
         k;
 
-    double arg,
-           start,
-           cpu_time_used;
+    double arg;
 
     sscanf(argv[1], "%d", &N);
 
-    lapack_int * ipiv = (lapack_int *) malloc(N * sizeof(lapack_int));
+    double complex x = 0;
 
-    MKL_Complex16 x; x.real = 0; x.imag = 0;
-
-    MKL_Complex16 * A = (MKL_Complex16 *) malloc(N * N * sizeof(MKL_Complex16));
-    MKL_Complex16 * Acopy = (MKL_Complex16 *) malloc(N * N * sizeof(MKL_Complex16));
-    MKL_Complex16 * Id = (MKL_Complex16 *) malloc(N * N * sizeof(MKL_Complex16));
+    Cmatrix A = cmatDef(N, N);
+    Cmatrix A_inv = cmatDef(N, N);
 
     for (i = 0; i < N; i++)
     {   // Row major storage
-        A[i * N + i].real = 1.5 + sin( 3 * PI * i / N );
-        A[i * N + i].imag = 0;
-        Acopy[i * N + i].real = 1.5 + sin( 3 * PI * i / N );
-        Acopy[i * N + i].imag = 0;
-        Id[i * N + i].real = 1;
-        Id[i * N + i].imag = 0;
+        A[i][i] = 1.5 + sin( 3 * PI * i / N );
         for (j = 0; j < i; j++)
         {
             arg = 10 * PI * ((double) i * j) / (N * N);
-            A[i * N + j].real = 2 * sin(arg) + 2;
-            A[i * N + j].imag = 3 * cos(arg);
-            A[j * N + i].real = 0; // Does not matter the upper tirangular
-            A[j * N + i].imag = 0; // when call lapack routine with 'L'
-            
-            Acopy[i * N + j].real = 2 * sin(arg) + 2;
-            Acopy[i * N + j].imag = 3 * cos(arg);
-            Acopy[j * N + i].real = Acopy[i * N + j].real;
-            Acopy[j * N + i].imag = - Acopy[i * N + j].imag;
-
-            Id[i * N + j].real = 0; // Identity
-            Id[i * N + j].imag = 0;
-            Id[j * N + i].real = 0;
-            Id[j * N + i].imag = 0;
+            A[i][j] = 2 * sin(arg) + 2 + I * 3 * cos(arg);
+            A[j][i] = conj(A[i][j]); // Does not matter the upper tirangular
         }
     }
-    
-    i = LAPACKE_zhesv(LAPACK_ROW_MAJOR, 'L', N, N, A, N, ipiv, Id, N);
+
+    i = HermitianInv(N, A, A_inv);
 
     printf("\n\nLapacke returned : %d\n", i);
 
@@ -75,22 +54,14 @@ int main(int argc, char * argv[])
         printf("\n\t|");
         for (j = 0; j < N; j++)
         {
-            x.real = 0;
-            x.imag = 0;
-            for (k = 0; k < N; k++)
-            {
-                x.real += Id[i*N + k].real * Acopy[k*N + j].real;
-                x.real -= Id[i*N + k].imag * Acopy[k*N + j].imag;
-                x.imag += Id[i*N + k].real * Acopy[k*N + j].imag;
-                x.imag += Id[i*N + k].imag * Acopy[k*N + j].real;
-            }
-            printf(" (%6.3lf,%6.3lf) |", x.real, x.imag);
+            x = 0;
+            for (k = 0; k < N; k++) x += A[i][k] * A_inv[k][j];
+            printf(" (%6.3lf,%6.3lf) |", creal(x), cimag(x));
         }
     }
 
-    free(A); //if one try to free does not work with N >= 4 !!!!
-    free(Id);
-    free(ipiv);
+    cmatFree(N, A); //if one try to free does not work with N >= 4 !!!!
+    cmatFree(N, A_inv);
 
     printf("\n\n");
     return 0;
