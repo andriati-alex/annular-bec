@@ -7,6 +7,7 @@
 
 #include "array_memory.h"
 #include "matrix_operations.h"
+#include "tridiagonal_solver.h"
 #include "coef_routines.h"
 #include "calculus.h"
 
@@ -20,39 +21,28 @@
 
 
 
-struct orbitals
+struct _MCTDHBsetup
 {
-    int Morb;   // # of orbitals
-    int Mpos;   // # discretized positions (# of divisions + 1)
-    double dx;  // spatial step
-    double xi;
-    double xf;
-    Cmatrix O;  // Values of orbitals on each position (Morb x M)
+    int 
+        Mpos,   // # of discretized positions (# divisions + 1)
+        Morb,   // # of orbitals
+        Npar,   // # of particles
+        ** IF;  // IF[i] point to the occupation number vetor of C[i]
+    long
+        nc,         // Total # of configurations of Fock states
+        ** NCmat;   // NCmat[n][m] # with n particles / m orbitals
+    double
+        dx,     // space step
+        xi,     // initial position discretized value
+        xf,     // final position discretized value
+        a2,     // factor multiplying d2 / dx2
+        inter,  // know as g, contact interaction strength
+        * V;    // Array with the values of one-particle potential
+    double complex
+        a1;     // factor multiplying d / dx (pure imaginary)
 };
 
-typedef struct orbitals * MCorbital;
-
-struct coeficients
-{
-    int Npar;       // # of particles
-    int Morb;       // # of orbitals
-    long nc;        // all possible fock states
-    int ** IF;      // All occu. vector by row
-    long ** NCmat;  // All outcomes from combinatorial
-    Carray C;       // Array of coeficients
-};
-
-typedef struct coeficients * MCcoef;
-
-struct eq_parameters
-{
-    double a2;          // Second order derivative term
-    double inter;       // interaction 'strength'
-    double complex a1;  // First order derivative term
-    Rarray V;           // Values of potential in each position
-};
-
-typedef struct eq_parameters * EqSetup;
+typedef struct _MCTDHBsetup * MCTDHBsetup;
 
 
 
@@ -64,28 +54,18 @@ typedef struct eq_parameters * EqSetup;
 
 
 
-MCcoef AllocCoef(int Npar, int Morb);
-/* **********************************
- *
- * Return the pointer to the struct of Coeficients
- * -----------------------------------------------
- * 
- * Configure all fields in the struct but C.
- *
- * ***********************************************/
+MCTDHBsetup AllocMCTDHBdata(
+        int Npar, 
+        int Morb,
+        int Mpos,
+        double xi,
+        double xf,
+        double a2,
+        double inter,
+        double * V,
+        double complex a1);
 
-EqSetup AllocEq(double a2, double complex a1, double inter, Rarray V);
-/* *******************************************************************
- *
- * Return the pointer to the struct of Equation setup parameters
- * -------------------------------------------------------------
- * 
- * a1 multiplies (d / dx)
- * a2 multiplies (d2 / dx2)
- * inter multiplies the nonlinearity
- * V have the values of single-particle potential at each position
- * 
- * *******************************************************************/
+void EraseMCTDHBdata(MCTDHBsetup MC);
 
 void SetupHo(int Morb, int Mpos, Cmatrix Omat, double dx,
              double a2, double complex a1, Rarray V, Cmatrix Ho);
@@ -111,12 +91,16 @@ double complex Proj_Hint(int M, int k, int i,
 double complex NonLinear(int M, int k, int n,
                          Cmatrix Omat, Cmatrix rho_inv, Carray rho2);
 
-void RK4step(MCorbital psi, MCcoef coef, EqSetup eq, double dt);
+void RK4step(MCTDHBsetup MC, Cmatrix orb, Carray C, double dt);
 
-void RHSforRK4(int N, int M, long ** NCmat, int ** IF,
-               int Mpos, double dx, EqSetup eq,
-               Carray C, Cmatrix Orb,
+void RHSforRK4(MCTDHBsetup MC, Carray C, Cmatrix Orb,
                Cmatrix Ho, Carray Hint,
                Carray newC, Cmatrix newOrb);
+
+void LinearPart(MCTDHBsetup MC, CCSmat rhs_mat, Carray upper, Carray lower,
+                Carray mid, Cmatrix Orb);
+
+void MCTDHB_time_evolution(MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
+        int cyclic);
 
 #endif

@@ -675,4 +675,3 @@ void TBrho(int N, int M, long ** NCmat, int ** IF, Carray C, Carray rho)
 
     /**********                  END OF ROUTINE                  **********/
 }
-
