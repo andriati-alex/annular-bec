@@ -70,8 +70,8 @@ void SetupHo (int Morb, int Mpos, Cmatrix Omat, double dx, double a2,
     free(ddxi); free(ddxj); free(toInt);
 }
 
-void SetupHint(int Morb, int Mpos, Cmatrix Omat, double dx,
-               double inter, Carray Hint)
+void SetupHint (int Morb, int Mpos, Cmatrix Omat, double dx,
+                double inter, Carray Hint)
 {
     int i,
         k,
@@ -721,23 +721,23 @@ void RHSforRK4(MCTDHBsetup MC, Carray C, Cmatrix Orb,
 void LinearPartSM(MCTDHBsetup MC, CCSmat rhs_mat, Carray upper, Carray lower,
                 Carray mid, Cmatrix Orb)
 {
-    int k, Mpos = MC->Mpos;
+    int k;
 
-    Carray rhs = carrDef(Mpos);
+    Carray rhs = carrDef(MC->Mpos);
 
     for (k = 0; k < MC->Morb; k++)
-    {
-        CCSvec(Mpos, rhs_mat->vec, rhs_mat->col, rhs_mat->m, Orb[k], rhs);
-        triCyclicSM(Mpos, upper, lower, mid, rhs, Orb[k]);
+    {   // For each orbital k solve a tridiagonal system obtained by CN
+        CCSvec(MC->Mpos, rhs_mat->vec, rhs_mat->col, rhs_mat->m, Orb[k], rhs);
+        triCyclicSM(MC->Mpos, upper, lower, mid, rhs, Orb[k]);
     }
 
     free(rhs);
 }
 
 void MCTDHB_time_evolution(MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
-        int cyclic)
+        int Nsteps, int cyclic)
 {
-    int Mpos = MC->Mpos;
+    int i, Mpos = MC->Mpos;
 
     double dx = MC->dx,
            a2 = MC->a2;
@@ -750,9 +750,9 @@ void MCTDHB_time_evolution(MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
     Carray lower = carrDef(Mpos);
     Carray mid   = carrDef(Mpos);
 
-    /*                 ****************************                 */
-    /*                 Setup Right-Hand-Side matrix                 */
-    /*                 ****************************                 */
+    /*                 ****************************                  */
+    /*      Setup Right-Hand-Side matrix of linear part of PDE       */
+    /*                 ****************************                  */
 
     // fill main diagonal (use upper as auxiliar array)
     carrFill(Mpos, - a2 * dt / dx / dx + I, upper);
@@ -789,6 +789,14 @@ void MCTDHB_time_evolution(MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
     if (cyclic) { lower[Mpos-1] = - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
     else        { lower[Mpos-1] = 0;                                          }
 
+    for (i = 0; i < Nsteps; i++)
+    {
+        RK4step(MC, Orb, C, dt / 2);
+        LinearPart(MC, rhs_mat, upper, lower, mid, Orb);
+        RK4step(MC, Orb, C, dt / 2);
+    }
+
+    CCSFree(rhs_mat);
     free(upper);
     free(lower);
     free(mid);

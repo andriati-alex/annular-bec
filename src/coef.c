@@ -184,10 +184,8 @@ void OBrho(int N, int M, long ** NCmat, int ** IF, Carray C, Cmatrix rho)
         }
     }
 
-    /*******  Use hermiticity of density matrix to fill lower part  *******/
-
     for (k = 0; k < M; k++)
-    {
+    {   // Use hermiticity to setup lower triangular part
         for (l = k + 1; l < M; l++) rho[l][k] = conj(rho[k][l]);
     }
 

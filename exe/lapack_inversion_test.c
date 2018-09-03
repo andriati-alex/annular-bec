@@ -7,14 +7,9 @@ gcc -o test exe/lapack_inversion_test.c -L${MKLROOT}/lib/intel64 -Wl,--no-as-nee
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <mkl.h>
 #include <math.h>
+#include "../include/array_memory.h"
 #include "../include/matrix_operations.h"
-
-#define PI 3.141592653589793 // to define matrix entries
-
-#define LAPACK_ROW_MAJOR 101
-#define LAPACK_COL_MAJOR 102
 
 int main(int argc, char * argv[])
 {

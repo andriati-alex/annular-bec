@@ -13,11 +13,11 @@
 
 
 
-/* ====================================================================== */
-/*                                                                        */
-/*                          DATA-TYPE DEFINITION                          */
-/*                                                                        */
-/* ====================================================================== */
+/* ======================================================================== */
+/*                                                                          */
+/*                           DATA-TYPE DEFINITION                           */
+/*                                                                          */
+/* ======================================================================== */
 
 
 
@@ -46,61 +46,140 @@ typedef struct _MCTDHBsetup * MCTDHBsetup;
 
 
 
-/* ====================================================================== */
-/*                                                                        */
-/*                          FUNCTION PROTOTYPES                           */
-/*                                                                        */
-/* ====================================================================== */
+/* ======================================================================== */
+/*                                                                          */
+/*                           FUNCTION PROTOTYPES                            */
+/*                                                                          */
+/* ======================================================================== */
 
 
 
-MCTDHBsetup AllocMCTDHBdata(
-        int Npar, 
-        int Morb,
-        int Mpos,
-        double xi,
-        double xf,
-        double a2,
-        double inter,
-        double * V,
-        double complex a1);
+MCTDHBsetup AllocMCTDHBdata
+(
+    int Npar,
+    int Morb,
+    int Mpos,
+    double xi,
+    double xf,
+    double a2,
+    double inter,
+    double * V,
+    double complex a1
+);
 
 void EraseMCTDHBdata(MCTDHBsetup MC);
 
-void SetupHo(int Morb, int Mpos, Cmatrix Omat, double dx,
-             double a2, double complex a1, Rarray V, Cmatrix Ho);
-/* **************************************************************
- *
- * Setup matrix elements of one-body part on Ho
- * --------------------------------------------
- * 
- * **************************************************************/
 
-void SetupHint(int Morb, int Mpos, Cmatrix Omat, double dx,
-               double inter, Carray Hint);
-/* ********************************************************
- *
- * Setup matrix elements of two-body part on Hint
- * ----------------------------------------------
- * 
- * ********************************************************/
 
-double complex Proj_Hint(int M, int k, int i,
-                         Cmatrix rho_inv, Carray rho2, Carray Hint);
+/* ==========================================================================
+ *                                                                *
+ *        Setup matrix elements of one-body Hamiltonian Ho        *
+ *        ------------------------------------------------        *
+ *                                                                */
 
-double complex NonLinear(int M, int k, int n,
-                         Cmatrix Omat, Cmatrix rho_inv, Carray rho2);
+void SetupHo
+(
+    int Morb,
+    int Mpos,
+    Cmatrix Omat,
+    double dx,
+    double a2,
+    double complex a1,
+    Rarray V,
+    Cmatrix Ho
+);
 
-void RK4step(MCTDHBsetup MC, Cmatrix orb, Carray C, double dt);
 
-void RHSforRK4(MCTDHBsetup MC, Carray C, Cmatrix Orb,
-               Cmatrix Ho, Carray Hint,
-               Carray newC, Cmatrix newOrb);
 
-void LinearPart(MCTDHBsetup MC, CCSmat rhs_mat, Carray upper, Carray lower,
-                Carray mid, Cmatrix Orb);
+/* ==========================================================================
+ *                                                                  *
+ *        Setup matrix elements of two-body Hamiltonian Hint        *
+ *        --------------------------------------------------        *
+ *                                                                  */
 
-void MCTDHB_time_evolution(MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
-        int cyclic);
+void SetupHint
+(
+    int Morb,
+    int Mpos,
+    Cmatrix Omat,
+    double dx,
+    double inter,
+    Carray Hint
+);
+
+
+
+/* ==========================================================================
+ *                                                                   *
+ *          Function to apply nonlinear part of obitals PDE          *
+ *          -----------------------------------------------          *
+ *                                                                   */
+
+double complex Proj_Hint
+(   // The one that comes from Projective part
+    int M, // Total # of orbitals
+    int k, // A fixed orbital k
+    int i, // A fixed orbital i
+    Cmatrix rho_inv,
+    Carray rho2,
+    Carray Hint
+);
+
+double complex NonLinear
+(   // The one that comes from identity part
+    int M, // Total # of orbitals
+    int k, // A fixed orbital
+    int n, // A given discretized position
+    Cmatrix Omat,
+    Cmatrix rho_inv,
+    Carray rho2
+);
+
+
+
+/* ==========================================================================
+ *                                                                   *
+ *                    Time Evolution of equations                    *
+ *                    ---------------------------                    *
+ *                                                                   */
+
+void RK4step
+(   // Evolve nonlinear part of orbitals coupled with coeficients
+    MCTDHBsetup MC,
+    Cmatrix orb, // End up modified by the evolution
+    Carray C,    // End up modified by the evolution
+    double dt
+);
+
+void RHSforRK4
+(   // The Right-Hand-Side(RHS) of a system of Differential equations
+    MCTDHBsetup MC,
+    Carray C,
+    Cmatrix Orb,
+    Cmatrix Ho,
+    Carray Hint,
+    Carray newC,   // Values after the operations have been applied
+    Cmatrix newOrb // Values after the operations have been applied
+);
+
+void LinearPart
+(   // Evolve a time-step the linear part of PDE(orbitals)
+    MCTDHBsetup MC,
+    CCSmat rhs_mat, // Matrix from CN approach(discretization)
+    Carray upper,   // Upper diagonal
+    Carray lower,   // Lower diagonal
+    Carray mid,     // Main diagonal of tridiagonal system
+    Cmatrix Orb
+);
+
+void MCTDHB_time_evolution
+(   // Call the subroutines to solve nonlinear and linear part
+    MCTDHBsetup MC,
+    Cmatrix Orb, // Modified at each time step with the solution(orbitals)
+    Carray C,    // Modified at each time step with the solution(coeficients)
+    double dt,
+    int Nsteps,
+    int cyclic
+);
 
 #endif

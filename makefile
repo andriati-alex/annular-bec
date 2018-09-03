@@ -17,6 +17,11 @@ obj_gp = $(obj_linalg)   \
 		 NewtonCG.o      \
 		 rk4.o
 
+obj_mctdhb = $(obj_linalg) \
+		 	 coef.o        \
+			 calculus.o	   \
+		 	 MCTDHB_integrator.o
+
 linalg_header = include/array.h 			 \
 				include/array_memory.h		 \
 				include/array_operations.h   \
@@ -32,6 +37,10 @@ gp_header = $(linalg_header) 		\
 			include/NewtonCG.h      \
 			include/rk4.h
 
+mctdhb_header = $(linalg_header) 		\
+				include/coef_routines.h \
+				include/calculus.h		\
+				include/MCTDHB_integrator.h
 
 
 
@@ -59,9 +68,17 @@ mu_steady : libgp.a exe/mu_steady.c $(gp_header)
 	gcc -o mu_steady exe/mu_steady.c                    \
 		-L${MKLROOT}/lib/intel64                        \
 		-Wl,--no-as-needed                              \
-		-lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core   \
+		-lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core    \
 		-lm -fopenmp                                    \
 		-L./lib -I./include -lgp -O3
+
+test_mc : libmctdhb.a exe/MC_test.c include/MCTDHB_integrator.h
+	gcc -o test_mc exe/MC_test.c 						\
+		-L${MKLROOT}/lib/intel64                        \
+		-Wl,--no-as-needed                              \
+		-lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core    \
+		-lm -fopenmp                                    \
+		-L./lib -lmctdhb -O3
 
 
 
@@ -73,6 +90,11 @@ libgp.a : $(obj_gp)
 	ar rcs libgp.a $(obj_gp)
 	mv libgp.a lib
 	mv $(obj_gp) build
+
+libmctdhb.a : $(obj_mctdhb)
+	ar rcs libmctdhb.a $(obj_mctdhb)
+	mv libmctdhb.a lib
+	mv $(obj_mctdhb) build
 
 
 
@@ -151,7 +173,12 @@ calculus.o : src/calculus.c include/calculus.h
 NewtonCG.o : src/NewtonCG.c include/NewtonCG.h
 	gcc -c -O3 -fopenmp src/NewtonCG.c
 
+MCTDHB_integrator.o : src/MCTDHB_integrator.c include/MCTDHB_integrator.h
+	gcc -c -O3 -fopenmp src/MCTDHB_integrator.c
+
+coef.o : src/coef.c include/coef_routines.h
+	gcc -c -O3 -fopenmp src/coef.c
+
 clean :
 	-rm build/*.o
 	-rm lib/lib*
-	-rm time_evolution
