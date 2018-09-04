@@ -224,7 +224,26 @@ int main(int argc, char * argv[])
     MCTDHBsetup mc = AllocMCTDHBdata(Npar, Morb, Mdx + 1, -PI, PI,
                                      a2, inter, V, a1);
 
-    MCTDHB_time_evolution(mc, Orb, C, dt, N, 1);
+    // rho = cmatDef(Morb, Morb);
+
+    /* Test if the initial orbitals are orthogonal
+     *
+    Carray toint = carrDef(Mdx + 1);
+
+    for (k = 0; k < Morb; k++)
+    {
+        for (l = 0; l < Morb; l++)
+        {
+            for (s = 0; s < Mdx + 1; s++)
+            {
+                toint[s] = conj(Orb[k][s]) * Orb[l][s];
+            }
+            rho[k][l] = Csimps(Mdx + 1, toint, mc->dx);
+        }
+    }
+    */
+
+    MCTDHB_itime_evolution(mc, Orb, C, dt, N, 1);
     
     /* ==================================================================== *
      *                                                                      *

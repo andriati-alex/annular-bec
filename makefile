@@ -72,8 +72,8 @@ mu_steady : libgp.a exe/mu_steady.c $(gp_header)
 		-lm -fopenmp                                    \
 		-L./lib -I./include -lgp -O3
 
-test_mc : libmctdhb.a exe/MC_test.c include/MCTDHB_integrator.h
-	gcc -o test_mc exe/MC_test.c 						\
+MCTDHB_time : libmctdhb.a exe/MCTDHB_time.c include/MCTDHB_integrator.h
+	gcc -o MCTDHB_time exe/MCTDHB_time.c				\
 		-L${MKLROOT}/lib/intel64                        \
 		-Wl,--no-as-needed                              \
 		-lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core    \

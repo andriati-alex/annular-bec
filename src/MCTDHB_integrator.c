@@ -53,7 +53,7 @@ void SetupHo (int Morb, int Mpos, Cmatrix Omat, double dx, double a2,
     for (i = 0; i < Morb; i++)
     {
         dxCyclic(Mpos, Omat[i], dx, ddxi);
-        for (j = i; j < Morb; j++)
+        for (j = 0; j < Morb; j++)
         {
             dxCyclic(Mpos, Omat[j], dx, ddxj);
             for (k = 0; k < Mpos; k++)
@@ -63,7 +63,7 @@ void SetupHo (int Morb, int Mpos, Cmatrix Omat, double dx, double a2,
                            + V[k] * conj(Omat[i][k]) * Omat[j][k];
             }
             Ho[i][j] = Csimps(Mpos, toInt, dx);
-            Ho[j][i] = conj(Ho[i][j]);
+            // Ho[j][i] = conj(Ho[i][j]);
         }
     }
 
@@ -152,7 +152,7 @@ double complex NonLinear(int M, int k, int n, Cmatrix Omat, Cmatrix rho_inv,
         l,
         i_rho2;
 
-    double complex ans;
+    double complex ans = 0;
 
     for (j = 0; j < M; j++)
     {
@@ -522,6 +522,8 @@ void RHSforRK4(MCTDHBsetup MC, Carray C, Cmatrix Orb,
 
     l = HermitianInv(M, rho, rho_inv); // Needed in nonlinear orbital part
 
+
+
     /* ================================================================== */
     /*                                                                    */
     /*                Setup Ho and Hint given the orbitals                */
@@ -864,16 +866,15 @@ void RHSforRK4(MCTDHBsetup MC, Carray C, Cmatrix Orb,
 
     for (k = 0; k < M; k++)
     {   // Take k orbital
-        Proj = 0;
         for (j = 0; j < Mpos; j++)
         {   // At discretized position j
+            Proj = 0;
             for (s = 0; s < M; s++)
             {   // projection over 's' orbitals
                 Proj += Ho[s][k] * Orb[s][j]; 
                 Proj += Proj_Hint(M, k, s, rho_inv, rho2, Hint) * Orb[s][j];
             }
-            newOrb[k][j] = -I * (Proj + \
-                           MC->inter * NonLinear(M, k, j, Orb, rho_inv, rho2));
+            newOrb[k][j] = -I * (MC->inter * NonLinear(M, k, j, Orb, rho_inv, rho2) - Proj);
         }
     }
 
@@ -887,14 +888,16 @@ void RHSforRK4(MCTDHBsetup MC, Carray C, Cmatrix Orb,
 void LinearPartSM(MCTDHBsetup MC, CCSmat rhs_mat, Carray upper, Carray lower,
                 Carray mid, Cmatrix Orb)
 {
-    int k;
+    int k,
+        size = MC->Mpos - 1;
 
-    Carray rhs = carrDef(MC->Mpos);
+    Carray rhs = carrDef(size);
 
     for (k = 0; k < MC->Morb; k++)
     {   // For each orbital k solve a tridiagonal system obtained by CN
-        CCSvec(MC->Mpos, rhs_mat->vec, rhs_mat->col, rhs_mat->m, Orb[k], rhs);
-        triCyclicSM(MC->Mpos, upper, lower, mid, rhs, Orb[k]);
+        CCSvec(size, rhs_mat->vec, rhs_mat->col, rhs_mat->m, Orb[k], rhs);
+        triCyclicSM(size, upper, lower, mid, rhs, Orb[k]);
+        Orb[k][size] = Orb[k][0]; // the boundary
     }
 
     free(rhs);
@@ -912,9 +915,9 @@ void MCTDHB_time_evolution(MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
     double complex a1 = MC->a1;
 
     // used to store matrix elements of linear part
-    Carray upper = carrDef(Mpos);
-    Carray lower = carrDef(Mpos);
-    Carray mid   = carrDef(Mpos);
+    Carray upper = carrDef(Mpos - 1);
+    Carray lower = carrDef(Mpos - 1);
+    Carray mid   = carrDef(Mpos - 1);
 
 
 
@@ -925,21 +928,21 @@ void MCTDHB_time_evolution(MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
 
 
     // fill main diagonal (use upper as auxiliar array)
-    carrFill(Mpos, - a2 * dt / dx / dx + I, upper);
-    rcarrUpdate(Mpos, upper, dt, MC->V, mid);
+    carrFill(Mpos - 1, - a2 * dt / dx / dx + I, upper);
+    rcarrUpdate(Mpos - 1, upper, dt, MC->V, mid);
 
     // fill upper diagonal
-    carrFill(Mpos, a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, upper);
-    if (cyclic) { upper[Mpos-1] = a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
-    else        { upper[Mpos-1] = 0;                                        }
+    carrFill(Mpos - 1, a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, upper);
+    if (cyclic) { upper[Mpos-2] = a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
+    else        { upper[Mpos-2] = 0;                                        }
 
     // fill lower diagonal
-    carrFill(Mpos, a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, lower);
-    if (cyclic) { lower[Mpos-1] = a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
-    else        { lower[Mpos-1] = 0;                                        }
+    carrFill(Mpos - 1, a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, lower);
+    if (cyclic) { lower[Mpos-2] = a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
+    else        { lower[Mpos-2] = 0;                                        }
 
     // Store in CCS format the RHS of discretized system of equations
-    CCSmat rhs_mat = CyclicToCCS(Mpos, upper, lower, mid);
+    CCSmat rhs_mat = CyclicToCCS(Mpos - 1, upper, lower, mid);
 
 
 
@@ -950,18 +953,18 @@ void MCTDHB_time_evolution(MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
 
 
     // fill main diagonal (use upper as auxiliar array)
-    carrFill(Mpos, a2 * dt / dx / dx + I, upper);
-    rcarrUpdate(Mpos, upper, -dt, MC->V, mid);
+    carrFill(Mpos - 1, a2 * dt / dx / dx + I, upper);
+    rcarrUpdate(Mpos - 1, upper, -dt, MC->V, mid);
 
     // fill upper diagonal
-    carrFill(Mpos, - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, upper);
-    if (cyclic) { upper[Mpos-1] = - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
-    else        { upper[Mpos-1] = 0;                                          }
+    carrFill(Mpos - 1, - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, upper);
+    if (cyclic) { upper[Mpos-2] = - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
+    else        { upper[Mpos-2] = 0;                                          }
 
     // fill lower diagonal
-    carrFill(Mpos, - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, lower);
-    if (cyclic) { lower[Mpos-1] = - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
-    else        { lower[Mpos-1] = 0;                                          }
+    carrFill(Mpos - 1, - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, lower);
+    if (cyclic) { lower[Mpos-2] = - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
+    else        { lower[Mpos-2] = 0;                                          }
 
     for (i = 0; i < Nsteps; i++)
     {
@@ -990,9 +993,9 @@ void MCTDHB_itime_evolution(MCTDHBsetup MC, Cmatrix Orb, Carray C, double dT,
                    dt = - I * dT;
 
     // used to store matrix elements of linear part
-    Carray upper = carrDef(Mpos);
-    Carray lower = carrDef(Mpos);
-    Carray mid   = carrDef(Mpos);
+    Carray upper = carrDef(Mpos - 1);
+    Carray lower = carrDef(Mpos - 1);
+    Carray mid   = carrDef(Mpos - 1);
 
 
 
@@ -1003,21 +1006,21 @@ void MCTDHB_itime_evolution(MCTDHBsetup MC, Cmatrix Orb, Carray C, double dT,
 
 
     // fill main diagonal (use upper as auxiliar array)
-    carrFill(Mpos, - a2 * dt / dx / dx + I, upper);
-    rcarrUpdate(Mpos, upper, dt, MC->V, mid);
+    carrFill(Mpos - 1, - a2 * dt / dx / dx + I, upper);
+    rcarrUpdate(Mpos - 1, upper, dt, MC->V, mid);
 
     // fill upper diagonal
-    carrFill(Mpos, a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, upper);
-    if (cyclic) { upper[Mpos-1] = a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
-    else        { upper[Mpos-1] = 0;                                        }
+    carrFill(Mpos - 1, a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, upper);
+    if (cyclic) { upper[Mpos-2] = a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
+    else        { upper[Mpos-2] = 0;                                        }
 
     // fill lower diagonal
-    carrFill(Mpos, a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, lower);
-    if (cyclic) { lower[Mpos-1] = a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
-    else        { lower[Mpos-1] = 0;                                        }
+    carrFill(Mpos - 1, a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, lower);
+    if (cyclic) { lower[Mpos-2] = a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
+    else        { lower[Mpos-2] = 0;                                        }
 
     // Store in CCS format the RHS of discretized system of equations
-    CCSmat rhs_mat = CyclicToCCS(Mpos, upper, lower, mid);
+    CCSmat rhs_mat = CyclicToCCS(Mpos - 1, upper, lower, mid);
 
 
 
@@ -1028,18 +1031,18 @@ void MCTDHB_itime_evolution(MCTDHBsetup MC, Cmatrix Orb, Carray C, double dT,
 
 
     // fill main diagonal (use upper as auxiliar array)
-    carrFill(Mpos, a2 * dt / dx / dx + I, upper);
-    rcarrUpdate(Mpos, upper, -dt, MC->V, mid);
+    carrFill(Mpos - 1, a2 * dt / dx / dx + I, upper);
+    rcarrUpdate(Mpos - 1, upper, -dt, MC->V, mid);
 
     // fill upper diagonal
-    carrFill(Mpos, - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, upper);
-    if (cyclic) { upper[Mpos-1] = - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
-    else        { upper[Mpos-1] = 0;                                          }
+    carrFill(Mpos - 1, - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, upper);
+    if (cyclic) { upper[Mpos-2] = - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
+    else        { upper[Mpos-2] = 0;                                          }
 
     // fill lower diagonal
-    carrFill(Mpos, - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, lower);
-    if (cyclic) { lower[Mpos-1] = - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
-    else        { lower[Mpos-1] = 0;                                          }
+    carrFill(Mpos - 1, - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, lower);
+    if (cyclic) { lower[Mpos-2] = - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
+    else        { lower[Mpos-2] = 0;                                          }
 
     for (i = 0; i < Nsteps; i++)
     {

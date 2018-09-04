@@ -79,8 +79,9 @@ void dxCyclic(int n, Carray f, double dx, Carray dfdx)
     int i;
     double r = 1.0 / (2 * dx);
 
-    dfdx[0]   = (f[1] - f[n-1]) * r;
-    dfdx[n-1] = (f[0] - f[n-2]) * r;
+    dfdx[0]   = (f[1] - f[n-2]) * r;
+    dfdx[n-2] = (f[0] - f[n-3]) * r;
+    dfdx[n-1] = dfdx[0];
     for (i = 1; i < n - 1; i++) dfdx[i] = (f[i+1] - f[i-1]) * r;
 }
 

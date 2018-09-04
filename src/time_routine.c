@@ -422,7 +422,7 @@ void ApplyRHS(int M, double inter, Carray S, Carray rhs)
         rhs[i] = inter * (creal(S[i]) * creal(S[i]) + cimag(S[i]) * cimag(S[i])) * S[i];
     }
 
-    for (i = 0; i < M - 1; i++) rhs[i] = (-1.0) * I * rhs[i];
+    for (i = 0; i < M; i++) rhs[i] = (-1.0) * I * rhs[i];
 }
 
 void RK4gp(int M, int N, double dx, double dt, double a2, double complex a1,

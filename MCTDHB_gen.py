@@ -2,7 +2,10 @@ import sys;
 import numpy as np;
 from scipy.integrate import simps;
 from math import pi;
+from math import sqrt;
 from math import factorial as fac;
+
+import matplotlib.pyplot as plt;
 
 """
 
@@ -63,10 +66,10 @@ def IndexToFock(k, N, M, v):
     for i in range(N, 0, -1): v[0] = v[0] + 1;
 
 def AngularMom(Morb, x, S):
-    S[0,:] = 1.0;
+    S[0,:] = 1.0 / sqrt(2 * pi);
     for i in range(2, Morb, 2):
-        S[i - 1,:] = np.exp(- 0.5j * i * x, dtype=lc);
-        S[i, :] = np.exp(0.5j * i * x, dtype=lc);
+        S[i - 1,:] = np.exp(- 1.0j * (i / 2) * x, dtype=lc) / sqrt(2 * pi);
+        S[i, :] = np.exp(1.0j * (i / 2) * x, dtype=lc) / sqrt(2 * pi);
 
 def Coef(Npar, Morb, C):
     v = np.empty(Morb, dtype=np.int32);
@@ -102,5 +105,5 @@ np.savetxt('setup/MC_' + Id_name + '_orb.dat', Orb.T, fmt='%.15E');
 np.savetxt('setup/MC_' + Id_name + '_coef.dat', C.T, fmt='%.15E');
 
 f = open('setup/MC_' + Id_name + '_config.dat', "w");
-f.write("%d %d %d" % (Npar, Morb, Mdiv));
+f.write("%d %d %d %.5f %.5f" % (Npar, Morb, Mdiv, -pi, pi));
 f.close();

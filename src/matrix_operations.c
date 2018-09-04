@@ -192,7 +192,7 @@ int HermitianInv(int M, Cmatrix A, Cmatrix A_inv)
             ArrayForm[i * M + j].real = creal(A[i][j]);
             ArrayForm[i * M + j].imag = cimag(A[i][j]);
             ArrayForm[j * M + i].real = 0; // symbolic values
-            ArrayForm[j * M + i].imag = 0; // for upper triangular par
+            ArrayForm[j * M + i].imag = 0; // for upper triangular part
             Id[i * M + j].real = 0;
             Id[i * M + j].imag = 0;
             Id[j * M + i].real = 0;
