@@ -8,7 +8,8 @@
 #include "array_memory.h"
 #include "array_operations.h"
 
-#define PI 3.141592653589793 // to compute derivatives with FFT
+// Renormalize f such that || f || = norm
+void renormalize(int n, Carray f, double dx, double norm);
 
 /* DERIVATIVES AND INTEGRATION ROUTINES */
 

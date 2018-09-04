@@ -86,6 +86,9 @@ void rarrAbs(int n, Rarray v, Rarray vabs);
 void carrAbs2(int n, Carray v, Rarray vabs);
 void rarrAbs2(int n, Rarray v, Rarray vabs);
 
+// Renormalize vector such that || v || = norm
+void renormalizeVector(int n, Carray v, double norm);
+
 
 
 /*          ***********************************************          */

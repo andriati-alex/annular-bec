@@ -1,5 +1,16 @@
 #include "../include/calculus.h"
 
+void renormalize(int n, Carray f, double dx, double norm)
+{
+    int i;
+    double renorm;
+    Rarray ToInt = rarrDef(n);
+
+    carrAbs2(n, f, ToInt);
+    renorm = norm * sqrt(1.0 / Rsimps(n, ToInt, dx));
+    for (i = 0; i < n; i++) f[i] = f[i] * renorm;
+}
+
 double complex Csimps(int n, Carray f, double dx)
 {
     if (n == 1) return 0; // integrating over empty set

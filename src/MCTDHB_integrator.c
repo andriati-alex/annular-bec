@@ -195,7 +195,11 @@ void RK4step(MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
     Cmatrix  Ho = cmatDef(M, M);
     Carray Hint = carrDef(M * M * M *M);
 
-    /***************               COMPUTE K1               ***************/
+
+
+    /* __________________________________________________________________ *
+     *                             COMPUTE K1                             *
+     *                          ----------------                          */
 
     RHSforRK4(MC, C, Orb, Ho, Hint, Crhs, Orhs);
 
@@ -216,7 +220,10 @@ void RK4step(MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
         }
     }
 
-    /***************               COMPUTE K2               ***************/
+
+    /* __________________________________________________________________ *
+     *                             COMPUTE K2                             *
+     *                          ----------------                          */
 
     RHSforRK4(MC, Carg, Oarg, Ho, Hint, Crhs, Orhs);
 
@@ -237,7 +244,12 @@ void RK4step(MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
         }
     }
 
-    /***************               COMPUTE K3               ***************/
+
+
+
+    /* __________________________________________________________________ *
+     *                             COMPUTE K3                             *
+     *                          ----------------                          */
 
     RHSforRK4(MC, Carg, Oarg, Ho, Hint, Crhs, Orhs);
 
@@ -258,7 +270,157 @@ void RK4step(MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
         }
     }
 
-    /***************               COMPUTE K4               ***************/
+
+
+    /* __________________________________________________________________ *
+     *                             COMPUTE K3                             *
+     *                          ----------------                          */
+
+    RHSforRK4(MC, Carg, Oarg, Ho, Hint, Crhs, Orhs);
+
+    for (i = 0; i < MC->nc; i++)
+    {   // Add K4 contribution
+        Cnew[i] += Crhs[i];
+    }
+
+    for (k = 0; k < M; k++)
+    {
+        for (j = 0; j < Mpos; j++)
+        {   // Add K4 contribution
+            Onew[k][j] += Orhs[k][j];
+        }
+    }
+
+    // Until now ?new  holds the sum K1 + 2 * K2 + 2 * K3 + K4
+    // from the Fourth order Runge-Kutta algorithm. Therefore:
+
+    for (i = 0; i < MC->nc; i++)
+    {   // Update Coeficients
+        C[i] = C[i] + Cnew[i] * dt / 6;
+    }
+
+    for (k = 0; k < M; k++)
+    {   // Update Orbitals
+        for (j = 0; j < Mpos; j++)
+        {
+            Orb[k][j] = Orb[k][j] + Onew[k][j] * dt / 6;
+        }
+    }
+
+    free(Cnew);
+    free(Crhs);
+    free(Carg);
+    
+    cmatFree(M, Orhs);
+    cmatFree(M, Onew);
+    cmatFree(M, Oarg);
+
+    cmatFree(M, Ho);
+    free(Hint);
+}
+
+void IRK4step(MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
+{   // Apply 4-th order Runge-Kutta routine given a time step
+
+    long i; // Coeficient Index Counter
+
+    int  k, // Orbital counter
+         j, // discretized position counter
+         M = MC->Morb,
+         Mpos = MC->Mpos,
+         Npar = MC->Npar;
+
+    Carray Crhs = carrDef(MC->nc);
+    Carray Cnew = carrDef(MC->nc);
+    Carray Carg = carrDef(MC->nc);
+
+    Cmatrix Orhs = cmatDef(M, Mpos);
+    Cmatrix Onew = cmatDef(M, Mpos);
+    Cmatrix Oarg = cmatDef(M, Mpos);
+
+    Cmatrix  Ho = cmatDef(M, M);
+    Carray Hint = carrDef(M * M * M *M);
+
+
+
+    /* __________________________________________________________________ *
+     *                             COMPUTE K1                             *
+     *                          ----------------                          */
+
+    RHSforRK4(MC, C, Orb, Ho, Hint, Crhs, Orhs);
+
+    for (i = 0; i < MC->nc; i++)
+    {   // Add K1 contribution
+        Cnew[i] = Crhs[i];
+        // Prepare next argument to compute K2
+        Carg[i] = C[i] + Crhs[i] * 0.5 * dt;
+    }
+
+    for (k = 0; k < M; k++)
+    {
+        for (j = 0; j < Mpos; j++)
+        {   // Add K1 contribution
+            Onew[k][j] = Orhs[k][j];
+            // Prepare next argument to compute K2
+            Oarg[k][j] = Orb[k][j] + Orhs[k][j] * 0.5 * dt;
+        }
+    }
+
+
+
+    /* __________________________________________________________________ *
+     *                             COMPUTE K2                             *
+     *                          ----------------                          */
+
+    RHSforRK4(MC, Carg, Oarg, Ho, Hint, Crhs, Orhs);
+
+    for (i = 0; i < MC->nc; i++)
+    {   // Add K2 contribution
+        Cnew[i] += 2 * Crhs[i];
+        // Prepare next argument to compute K3
+        Carg[i] = C[i] + Crhs[i] * 0.5 * dt;
+    }
+
+    for (k = 0; k < M; k++)
+    {
+        for (j = 0; j < Mpos; j++)
+        {   // Add K2 contribution
+            Onew[k][j] += 2 * Orhs[k][j];
+            // Prepare next argument to compute K3
+            Oarg[k][j] = Orb[k][j] + Orhs[k][j] * 0.5 * dt;
+        }
+    }
+
+
+
+    /* __________________________________________________________________ *
+     *                             COMPUTE K3                             *
+     *                          ----------------                          */
+
+    RHSforRK4(MC, Carg, Oarg, Ho, Hint, Crhs, Orhs);
+
+    for (i = 0; i < MC->nc; i++)
+    {   // Add K3 contribution
+        Cnew[i] += 2 * Crhs[i];
+        // Prepare next argument to compute K4
+        Carg[i] = C[i] + Crhs[i] * dt;
+    }
+
+    for (k = 0; k < M; k++)
+    {
+        for (j = 0; j < Mpos; j++)
+        {   // Add K3 contribution
+            Onew[k][j] += 2 * Orhs[k][j];
+            // Prepare next argument to compute K4
+            Oarg[k][j] = Orb[k][j] + Orhs[k][j] * dt;
+        }
+    }
+
+
+
+    /* __________________________________________________________________ *
+     *                             COMPUTE K3                             *
+     *                          ----------------                          */
 
     RHSforRK4(MC, Carg, Oarg, Ho, Hint, Crhs, Orhs);
 
@@ -324,14 +486,13 @@ void RHSforRK4(MCTDHBsetup MC, Carray C, Cmatrix Orb,
     /*                                                                    */
     /* ================================================================== */
 
-    int  M = MC->Morb,
-         N = MC->Npar,
-         Mpos = MC->Mpos,
+    int  M  = MC->Morb,
+         N  = MC->Npar,
+         M2 = M * M,
+         M3 = M * M * M,
+         Mpos  = MC->Mpos,
          ** IF = MC->IF;
     
-    int  M2 = M * M,
-         M3 = M * M * M; // To assist accessing two-body matrix elements
-
     long ** NCmat = MC->NCmat;
 
     double dx = MC->dx;
@@ -359,7 +520,7 @@ void RHSforRK4(MCTDHBsetup MC, Carray C, Cmatrix Orb,
     OBrho(N, M, NCmat, IF, C, rho);
     TBrho(N, M, NCmat, IF, C, rho2);
 
-    HermitianInv(M, rho, rho_inv); // Needed in nonlinear orbital part
+    l = HermitianInv(M, rho, rho_inv); // Needed in nonlinear orbital part
 
     /* ================================================================== */
     /*                                                                    */
@@ -369,6 +530,8 @@ void RHSforRK4(MCTDHBsetup MC, Carray C, Cmatrix Orb,
 
     SetupHo(M, Mpos, Orb, dx, MC->a2, MC->a1, MC->V, Ho);
     SetupHint(M, Mpos, Orb, dx, MC->inter, Hint);
+
+
 
     /* ================================================================== */
     /*                                                                    */
@@ -665,7 +828,8 @@ void RHSforRK4(MCTDHBsetup MC, Carray C, Cmatrix Orb,
                 for (q = 0; q < M; q++)
                 {
                     if (q == s || q == k) continue;
-                    for (l = 0; l < M; l ++){
+                    for (l = 0; l < M; l ++)
+                    {
                         if (l == k || l == s || l == q) continue;
                         sqrtOf = sqrt(v[k] * v[s] * (v[q] + 1) * (v[l] + 1));
                         v[k] -= 1;
@@ -689,6 +853,8 @@ void RHSforRK4(MCTDHBsetup MC, Carray C, Cmatrix Orb,
     free(v);
 
     } // End of parallel region
+
+
 
     /* ================================================================== */
     /*                                                                    */
@@ -737,22 +903,26 @@ void LinearPartSM(MCTDHBsetup MC, CCSmat rhs_mat, Carray upper, Carray lower,
 void MCTDHB_time_evolution(MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
         int Nsteps, int cyclic)
 {
-    int i, Mpos = MC->Mpos;
+    int i,
+        Mpos = MC->Mpos;
 
     double dx = MC->dx,
            a2 = MC->a2;
 
     double complex a1 = MC->a1;
 
-
     // used to store matrix elements of linear part
     Carray upper = carrDef(Mpos);
     Carray lower = carrDef(Mpos);
     Carray mid   = carrDef(Mpos);
 
-    /*                 ****************************                  */
-    /*      Setup Right-Hand-Side matrix of linear part of PDE       */
-    /*                 ****************************                  */
+
+
+    /*                                                               *
+     *      Setup Right-Hand-Side matrix of linear part of PDE       *
+     *      --------------------------------------------------       */
+
+
 
     // fill main diagonal (use upper as auxiliar array)
     carrFill(Mpos, - a2 * dt / dx / dx + I, upper);
@@ -768,12 +938,16 @@ void MCTDHB_time_evolution(MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
     if (cyclic) { lower[Mpos-1] = a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
     else        { lower[Mpos-1] = 0;                                        }
 
-    // Store in CCS format
+    // Store in CCS format the RHS of discretized system of equations
     CCSmat rhs_mat = CyclicToCCS(Mpos, upper, lower, mid);
 
-    /*                *******************************                */
-    /*                Setup Cyclic tridiagonal matrix                */
-    /*                *******************************                */
+
+
+    /*                                                               *
+     *                Setup Cyclic tridiagonal matrix                *
+     *                -------------------------------                */
+
+
 
     // fill main diagonal (use upper as auxiliar array)
     carrFill(Mpos, a2 * dt / dx / dx + I, upper);
@@ -792,8 +966,92 @@ void MCTDHB_time_evolution(MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
     for (i = 0; i < Nsteps; i++)
     {
         RK4step(MC, Orb, C, dt / 2);
-        LinearPart(MC, rhs_mat, upper, lower, mid, Orb);
+        LinearPartSM(MC, rhs_mat, upper, lower, mid, Orb);
         RK4step(MC, Orb, C, dt / 2);
+    }
+
+    CCSFree(rhs_mat);
+    free(upper);
+    free(lower);
+    free(mid);
+}
+
+void MCTDHB_itime_evolution(MCTDHBsetup MC, Cmatrix Orb, Carray C, double dT,
+        int Nsteps, int cyclic)
+{
+    int i,
+        k,
+        Mpos = MC->Mpos;
+
+    double dx = MC->dx,
+           a2 = MC->a2;
+
+    double complex a1 = MC->a1,
+                   dt = - I * dT;
+
+    // used to store matrix elements of linear part
+    Carray upper = carrDef(Mpos);
+    Carray lower = carrDef(Mpos);
+    Carray mid   = carrDef(Mpos);
+
+
+
+    /*                                                               *
+     *      Setup Right-Hand-Side matrix of linear part of PDE       *
+     *      --------------------------------------------------       */
+
+
+
+    // fill main diagonal (use upper as auxiliar array)
+    carrFill(Mpos, - a2 * dt / dx / dx + I, upper);
+    rcarrUpdate(Mpos, upper, dt, MC->V, mid);
+
+    // fill upper diagonal
+    carrFill(Mpos, a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, upper);
+    if (cyclic) { upper[Mpos-1] = a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
+    else        { upper[Mpos-1] = 0;                                        }
+
+    // fill lower diagonal
+    carrFill(Mpos, a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, lower);
+    if (cyclic) { lower[Mpos-1] = a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
+    else        { lower[Mpos-1] = 0;                                        }
+
+    // Store in CCS format the RHS of discretized system of equations
+    CCSmat rhs_mat = CyclicToCCS(Mpos, upper, lower, mid);
+
+
+
+    /*                                                               *
+     *                Setup Cyclic tridiagonal matrix                *
+     *                -------------------------------                */
+
+
+
+    // fill main diagonal (use upper as auxiliar array)
+    carrFill(Mpos, a2 * dt / dx / dx + I, upper);
+    rcarrUpdate(Mpos, upper, -dt, MC->V, mid);
+
+    // fill upper diagonal
+    carrFill(Mpos, - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, upper);
+    if (cyclic) { upper[Mpos-1] = - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
+    else        { upper[Mpos-1] = 0;                                          }
+
+    // fill lower diagonal
+    carrFill(Mpos, - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, lower);
+    if (cyclic) { lower[Mpos-1] = - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
+    else        { lower[Mpos-1] = 0;                                          }
+
+    for (i = 0; i < Nsteps; i++)
+    {
+        IRK4step(MC, Orb, C, dt / 2);
+        LinearPartSM(MC, rhs_mat, upper, lower, mid, Orb);
+        IRK4step(MC, Orb, C, dt / 2);
+        // Compared to real time we need additional renormalization
+        for (k = 0; k < MC->Morb; k++)
+        {   // Renormalize each orbital
+            renormalize(Mpos, Orb[k], dx, 1.0);
+        }
+        renormalizeVector(MC->nc, C, 1.0);
     }
 
     CCSFree(rhs_mat);

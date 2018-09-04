@@ -185,7 +185,7 @@ int main(int argc, char * argv[])
 
 
 
-    double real, imag;       // to read data from file
+    double real, imag; // to read data from file
 
     Cmatrix S = cmatDef(N + 1, M + 1); // matrix to store each step solution
 

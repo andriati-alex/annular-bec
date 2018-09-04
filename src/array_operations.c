@@ -139,6 +139,15 @@ void carrAbs2(int n, Carray v, Rarray vabs)
     }
 }
 
+void renormalizeVector(int n, Carray v, double norm)
+{
+    int i;
+    double renorm;
+
+    renorm = norm / carrMod(n, v);
+    for (i = 0; i < n; i ++) v[i] = v[i] * renorm;
+}
+
 
 
 /*          ***********************************************          */

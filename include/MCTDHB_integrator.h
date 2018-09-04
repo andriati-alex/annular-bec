@@ -151,6 +151,14 @@ void RK4step
     double dt
 );
 
+void IRK4step
+(   // Evolve nonlinear part with imaginary time
+    MCTDHBsetup MC,
+    Cmatrix Orb,
+    Carray C,
+    double complex dt
+);
+
 void RHSforRK4
 (   // The Right-Hand-Side(RHS) of a system of Differential equations
     MCTDHBsetup MC,
@@ -162,7 +170,7 @@ void RHSforRK4
     Cmatrix newOrb // Values after the operations have been applied
 );
 
-void LinearPart
+void LinearPartSM
 (   // Evolve a time-step the linear part of PDE(orbitals)
     MCTDHBsetup MC,
     CCSmat rhs_mat, // Matrix from CN approach(discretization)
@@ -175,9 +183,19 @@ void LinearPart
 void MCTDHB_time_evolution
 (   // Call the subroutines to solve nonlinear and linear part
     MCTDHBsetup MC,
-    Cmatrix Orb, // Modified at each time step with the solution(orbitals)
-    Carray C,    // Modified at each time step with the solution(coeficients)
+    Cmatrix Orb, // Modified at each time step
+    Carray C,    // Modified at each time step
     double dt,
+    int Nsteps,
+    int cyclic
+);
+
+void MCTDHB_itime_evolution
+(   // Call subroutines with imaginary time to get ground state
+    MCTDHBsetup MC,
+    Cmatrix Orb, // Modified and renormalized at each time step
+    Carray C,    // Modified and renormalized at each time step
+    double dT,
     int Nsteps,
     int cyclic
 );
