@@ -105,5 +105,5 @@ np.savetxt('setup/MC_' + Id_name + '_orb.dat', Orb.T, fmt='%.15E');
 np.savetxt('setup/MC_' + Id_name + '_coef.dat', C.T, fmt='%.15E');
 
 f = open('setup/MC_' + Id_name + '_config.dat', "w");
-f.write("%d %d %d %.5f %.5f" % (Npar, Morb, Mdiv, -pi, pi));
+f.write("%d %d %d %.14f %.14f" % (Npar, Morb, Mdiv, -pi, pi));
 f.close();

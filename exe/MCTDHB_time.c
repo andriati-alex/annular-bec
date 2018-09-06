@@ -1,11 +1,35 @@
 #include <string.h>
 #include "../include/MCTDHB_integrator.h"
 
+void TimePrint(double t)
+{
+    int
+        tt = (int) t,
+        days  = 0,
+        hours = 0,
+        mins  = 0;
+
+    if ( tt / 86400 > 0 )
+    { days  = tt / 86400; tt = tt % 86400; }
+    if ( tt / 3600  > 0 )
+    { hours = tt / 3600;  tt = tt % 3600;  }
+    if ( tt / 60 > 0 )
+    { mins  = tt / 60;    tt = tt % 60;    }
+
+    printf("%d day(s) %d hour(s) %d minute(s)", days, hours, mins);
+}
+
 int main(int argc, char * argv[])
 {
     omp_set_num_threads(omp_get_max_threads());
 
 
+    if (argc != 5)
+    {
+        printf("\nInvalid Number of command line arguments, ");
+        printf("expected: 4.\n\n");
+        return -1;
+    }
 
     /* ==================================================================== *
      *                                                                      *
@@ -51,10 +75,12 @@ int main(int argc, char * argv[])
         * out_data;
 
     Carray
+        Ctimetest,
         C,      // Coeficients of superposition of Fock states
         to_int; // auxiliar to compute integration
 
     Cmatrix
+        Orbtimetest,
         Orb;    // Orb[k][j] give the value of k-th orbital at position j
 
 
@@ -101,6 +127,7 @@ int main(int argc, char * argv[])
 
 
     Orb = cmatDef(Morb, Mdx + 1);
+    Orbtimetest = cmatDef(Morb, Mdx + 1);
 
     strcpy(fname_in, "setup/MC_");
     strcat(fname_in, argv[3]);
@@ -121,6 +148,7 @@ int main(int argc, char * argv[])
         {
             l = fscanf(eq_setup_file, " (%lf+%lfj) ", &real, &imag);
             Orb[s][k] = real + I * imag;
+            Orbtimetest[s][k] = real + I * imag;
         }
     }
 
@@ -132,6 +160,7 @@ int main(int argc, char * argv[])
 
 
     C = carrDef(NC(Npar, Morb));
+    Ctimetest = carrDef(NC(Npar, Morb));
     
     strcpy(fname_in, "setup/MC_");
     strcat(fname_in, argv[3]);
@@ -150,6 +179,7 @@ int main(int argc, char * argv[])
     {
         l = fscanf(eq_setup_file, " (%lf+%lfj)", &real, &imag);
         C[k] = real + I * imag;
+        Ctimetest[k] = real + I * imag;
     }
 
     fclose(eq_setup_file); // finish the reading of file
@@ -215,7 +245,7 @@ int main(int argc, char * argv[])
 
     if (check > 1E-6)
     {
-        printf("\n\n\tNot orthogonalized orbitals !\n"); return -1;
+        printf("\n\n\tNot orthogonal orbitals !\n"); return -1;
     }
 
 
@@ -235,7 +265,17 @@ int main(int argc, char * argv[])
 
     if (abs(creal(checkDiag) - Morb) > 1E-6 || cimag(checkDiag) > 1E-6)
     {
-        printf("\n\n\tNot normalized orbitals !\n"); return -1;
+        printf("\n\n\tOrbitals are not normalized to 1 !\n"); return -1;
+    }
+
+
+    /* Check if Diagonal elements sum up to Morb *
+     * ----------------------------------------- */
+
+
+    if ( abs(carrMod2(NC(Npar, Morb), C) - 1) > 1E-6 )
+    {
+        printf("\n\n\tCoeficients norm is not 1 !\n"); return -1;
     }
 
 
@@ -253,25 +293,45 @@ int main(int argc, char * argv[])
     printf("\t      Calling integrator. May take several(hours?)       \n\n");
     printf("\t=========================================================\n\n");
     
-    sscanf(argv[4], "%d", &what_todo); // First command line argument
+    sscanf(argv[4], "%d", &what_todo); // Last command line argument
 
-    if (what_todo == 1)
-    {
+    if (what_todo == 0)
+    {   // First estimate time needed based on 1 step
         printf("\n\nDoing real time propagation ...\n");
-        printf("\nTime to do 1 step: ");
+        
         start = omp_get_wtime();
-        MCTDHB_time_evolution(mc, Orb, C, dt, 1, 1);
+        MCTDHB_time_evolution(mc, Orbtimetest, Ctimetest, dt, 1, 1);
         time_used = (double) (omp_get_wtime() - start);
-        printf("%.1lf\n", time_used);
+
+        printf("\nTime to do 1 step: %.1lf seconds\n", time_used);
+        printf("\nTotal time estimated: ");
+        TimePrint(time_used * N);
+        free(Ctimetest);
+        cmatFree(Morb, Orbtimetest);
+
+        printf("\n\n");
+
+        // Start Evolution
+        // MCTDHB_time_evolution(mc, Orb, C, dt, N, 1);
     }
     else
-    {
+    {   // First estimate time needed based on 1 step
         printf("\n\nDoing imaginary time propagation ...\n");
-        printf("\nTime to do 1 step: ");
+        
         start = omp_get_wtime();
-        MCTDHB_itime_evolution(mc, Orb, C, dt, 1, 1);
+        MCTDHB_itime_evolution(mc, Orbtimetest, Ctimetest, dt, 1, 1);
         time_used = (double) (omp_get_wtime() - start);
-        printf("%.1lf\n", time_used);
+
+        printf("\nTime to do 1 step: %.1lf seconds\n", time_used);
+        printf("\nTotal time estimated: ");
+        TimePrint(time_used * N);
+        free(Ctimetest);
+        cmatFree(Morb, Orbtimetest);
+
+        printf("\n\n");
+
+        // Start Evolution
+        // MCTDHB_itime_evolution(mc, Orb, C, dt, N, 1);
     }
 
 
@@ -291,7 +351,7 @@ int main(int argc, char * argv[])
     else
     { strcat(fname_out, "_itime.dat"); }
 
-    printf("\n\nRecording data ...\n");
+    printf("\n\nRecording data ...");
     cmat_txt(fname_out, Morb, 1, Mdx + 1, 1, Orb);
 
     strcpy(fname_out, "../mctdhb_data/");

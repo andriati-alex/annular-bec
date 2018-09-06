@@ -1,15 +1,15 @@
 #include "../include/MCTDHB_integrator.h"
 
 MCTDHBsetup AllocMCTDHBdata (
-        int Npar, 
-        int Morb,
-        int Mpos,
-        double xi,
-        double xf,
-        double a2,
-        double inter,
-        double * V,
-        double complex a1   )
+    int Npar, 
+    int Morb,
+    int Mpos,
+    double xi,
+    double xf,
+    double a2,
+    double inter,
+    double * V,
+    double complex a1 )
 {   // Configure and return the pointer to MCTDHB structure
     MCTDHBsetup MC = (MCTDHBsetup) malloc(sizeof(struct _MCTDHBsetup));
     MC->Npar = Npar;
@@ -29,7 +29,7 @@ MCTDHBsetup AllocMCTDHBdata (
 }
 
 void EraseMCTDHBdata (MCTDHBsetup MC)
-{
+{   // release all fields in the structure
     long i;
     for (i = 0; i < MC->nc; i++) free(MC->IF[i]);
     free(MC->IF);
@@ -39,9 +39,16 @@ void EraseMCTDHBdata (MCTDHBsetup MC)
     free(MC);
 }
 
-void SetupHo (int Morb, int Mpos, Cmatrix Omat, double dx, double a2,
-              double complex a1, Rarray V, Cmatrix Ho)
-{
+void SetupHo (
+    int Morb,
+    int Mpos,
+    Cmatrix Omat,
+    double dx,
+    double a2,
+    double complex a1,
+    Rarray V,
+    Cmatrix Ho )
+{   // Setup matrix elements of noninteracting part
     int i,
         j,
         k;
@@ -70,9 +77,14 @@ void SetupHo (int Morb, int Mpos, Cmatrix Omat, double dx, double a2,
     free(ddxi); free(ddxj); free(toInt);
 }
 
-void SetupHint (int Morb, int Mpos, Cmatrix Omat, double dx,
-                double inter, Carray Hint)
-{
+void SetupHint (
+    int Morb,
+    int Mpos,
+    Cmatrix Omat,
+    double dx,
+    double inter,
+    Carray Hint )
+{   // Matrix elements of interacting part
     int i,
         k,
         s,
@@ -112,9 +124,14 @@ void SetupHint (int Morb, int Mpos, Cmatrix Omat, double dx,
     free(toInt);
 }
 
-double complex Proj_Hint(int M, int k, int i, Cmatrix rho_inv, Carray rho2,
-                         Carray Hint)
-{   // k and i enumerate orbitals (see lecture notes)
+double complex Proj_Hint (
+    int M,
+    int k,
+    int i,
+    Cmatrix rho_inv,
+    Carray rho2,
+    Carray Hint )
+{   // k and i enumerate orbitals maintaned fixed
     int j,
         s,
         q,
@@ -143,8 +160,13 @@ double complex Proj_Hint(int M, int k, int i, Cmatrix rho_inv, Carray rho2,
     return ans;
 }
 
-double complex NonLinear(int M, int k, int n, Cmatrix Omat, Cmatrix rho_inv,
-                         Carray rho2)
+double complex NonLinear (
+    int M,
+    int k,
+    int n,
+    Cmatrix Omat,
+    Cmatrix rho_inv,
+    Carray rho2 )
 {   // k enumerate orbital and n a discretized position
     int j,
         s,
@@ -173,8 +195,8 @@ double complex NonLinear(int M, int k, int n, Cmatrix Omat, Cmatrix rho_inv,
     return ans;
 }
 
-void RK4step(MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
-{   // Apply 4-th order Runge-Kutta routine given a time step
+void RK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
+{   // Apply 4-th order Runge-Kutta routine given a (REAL)time step
 
     long i; // Coeficient Index Counter
 
@@ -273,7 +295,7 @@ void RK4step(MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
 
 
     /* __________________________________________________________________ *
-     *                             COMPUTE K3                             *
+     *                             COMPUTE K4                             *
      *                          ----------------                          */
 
     RHSforRK4(MC, Carg, Oarg, Ho, Hint, Crhs, Orhs);
@@ -319,8 +341,8 @@ void RK4step(MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
     free(Hint);
 }
 
-void IRK4step(MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
-{   // Apply 4-th order Runge-Kutta routine given a time step
+void IRK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
+{   // Apply 4-th order Runge-Kutta routine given a (COMPLEX)time step
 
     long i; // Coeficient Index Counter
 
@@ -419,7 +441,7 @@ void IRK4step(MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
 
 
     /* __________________________________________________________________ *
-     *                             COMPUTE K3                             *
+     *                             COMPUTE K4                             *
      *                          ----------------                          */
 
     RHSforRK4(MC, Carg, Oarg, Ho, Hint, Crhs, Orhs);
@@ -449,7 +471,7 @@ void IRK4step(MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
     {   // Update Orbitals
         for (j = 0; j < Mpos; j++)
         {
-            Orb[k][j] += Orb[k][j] + Onew[k][j] * dt / 6;
+            Orb[k][j] = Orb[k][j] + Onew[k][j] * dt / 6;
         }
     }
 
@@ -465,10 +487,15 @@ void IRK4step(MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
     free(Hint);
 }
 
-void RHSforRK4(MCTDHBsetup MC, Carray C, Cmatrix Orb,
-               Cmatrix Ho, Carray Hint,
-               Carray newC, Cmatrix newOrb)
-{
+void RHSforRK4 (
+    MCTDHBsetup MC,
+    Carray C,
+    Cmatrix Orb,
+    Cmatrix Ho,
+    Carray Hint,
+    Carray newC,
+    Cmatrix newOrb )
+{   // Apply nonlinear part of orbitals together with coeficients
     long // Index of coeficients
         i,
         j,
@@ -874,7 +901,8 @@ void RHSforRK4(MCTDHBsetup MC, Carray C, Cmatrix Orb,
                 Proj += Ho[s][k] * Orb[s][j]; 
                 Proj += Proj_Hint(M, k, s, rho_inv, rho2, Hint) * Orb[s][j];
             }
-            newOrb[k][j] = -I * (MC->inter * NonLinear(M, k, j, Orb, rho_inv, rho2) - Proj);
+            newOrb[k][j] = -I * (MC->inter * \
+                            NonLinear(M, k, j, Orb, rho_inv, rho2) - Proj);
         }
     }
 
@@ -885,11 +913,15 @@ void RHSforRK4(MCTDHBsetup MC, Carray C, Cmatrix Orb,
     /**********                  END OF ROUTINE                  **********/
 }
 
-void LinearPartSM(MCTDHBsetup MC, CCSmat rhs_mat, Carray upper, Carray lower,
-                Carray mid, Cmatrix Orb)
-{
-    int k,
-        size = MC->Mpos - 1;
+void LinearPartSM (
+     MCTDHBsetup MC,
+     CCSmat rhs_mat,
+     Carray upper,
+     Carray lower,
+     Carray mid,
+     Cmatrix Orb )
+{   // Partial differential part. Solve using CN-discretization
+    int k, size = MC->Mpos - 1;
 
     Carray rhs = carrDef(size);
 
@@ -903,11 +935,35 @@ void LinearPartSM(MCTDHBsetup MC, CCSmat rhs_mat, Carray upper, Carray lower,
     free(rhs);
 }
 
-void MCTDHB_time_evolution(MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
-        int Nsteps, int cyclic)
-{
-    int i,
-        Mpos = MC->Mpos;
+
+
+
+
+    /* ================================================================== *
+     *                                                                    *
+     *              Give the solution after some time steps               *
+     *                                                                    *
+     * Given the structure MCTDHBsetup whose contains all relevant        *
+     * parameters, do the time (real or complex) evolution calling        *
+     * separetely the nonlinear part together with the coeficients        *
+     * in half of the time step. Then It evolves an entire step the       *
+     * linear part of orbital's equation. Finally evolve one  more        *
+     * half time step the nonlinear part.                                 */
+
+
+
+
+
+void MCTDHB_time_evolution (
+     MCTDHBsetup MC,
+     Cmatrix Orb,
+     Carray C,
+     double dt,
+     int Nsteps,
+     int cyclic )
+{   // real time propagation
+    
+    int i, Mpos = MC->Mpos, k, l, s;
 
     double dx = MC->dx,
            a2 = MC->a2;
@@ -918,6 +974,7 @@ void MCTDHB_time_evolution(MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
     Carray upper = carrDef(Mpos - 1);
     Carray lower = carrDef(Mpos - 1);
     Carray mid   = carrDef(Mpos - 1);
+    Carray to_int = carrDef(Mpos);
 
 
 
@@ -971,19 +1028,41 @@ void MCTDHB_time_evolution(MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
         RK4step(MC, Orb, C, dt / 2);
         LinearPartSM(MC, rhs_mat, upper, lower, mid, Orb);
         RK4step(MC, Orb, C, dt / 2);
+        printf("\n\nAfter %d time steps", i + 1);
+        for (k = 0; k < MC->Morb; k++)
+        {
+            printf("\n\t");
+            for (l = 0; l < MC->Morb; l++)
+            {
+                for (s = 0; s < MC->Mpos; s++)
+                {
+                    to_int[s] = conj(Orb[k][s]) * Orb[l][s];
+                }
+                printf(" "); cPrint(Csimps(MC->Mpos, to_int, MC->dx));
+            }
+        }
     }
 
     CCSFree(rhs_mat);
+    free(to_int);
     free(upper);
     free(lower);
     free(mid);
 }
 
-void MCTDHB_itime_evolution(MCTDHBsetup MC, Cmatrix Orb, Carray C, double dT,
-        int Nsteps, int cyclic)
-{
+void MCTDHB_itime_evolution (
+     MCTDHBsetup MC,
+     Cmatrix Orb,
+     Carray C,
+     double dT,
+     int Nsteps,
+     int cyclic)
+{   // imaginary time propagation
+
     int i,
         k,
+        l,
+        s,
         Mpos = MC->Mpos;
 
     double dx = MC->dx,
@@ -996,7 +1075,7 @@ void MCTDHB_itime_evolution(MCTDHBsetup MC, Cmatrix Orb, Carray C, double dT,
     Carray upper = carrDef(Mpos - 1);
     Carray lower = carrDef(Mpos - 1);
     Carray mid   = carrDef(Mpos - 1);
-
+    Carray to_int = carrDef(Mpos);
 
 
     /*                                                               *
@@ -1055,9 +1134,23 @@ void MCTDHB_itime_evolution(MCTDHBsetup MC, Cmatrix Orb, Carray C, double dT,
             renormalize(Mpos, Orb[k], dx, 1.0);
         }
         renormalizeVector(MC->nc, C, 1.0);
+        printf("\n\nAfter %d time steps", i + 1);
+        for (k = 0; k < MC->Morb; k++)
+        {
+            printf("\n\t");
+            for (l = 0; l < MC->Morb; l++)
+            {
+                for (s = 0; s < MC->Mpos; s++)
+                {
+                    to_int[s] = conj(Orb[k][s]) * Orb[l][s];
+                }
+                printf(" "); cPrint(Csimps(MC->Mpos, to_int, MC->dx));
+            }
+        }
     }
 
     CCSFree(rhs_mat);
+    free(to_int);
     free(upper);
     free(lower);
     free(mid);
