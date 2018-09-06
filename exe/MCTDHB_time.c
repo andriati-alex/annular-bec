@@ -312,7 +312,7 @@ int main(int argc, char * argv[])
         printf("\n\n");
 
         // Start Evolution
-        // MCTDHB_time_evolution(mc, Orb, C, dt, N, 1);
+        MCTDHB_time_evolution(mc, Orb, C, dt, N, 1);
     }
     else
     {   // First estimate time needed based on 1 step
@@ -331,7 +331,7 @@ int main(int argc, char * argv[])
         printf("\n\n");
 
         // Start Evolution
-        // MCTDHB_itime_evolution(mc, Orb, C, dt, N, 1);
+        MCTDHB_itime_evolution(mc, Orb, C, dt, N, 1);
     }
 
 
