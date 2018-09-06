@@ -17,9 +17,11 @@ obj_gp = $(obj_linalg)   \
 		 NewtonCG.o      \
 		 rk4.o
 
-obj_mctdhb = $(obj_linalg) \
-		 	 coef.o        \
-			 calculus.o	   \
+obj_mctdhb = $(obj_linalg)        \
+		 	 coef.o               \
+			 calculus.o	          \
+			 MCTDHB_datatype.o    \
+			 MCTDHB_observables.o \
 		 	 MCTDHB_integrator.o
 
 linalg_header = include/array.h 			 \
@@ -37,9 +39,11 @@ gp_header = $(linalg_header) 		\
 			include/NewtonCG.h      \
 			include/rk4.h
 
-mctdhb_header = $(linalg_header) 		\
-				include/coef_routines.h \
-				include/calculus.h		\
+mctdhb_header = $(linalg_header) 		     \
+				include/coef_routines.h      \
+				include/calculus.h		     \
+				include/MCTDHB_datatype.h    \
+				include/MCTDHB_observables.h \
 				include/MCTDHB_integrator.h
 
 
@@ -60,7 +64,7 @@ itime_propagate : libgp.a exe/itime_propagate.c $(gp_header)
 	gcc -o itime_propagate exe/itime_propagate.c        \
 		-L${MKLROOT}/lib/intel64                        \
 		-Wl,--no-as-needed                              \
-		-lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core   \
+		-lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core    \
 		-lm -fopenmp                                    \
 		-L./lib -I./include -lgp -O3
 
@@ -178,6 +182,12 @@ MCTDHB_integrator.o : src/MCTDHB_integrator.c include/MCTDHB_integrator.h
 
 coef.o : src/coef.c include/coef_routines.h
 	gcc -c -O3 -fopenmp src/coef.c
+
+MCTDHB_observables.o : src/MCTDHB_observables.c include/MCTDHB_observables.h
+	gcc -c -O3 -fopenmp src/MCTDHB_observables.c
+
+MCTDHB_datatype.o : src/MCTDHB_datatype.c include/MCTDHB_datatype.h
+	gcc -c -O3 src/MCTDHB_datatype.c
 
 clean :
 	-rm build/*.o

@@ -1,129 +1,5 @@
 #include "../include/MCTDHB_integrator.h"
 
-MCTDHBsetup AllocMCTDHBdata (
-    int Npar, 
-    int Morb,
-    int Mpos,
-    double xi,
-    double xf,
-    double a2,
-    double inter,
-    double * V,
-    double complex a1 )
-{   // Configure and return the pointer to MCTDHB structure
-    MCTDHBsetup MC = (MCTDHBsetup) malloc(sizeof(struct _MCTDHBsetup));
-    MC->Npar = Npar;
-    MC->Morb = Morb;
-    MC->Mpos = Mpos;
-    MC->xi = xi;
-    MC->xf = xf;
-    MC->dx = (xf - xi) / (Mpos - 1);
-    MC->inter = inter;
-    MC->a2 = a2;
-    MC->a1 = a1;
-    MC->V = V;
-    MC->nc = NC(Npar, Morb);
-    MC->NCmat = MountNCmat(Npar, Morb);
-    MC->IF = MountFocks(Npar, Morb, MC->NCmat);
-    return MC;
-}
-
-void EraseMCTDHBdata (MCTDHBsetup MC)
-{   // release all fields in the structure
-    long i;
-    for (i = 0; i < MC->nc; i++) free(MC->IF[i]);
-    free(MC->IF);
-    for (i = 0; i <= MC->Npar; i++) free(MC->NCmat[i]);
-    free(MC->NCmat);
-    free(MC->V);
-    free(MC);
-}
-
-void SetupHo (
-    int Morb,
-    int Mpos,
-    Cmatrix Omat,
-    double dx,
-    double a2,
-    double complex a1,
-    Rarray V,
-    Cmatrix Ho )
-{   // Setup matrix elements of noninteracting part
-    int i,
-        j,
-        k;
-
-    Carray ddxi  = carrDef(Mpos);
-    Carray ddxj  = carrDef(Mpos);
-    Carray toInt = carrDef(Mpos);
-
-    for (i = 0; i < Morb; i++)
-    {
-        dxCyclic(Mpos, Omat[i], dx, ddxi);
-        for (j = 0; j < Morb; j++)
-        {
-            dxCyclic(Mpos, Omat[j], dx, ddxj);
-            for (k = 0; k < Mpos; k++)
-            {
-                toInt[k] = - a2 * conj(ddxi[k]) * ddxj[k]    \
-                           + a1 * conj(Omat[i][k]) * ddxj[k] \
-                           + V[k] * conj(Omat[i][k]) * Omat[j][k];
-            }
-            Ho[i][j] = Csimps(Mpos, toInt, dx);
-            // Ho[j][i] = conj(Ho[i][j]);
-        }
-    }
-
-    free(ddxi); free(ddxj); free(toInt);
-}
-
-void SetupHint (
-    int Morb,
-    int Mpos,
-    Cmatrix Omat,
-    double dx,
-    double inter,
-    Carray Hint )
-{   // Matrix elements of interacting part
-    int i,
-        k,
-        s,
-        q,
-        l,
-        M = Morb,
-        M2 = Morb * Morb,
-        M3 = Morb * Morb * Morb;
-
-    double complex Integral;
-
-    Carray toInt = carrDef(Mpos);
-
-    for (k = 0; k < Morb; k++)
-    {
-        for (s = k; s < Morb; s++)
-        {
-            for (q = 0; q < Morb; q++)
-            {
-                for (l = q; l < Morb; l++)
-                {
-                    for (i = 0; i < Mpos; i++)
-                    {
-                        toInt[i] = conj(Omat[k][i] * Omat[s][i]) * \
-                                   Omat[q][i] * Omat[l][i];
-                    }
-                    Integral = inter * Csimps(Mpos, toInt, dx);
-                    Hint[k + s * M + q * M2 + l * M3] = Integral;
-                    Hint[k + s * M + l * M2 + q * M3] = Integral;
-                    Hint[s + k * M + q * M2 + l * M3] = Integral;
-                    Hint[s + k * M + l * M2 + q * M3] = Integral;
-                }   // Take advantage of the symmetry k <--> s
-            }
-        }
-    }
-
-    free(toInt);
-}
-
 double complex Proj_Hint (
     int M,
     int k,
@@ -132,6 +8,7 @@ double complex Proj_Hint (
     Carray rho2,
     Carray Hint )
 {   // k and i enumerate orbitals maintaned fixed
+
     int j,
         s,
         q,
@@ -168,6 +45,7 @@ double complex NonLinear (
     Cmatrix rho_inv,
     Carray rho2 )
 {   // k enumerate orbital and n a discretized position
+
     int j,
         s,
         q,
@@ -958,6 +836,7 @@ void MCTDHB_time_evolution (
      MCTDHBsetup MC,
      Cmatrix Orb,
      Carray C,
+     Carray E,
      double dt,
      int Nsteps,
      int cyclic )
@@ -1028,7 +907,16 @@ void MCTDHB_time_evolution (
         RK4step(MC, Orb, C, dt / 2);
         LinearPartSM(MC, rhs_mat, upper, lower, mid, Orb);
         RK4step(MC, Orb, C, dt / 2);
-        printf("\n\nAfter %d time steps", i + 1);
+        // Store energy
+        E[i] = Energy(MC, Orb, C);
+
+        /*     -------------------------------------------------     *
+         *            print to check orthogonality/Energy            *
+         *     -------------------------------------------------     */
+
+        printf("\n\nAfter %d time steps, Energy = ", i + 1);
+        cPrint(E[i]);
+        printf(". Orthogonality matrix is:\n");
         for (k = 0; k < MC->Morb; k++)
         {
             printf("\n\t");
@@ -1054,6 +942,7 @@ void MCTDHB_itime_evolution (
      MCTDHBsetup MC,
      Cmatrix Orb,
      Carray C,
+     Carray E,
      double dT,
      int Nsteps,
      int cyclic)
@@ -1133,8 +1022,18 @@ void MCTDHB_itime_evolution (
         {   // Renormalize each orbital
             renormalize(Mpos, Orb[k], dx, 1.0);
         }
+        // Renormalize coeficients
         renormalizeVector(MC->nc, C, 1.0);
-        printf("\n\nAfter %d time steps", i + 1);
+        // Store energy
+        E[i] = Energy(MC, Orb, C);
+
+        /*     -------------------------------------------------     *
+         *            print to check orthogonality/Energy            *
+         *     -------------------------------------------------     */
+
+        printf("\n\nAfter %d time steps, Energy = ", i + 1);
+        cPrint(E[i]);
+        printf(". Orthogonality matrix is:\n");
         for (k = 0; k < MC->Morb; k++)
         {
             printf("\n\t");

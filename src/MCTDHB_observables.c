@@ -1,6 +1,93 @@
-#include "../include/MCTDHB_integrator"
+#include "../include/MCTDHB_observables.h"
 
-double complex Energy(MCTDHBsetup mc, Cmatrix Orb, Carray C)
+void SetupHo (
+    int Morb,
+    int Mpos,
+    Cmatrix Omat,
+    double dx,
+    double a2,
+    double complex a1,
+    Rarray V,
+    Cmatrix Ho )
+{   // Setup matrix elements of noninteracting part
+
+    int i,
+        j,
+        k;
+
+    Carray ddxi  = carrDef(Mpos);
+    Carray ddxj  = carrDef(Mpos);
+    Carray toInt = carrDef(Mpos);
+
+    for (i = 0; i < Morb; i++)
+    {
+        dxCyclic(Mpos, Omat[i], dx, ddxi);
+        for (j = 0; j < Morb; j++)
+        {
+            dxCyclic(Mpos, Omat[j], dx, ddxj);
+            for (k = 0; k < Mpos; k++)
+            {
+                toInt[k] = - a2 * conj(ddxi[k]) * ddxj[k]    \
+                           + a1 * conj(Omat[i][k]) * ddxj[k] \
+                           + V[k] * conj(Omat[i][k]) * Omat[j][k];
+            }
+            Ho[i][j] = Csimps(Mpos, toInt, dx);
+            // Ho[j][i] = conj(Ho[i][j]);
+        }
+    }
+
+    free(ddxi); free(ddxj); free(toInt);
+}
+
+void SetupHint (
+    int Morb,
+    int Mpos,
+    Cmatrix Omat,
+    double dx,
+    double inter,
+    Carray Hint )
+{   // Matrix elements of interacting part
+
+    int i,
+        k,
+        s,
+        q,
+        l,
+        M = Morb,
+        M2 = Morb * Morb,
+        M3 = Morb * Morb * Morb;
+
+    double complex Integral;
+
+    Carray toInt = carrDef(Mpos);
+
+    for (k = 0; k < Morb; k++)
+    {
+        for (s = k; s < Morb; s++)
+        {
+            for (q = 0; q < Morb; q++)
+            {
+                for (l = q; l < Morb; l++)
+                {
+                    for (i = 0; i < Mpos; i++)
+                    {
+                        toInt[i] = conj(Omat[k][i] * Omat[s][i]) * \
+                                   Omat[q][i] * Omat[l][i];
+                    }
+                    Integral = inter * Csimps(Mpos, toInt, dx);
+                    Hint[k + s * M + q * M2 + l * M3] = Integral;
+                    Hint[k + s * M + l * M2 + q * M3] = Integral;
+                    Hint[s + k * M + q * M2 + l * M3] = Integral;
+                    Hint[s + k * M + l * M2 + q * M3] = Integral;
+                }   // Take advantage of the symmetry k <--> s
+            }
+        }
+    }
+
+    free(toInt);
+}
+
+double complex Energy (MCTDHBsetup mc, Cmatrix Orb, Carray C)
 {
     int Morb = mc->Morb;
 
@@ -52,7 +139,7 @@ double complex Energy(MCTDHBsetup mc, Cmatrix Orb, Carray C)
     free(rho2);
     free(Hint);
     cmatFree(Morb, rho);
-    cmatFree(Morb, Hint);
+    cmatFree(Morb, Ho);
 
     return (w + z / 2);
 }

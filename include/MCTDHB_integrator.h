@@ -5,44 +5,12 @@
     #include <omp.h>
 #endif
 
+#include "MCTDHB_datatype.h"
+#include "MCTDHB_observables.h"
 #include "array_memory.h"
 #include "matrix_operations.h"
 #include "tridiagonal_solver.h"
 #include "coef_routines.h"
-#include "calculus.h"
-
-
-
-/* ======================================================================== */
-/*                                                                          */
-/*                           DATA-TYPE DEFINITION                           */
-/*                                                                          */
-/* ======================================================================== */
-
-
-
-struct _MCTDHBsetup
-{
-    int 
-        Mpos,   // # of discretized positions (# divisions + 1)
-        Morb,   // # of orbitals
-        Npar,   // # of particles
-        ** IF;  // IF[i] point to the occupation number vetor of C[i]
-    long
-        nc,         // Total # of configurations of Fock states
-        ** NCmat;   // NCmat[n][m] # with n particles / m orbitals
-    double
-        dx,     // space step
-        xi,     // initial position discretized value
-        xf,     // final position discretized value
-        a2,     // factor multiplying d2 / dx2
-        inter,  // know as g, contact interaction strength
-        * V;    // Array with the values of one-particle potential
-    double complex
-        a1;     // factor multiplying d / dx (pure imaginary)
-};
-
-typedef struct _MCTDHBsetup * MCTDHBsetup;
 
 
 
@@ -54,66 +22,13 @@ typedef struct _MCTDHBsetup * MCTDHBsetup;
 
 
 
-MCTDHBsetup AllocMCTDHBdata
-(
-    int Npar,
-    int Morb,
-    int Mpos,
-    double xi,
-    double xf,
-    double a2,
-    double inter,
-    double * V,
-    double complex a1
-);
-
-void EraseMCTDHBdata(MCTDHBsetup MC);
-
-
-
-/* ==========================================================================
- *                                                                *
- *        Setup matrix elements of one-body Hamiltonian Ho        *
- *        ------------------------------------------------        *
- *                                                                */
-
-void SetupHo
-(
-    int Morb,
-    int Mpos,
-    Cmatrix Omat,
-    double dx,
-    double a2,
-    double complex a1,
-    Rarray V,
-    Cmatrix Ho
-);
-
-
-
-/* ==========================================================================
- *                                                                  *
- *        Setup matrix elements of two-body Hamiltonian Hint        *
- *        --------------------------------------------------        *
- *                                                                  */
-
-void SetupHint
-(
-    int Morb,
-    int Mpos,
-    Cmatrix Omat,
-    double dx,
-    double inter,
-    Carray Hint
-);
-
-
-
 /* ==========================================================================
  *                                                                   *
  *          Function to apply nonlinear part of obitals PDE          *
  *          -----------------------------------------------          *
  *                                                                   */
+
+
 
 double complex Proj_Hint
 (   // The one that comes from Projective part
@@ -143,6 +58,8 @@ double complex NonLinear
  *                    ---------------------------                    *
  *                                                                   */
 
+
+
 void RK4step
 (   // Evolve nonlinear part of orbitals coupled with coeficients
     MCTDHBsetup MC,
@@ -151,6 +68,8 @@ void RK4step
     double dt
 );
 
+
+
 void IRK4step
 (   // Evolve nonlinear part with imaginary time
     MCTDHBsetup MC,
@@ -158,6 +77,8 @@ void IRK4step
     Carray C,
     double complex dt
 );
+
+
 
 void RHSforRK4
 (   // The Right-Hand-Side(RHS) of a system of Differential equations
@@ -170,6 +91,8 @@ void RHSforRK4
     Cmatrix newOrb // Values after the operations have been applied
 );
 
+
+
 void LinearPartSM
 (   // Evolve a time-step the linear part of PDE(orbitals)
     MCTDHBsetup MC,
@@ -180,21 +103,35 @@ void LinearPartSM
     Cmatrix Orb
 );
 
+
+
+/* ==========================================================================
+ *                                                                   *
+ *                     Main routine to be called                     *
+ *                    ---------------------------                    *
+ *                                                                   */
+
+
+
 void MCTDHB_time_evolution
 (   // Call the subroutines to solve nonlinear and linear part
     MCTDHBsetup MC,
-    Cmatrix Orb, // Modified at each time step
-    Carray C,    // Modified at each time step
+    Cmatrix Orb, // Modified/Overwritten at each time step
+    Carray C,    // Modified/Overwritten at each time step
+    Carray E,    // Energy at each time step
     double dt,
     int Nsteps,
     int cyclic
 );
 
+
+
 void MCTDHB_itime_evolution
 (   // Call subroutines with imaginary time to get ground state
     MCTDHBsetup MC,
-    Cmatrix Orb, // Modified and renormalized at each time step
-    Carray C,    // Modified and renormalized at each time step
+    Cmatrix Orb, // Modified/Overwritten and renormalized at each time step
+    Carray C,    // Modified/Overwritten and renormalized at each time step
+    Carray E,    // Energy at each time step
     double dT,
     int Nsteps,
     int cyclic

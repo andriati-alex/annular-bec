@@ -5,8 +5,6 @@ from math import pi;
 from math import sqrt;
 from math import factorial as fac;
 
-import matplotlib.pyplot as plt;
-
 """
 
     GENERATE INITIAL CONDITION DATA TO MCTDHB
@@ -93,13 +91,13 @@ Mdiv = int(sys.argv[3]); # Number of divisions between -pi to pi
 x  = np.linspace(-pi, pi, Mdiv + 1, dtype=lf);
 dx = 2 * pi / Mdiv;
 
-Orb = np.empty([Morb, x.size], dtype=lc); # orbitals in discretized positions
-C = np.empty(NC(Npar, Morb), dtype=lc);
+Orb = np.empty([Morb, x.size], dtype=lc); # orbitals
+C = np.empty(NC(Npar, Morb), dtype=lc);   # coeficients
 
 AngularMom(Morb, x, Orb);
 Coef(Npar, Morb, C);
 
-Id_name = 'angular';
+Id_name = 'angular' + str(Npar) + str(Morb);
 
 np.savetxt('setup/MC_' + Id_name + '_orb.dat', Orb.T, fmt='%.15E');
 np.savetxt('setup/MC_' + Id_name + '_coef.dat', C.T, fmt='%.15E');

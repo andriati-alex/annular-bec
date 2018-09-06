@@ -77,7 +77,8 @@ int main(int argc, char * argv[])
     Carray
         Ctimetest,
         C,      // Coeficients of superposition of Fock states
-        to_int; // auxiliar to compute integration
+        to_int, // auxiliar to compute integration
+        E;      // Energy at each time step evolved
 
     Cmatrix
         Orbtimetest,
@@ -295,15 +296,17 @@ int main(int argc, char * argv[])
     
     sscanf(argv[4], "%d", &what_todo); // Last command line argument
 
+    E = carrDef(N);
+
     if (what_todo == 0)
     {   // First estimate time needed based on 1 step
         printf("\n\nDoing real time propagation ...\n");
         
         start = omp_get_wtime();
-        MCTDHB_time_evolution(mc, Orbtimetest, Ctimetest, dt, 1, 1);
+        MCTDHB_time_evolution(mc, Orbtimetest, Ctimetest, E, dt, 1, 1);
         time_used = (double) (omp_get_wtime() - start);
 
-        printf("\nTime to do 1 step: %.1lf seconds\n", time_used);
+        printf("\n\nTime to do 1 step: %.1lf seconds\n", time_used);
         printf("\nTotal time estimated: ");
         TimePrint(time_used * N);
         free(Ctimetest);
@@ -312,17 +315,17 @@ int main(int argc, char * argv[])
         printf("\n\n");
 
         // Start Evolution
-        MCTDHB_time_evolution(mc, Orb, C, dt, N, 1);
+        MCTDHB_time_evolution(mc, Orb, C, E, dt, N, 1);
     }
     else
     {   // First estimate time needed based on 1 step
         printf("\n\nDoing imaginary time propagation ...\n");
         
         start = omp_get_wtime();
-        MCTDHB_itime_evolution(mc, Orbtimetest, Ctimetest, dt, 1, 1);
+        MCTDHB_itime_evolution(mc, Orbtimetest, Ctimetest, E, dt, 1, 1);
         time_used = (double) (omp_get_wtime() - start);
 
-        printf("\nTime to do 1 step: %.1lf seconds\n", time_used);
+        printf("\n\nTime to do 1 step: %.1lf seconds\n", time_used);
         printf("\nTotal time estimated: ");
         TimePrint(time_used * N);
         free(Ctimetest);
@@ -331,7 +334,7 @@ int main(int argc, char * argv[])
         printf("\n\n");
 
         // Start Evolution
-        MCTDHB_itime_evolution(mc, Orb, C, dt, N, 1);
+        MCTDHB_itime_evolution(mc, Orb, C, E, dt, N, 1);
     }
 
 
@@ -345,26 +348,46 @@ int main(int argc, char * argv[])
 
     printf("\n\nRecording data ...");
 
+    // Record Orbital Data
+    // -------------------
+
     strcpy(fname_out, "../mctdhb_data/");
     strcat(fname_out, argv[3]);
-    if (what_todo == 1)
+    if (what_todo == 0)
     { strcat(fname_out, "_orb_time.dat");  }
     else
     { strcat(fname_out, "_orb_itime.dat"); }
 
     cmat_txt(fname_out, Morb, 1, Mdx + 1, 1, Orb);
-    
+
+    // Record Coeficients Data
+    // -----------------------
+
     strcpy(fname_out, "../mctdhb_data/");
     strcat(fname_out, argv[3]);
-    if (what_todo == 1)
+    if (what_todo == 0)
     { strcat(fname_out, "_coef_time.dat");  }
     else
     { strcat(fname_out, "_coef_itime.dat"); }
     carr_txt(fname_out, mc->nc, C);
 
+    // Record Energy Data
+    // ------------------
+
     strcpy(fname_out, "../mctdhb_data/");
     strcat(fname_out, argv[3]);
-    if (what_todo == 1)
+    if (what_todo == 0)
+    { strcat(fname_out, "_E_time.dat");  }
+    else
+    { strcat(fname_out, "_E_itime.dat"); }
+    carr_txt(fname_out, N, E);
+    
+    // Record Parameters Used
+    // ----------------------
+
+    strcpy(fname_out, "../mctdhb_data/");
+    strcat(fname_out, argv[3]);
+    if (what_todo == 0)
     { strcat(fname_out, "_config.dat");  }
     else
     { strcat(fname_out, "_iconfig.dat"); }
@@ -391,6 +414,7 @@ int main(int argc, char * argv[])
 
     EraseMCTDHBdata(mc);
     free(C);
+    free(E);
     free(to_int);
     cmatFree(Morb, Orb);
 
