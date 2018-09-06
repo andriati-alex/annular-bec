@@ -343,16 +343,24 @@ int main(int argc, char * argv[])
      * ==================================================================== */
 
 
+    printf("\n\nRecording data ...");
 
     strcpy(fname_out, "../mctdhb_data/");
     strcat(fname_out, argv[3]);
     if (what_todo == 1)
-    { strcat(fname_out, "_time.dat");  }
+    { strcat(fname_out, "_orb_time.dat");  }
     else
-    { strcat(fname_out, "_itime.dat"); }
+    { strcat(fname_out, "_orb_itime.dat"); }
 
-    printf("\n\nRecording data ...");
     cmat_txt(fname_out, Morb, 1, Mdx + 1, 1, Orb);
+    
+    strcpy(fname_out, "../mctdhb_data/");
+    strcat(fname_out, argv[3]);
+    if (what_todo == 1)
+    { strcat(fname_out, "_coef_time.dat");  }
+    else
+    { strcat(fname_out, "_coef_itime.dat"); }
+    carr_txt(fname_out, mc->nc, C);
 
     strcpy(fname_out, "../mctdhb_data/");
     strcat(fname_out, argv[3]);
