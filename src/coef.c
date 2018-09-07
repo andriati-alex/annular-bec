@@ -132,38 +132,37 @@ void OBrho(int N, int M, long ** NCmat, int ** IF, Carray C, Cmatrix rho)
     long i, // long indices to number coeficients
          j,
          nc = NCmat[N][M];
+
     int  k, // int indices to density matrix (M x M)
          l,
          q;
 
-    double mod2,
-           sqrtOf;
+    double mod2;
 
-    double complex RHO_kk,
-                   RHO_kl;
+    double complex RHO;
 
-    int * v;
+    int * v; // Occupation vector for each thread
 
     for (k = 0; k < M; k++)
     {
-        RHO_kk = 0;
-        #pragma omp parallel shared(k,nc,C,IF) private(i,mod2) \
-        reduction(+:RHO_kk)
+        RHO = 0;
+        #pragma omp parallel shared(k, nc, C, IF) private(i, mod2) \
+        reduction(+:RHO)
         {
             #pragma omp for schedule(static)
             for (i = 0; i < nc; i++)
             {
                 mod2 = creal(C[i]) * creal(C[i]) + cimag(C[i]) * cimag(C[i]);
-                RHO_kk += mod2 * IF[i][k];
+                RHO += mod2 * IF[i][k];
             }
         }
-        rho[k][k] = RHO_kk;
+        rho[k][k] = RHO;
 
         for (l = k + 1; l < M; l++)
         {
-            RHO_kl = 0;
+            RHO = 0;
             #pragma omp parallel shared(l,k,M,N,nc,C,NCmat,IF) \
-            private(i,j,q,v) reduction(+:RHO_kl)
+            private(i, j, q, v) reduction(+:RHO)
             {
                 v = (int *) malloc(M * sizeof(int));
                 #pragma omp for schedule(static)
@@ -176,11 +175,11 @@ void OBrho(int N, int M, long ** NCmat, int ** IF, Carray C, Cmatrix rho)
                     j = FockToIndex(N, M, NCmat, v);
                     v[k] += 1;
                     v[l] -= 1;
-                    RHO_kl += conj(C[i]) * C[j] * sqrt((v[l] + 1) * v[k]);
+                    RHO  += conj(C[i]) * C[j] * sqrt((v[l] + 1) * v[k]);
                 }
                 free(v); // Each thread release its vector
             }
-            rho[k][l] = RHO_kl;
+            rho[k][l] = RHO;
         }
     }
 
@@ -188,7 +187,6 @@ void OBrho(int N, int M, long ** NCmat, int ** IF, Carray C, Cmatrix rho)
     {   // Use hermiticity to setup lower triangular part
         for (l = k + 1; l < M; l++) rho[l][k] = conj(rho[k][l]);
     }
-
 }
 
 void TBrho(int N, int M, long ** NCmat, int ** IF, Carray C, Carray rho)
