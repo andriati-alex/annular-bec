@@ -3,7 +3,7 @@
 
 int main(int argc, char * argv[])
 {
-    omp_set_num_threads(omp_get_max_threads());
+    omp_set_num_threads(omp_get_max_threads() / 2);
 
     int N,     // # of time steps to go foward
         Mdx,   // # of divisions in space
@@ -17,6 +17,8 @@ int main(int argc, char * argv[])
 
     double dt, real, imag;
 
+    double start, time_used;
+
 
 
     /* ==================================================================== *
@@ -27,7 +29,7 @@ int main(int argc, char * argv[])
 
 
     
-    Npar = 3;
+    Npar = 9;
     Morb = 3;
     
     NCmat = MountNCmat(Npar, Morb);
@@ -51,8 +53,13 @@ int main(int argc, char * argv[])
      * Call it twice to see if there is any data race condition */
 
 
+    start = omp_get_wtime();
+    for (k = 0; k < 100; k++) OBrho(Npar, Morb, NCmat, IF, C, rho);
+    time_used = (double) (omp_get_wtime() - start) * 10 * 1000;
 
-    OBrho(Npar, Morb, NCmat, IF, C, rho);
+    printf("\n\nTime used: %.3lf\n\n", time_used);
+
+    /*
     OBrho(Npar, Morb, NCmat, IF, C, rho);
 
     TBrho(Npar, Morb, NCmat, IF, C, rho2);
@@ -93,6 +100,7 @@ int main(int argc, char * argv[])
             }
         }
     }
+    */
     
     for (k = 0; k < Npar + 1; k++) free(NCmat[k]); free(NCmat);
     
@@ -156,6 +164,7 @@ int main(int argc, char * argv[])
 
 
     Cmatrix Orb = cmatDef(Morb, Mdx + 1);
+    Carray E = carrDef(N);
 
     strcpy(fname_in, "setup/MC_");
     strcat(fname_in, argv[3]);
@@ -243,7 +252,7 @@ int main(int argc, char * argv[])
     }
     */
 
-    MCTDHB_itime_evolution(mc, Orb, C, dt, N, 1);
+    MCTDHB_time_evolution(mc, Orb, C, E, dt, N, 1);
     
     /* ==================================================================== *
      *                                                                      *
