@@ -929,6 +929,7 @@ void MCTDHB_time_evolution (
                 printf(" "); cPrint(Csimps(MC->Mpos, to_int, MC->dx));
             }
         }
+        printf("\n\n|| C || = %.6lf", carrMod(MC->nc, C));
     }
 
     CCSFree(rhs_mat);
@@ -1046,6 +1047,7 @@ void MCTDHB_itime_evolution (
                 printf(" "); cPrint(Csimps(MC->Mpos, to_int, MC->dx));
             }
         }
+        printf("\n\n|| C || = %.6lf", carrMod(MC->nc, C));
     }
 
     CCSFree(rhs_mat);

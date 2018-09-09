@@ -97,7 +97,7 @@ C = np.empty(NC(Npar, Morb), dtype=lc);   # coeficients
 AngularMom(Morb, x, Orb);
 Coef(Npar, Morb, C);
 
-Id_name = 'angular' + str(Npar) + str(Morb);
+Id_name = 'angular-' + str(Npar) + '-' + str(Morb);
 
 np.savetxt('setup/MC_' + Id_name + '_orb.dat', Orb.T, fmt='%.15E');
 np.savetxt('setup/MC_' + Id_name + '_coef.dat', C.T, fmt='%.15E');

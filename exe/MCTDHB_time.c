@@ -67,8 +67,8 @@ int main(int argc, char * argv[])
         checkDiag; // To check normalization condition
 
     char // file configuration name
-        fname_in[40],
-        fname_out[40];
+        fname_in[80],
+        fname_out[80];
     
     FILE // pointer to file opened
         * eq_setup_file,
