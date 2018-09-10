@@ -792,18 +792,19 @@ void RHSforRK4 (
 }
 
 void LinearPartSM (
-     MCTDHBsetup MC,
+     int Mpos,
+     int Morb,
      CCSmat rhs_mat,
      Carray upper,
      Carray lower,
      Carray mid,
      Cmatrix Orb )
 {   // Partial differential part. Solve using CN-discretization
-    int k, size = MC->Mpos - 1;
+    int k, size = Mpos - 1;
 
     Carray rhs = carrDef(size);
 
-    for (k = 0; k < MC->Morb; k++)
+    for (k = 0; k < Morb; k++)
     {   // For each orbital k solve a tridiagonal system obtained by CN
         CCSvec(size, rhs_mat->vec, rhs_mat->col, rhs_mat->m, Orb[k], rhs);
         triCyclicSM(size, upper, lower, mid, rhs, Orb[k]);
@@ -905,7 +906,7 @@ void MCTDHB_time_evolution (
     for (i = 0; i < Nsteps; i++)
     {
         RK4step(MC, Orb, C, dt / 2);
-        LinearPartSM(MC, rhs_mat, upper, lower, mid, Orb);
+        LinearPartSM(MC->Mpos, MC->Morb, rhs_mat, upper, lower, mid, Orb);
         RK4step(MC, Orb, C, dt / 2);
         // Store energy
         E[i] = Energy(MC, Orb, C);
@@ -1016,13 +1017,14 @@ void MCTDHB_itime_evolution (
     for (i = 0; i < Nsteps; i++)
     {
         IRK4step(MC, Orb, C, dt / 2);
-        LinearPartSM(MC, rhs_mat, upper, lower, mid, Orb);
+        LinearPartSM(MC->Mpos, MC->Morb, rhs_mat, upper, lower, mid, Orb);
         IRK4step(MC, Orb, C, dt / 2);
         // Compared to real time we need additional renormalization
-        for (k = 0; k < MC->Morb; k++)
+        Ortonormalize(MC->Morb, Mpos, dx, Orb);
+        /* for (k = 0; k < MC->Morb; k++)
         {   // Renormalize each orbital
             renormalize(Mpos, Orb[k], dx, 1.0);
-        }
+        } */
         // Renormalize coeficients
         renormalizeVector(MC->nc, C, 1.0);
         // Store energy

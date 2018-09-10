@@ -1,5 +1,28 @@
 #include "../include/calculus.h"
 
+void Ortonormalize(int Mfun, int Mpos, double dx, Cmatrix F)
+{   // F[k][:] has the k-th function of the basis
+    int i, j, k;
+    Carray toInt = carrDef(Mpos);
+
+    renormalize(Mpos, F[0], dx, 1.0);
+    for (i = 1; i < Mfun; i++)
+    {
+        for (j = 0; j < i; j++)
+        {   // The projection are integrals of the product below
+            for (k = 0; k < Mpos; k++)
+                toInt[k] = conj(F[j][k]) * F[i][k];
+            // Iterative Gram-Schmidt (see wikipedia)
+            for (k = 0; k < Mpos; k++)
+                F[i][k] = F[i][k] - Csimps(Mpos, toInt, dx) * F[j][k];
+        }
+        // normalized to unit the new vector
+        renormalize(Mpos, F[i], dx, 1.0);
+    }
+
+    free(toInt);
+}
+
 void renormalize(int n, Carray f, double dx, double norm)
 {
     int i;

@@ -8,6 +8,8 @@
 #include "array_memory.h"
 #include "array_operations.h"
 
+void Ortonormalize(int Mfun, int Mpos, double dx, Cmatrix F);
+
 // Renormalize f such that || f || = norm
 void renormalize(int n, Carray f, double dx, double norm);
 

@@ -95,7 +95,8 @@ void RHSforRK4
 
 void LinearPartSM
 (   // Evolve a time-step the linear part of PDE(orbitals)
-    MCTDHBsetup MC,
+    int Mpos,
+    int Morb,
     CCSmat rhs_mat, // Matrix from CN approach(discretization)
     Carray upper,   // Upper diagonal
     Carray lower,   // Lower diagonal
