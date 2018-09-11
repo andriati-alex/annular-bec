@@ -11,7 +11,7 @@ from numba import jit, prange, uint32, int32, float64, complex128;
     ----------------------------------------------------
 
     The functions contained in this module support the analysis of results 
-    from (imaginary)time propagation.
+    from (imaginary/real)time propagation.
 
 """
 
@@ -45,13 +45,16 @@ def NC(Npar, Morb):
 
 @jit((int32, int32, int32, int32[:]), nopython=True, nogil=True)
 def IndexToFock(k, N, M, v):
-    """ v: Occupation vector(Fock state) of length Morb 
-        N: # of particles
-        M: # of orbitals
+    """
+    Calling: (void) IndexToFock(k, N, M, v)
+    --------
 
-        return as argument
-        ------------------
-        k: the Index of Fock-configuration Coeficient
+    Arguments:
+    ----------
+    k : Index of occupation configuration coeficients
+    N : # of particles
+    M : # of orbitals
+    v : End up with occupation vector(Fock state) of length Morb
     """
     x = 0;
     m = M - 1;
@@ -93,12 +96,15 @@ def MountFocks(N, M, IF):
 
 
 def GetNCmat(N, M):
-    """ return numpy 2Darray(NCmat) of integers with  NCmat[n][m]
-        holding the value of total number of configurations given
-        by the function NC(n,m) = (n + m - 1)! /( (n)! (m - 1)! ).
+    """
+    Calling: (numpy 2D array of ints) = GetNCmat(N, M)
+    --------
+    Returned matrix NC(n,m) = (n + m - 1)! /( (n)! (m - 1)! ).
 
-        N: # of particles
-        M: # of orbitals
+    arguments:
+    ----------
+    N: # of particles
+    M: # of orbitals
     """
     NCmat = np.empty([N + 1, M + 1], dtype=np.int32);
     MountNCmat(N, M, NCmat);
@@ -109,11 +115,15 @@ def GetNCmat(N, M):
 
 
 def GetFocks(N, M):
-    """ return numpy 2Darray(IF) with IF[k,:] being the Fock-
-        occupation related to C[k] its coeficient.
+    """
+    Calling : (numpy 2D array of ints) = GetFocks(N, M)
+    ---------
+    Row k has the occupation vector corresponding to C[k].
 
-        N: # of particles
-        M: # of orbitals
+    arguments:
+    ----------
+    N : # of particles
+    M : # of orbitals
     """
     IF = np.empty([NC(N, M), M], dtype=np.int32);
     MountFocks(N, M, IF);
@@ -126,11 +136,16 @@ def GetFocks(N, M):
 @jit(int32(int32, int32, int32[:,:], int32[:]), nopython=True, nogil=True)
 
 def FockToIndex(N, M, NCmat, v):
-    """ return integer - Index of Fock configuration coeficient of v
-        
-        N: # of particles
-        M: # of orbitals
-        NCmat: see GetNCmat function
+    """
+    Calling: (int) = FockToIndex(N, M, NCmat, v)
+    --------
+    k = Index of Fock Configuration Coeficient of v
+
+    arguments:
+    ----------
+    N : # of particles
+    M : # of orbitals
+    NCmat : see GetNCmat function
     """
     n = 0;
     k = 0;
@@ -150,17 +165,19 @@ def FockToIndex(N, M, NCmat, v):
       nopython=True, nogil=True)
 
 def OBrho(N, M, NCmat, IF, C, rho):
-    """ Setup the rho argument
+    """
+    Calling: (void) OBrho(N, M, NCmat, IF, C, rho)
+    --------
+    Setup the rho argument with one-body densit matrix
 
-        N: # of particles
-        M: # of orbitals
-        NCmat: see function GetNCmat
-        IF: see function GetFocks
-        C: coeficients of Fock-configuration states
-
-        return as argument
-        ------------------
-        rho: M x M matrix(one-body density matrix)
+    arguments:
+    ----------
+    N : # of particles
+    M : # of orbitals
+    NCmat : see function GetNCmat
+    IF : see function GetFocks
+    C : coeficients of Fock-configuration states
+    rho : Empty M x M matrix. End up configured with values
     """
     # Initialize variables
     j = 0;
@@ -198,15 +215,17 @@ def OBrho(N, M, NCmat, IF, C, rho):
 @jit((int32, float64[:], complex128[:,:]), nopython=True, nogil=True)
 
 def EigSort(Nvals, RHOeigvals, RHOeigvecs):
-    """ Sort the order of eigenvalues to be decreasing
-        and the order of columns of eigenvectors.
+    """
+    Calling: (void) EigSort(Nvals, RHOeigvals, RHOeigvecs)
+    --------
+    Sort the order of eigenvalues to be decreasing
+    and the order of columns of eigenvectors.
 
-        Nvals : # of eigenvalues
-
-        return as arguments
-        -------------------
-        RHOeigvals: End up with eigenvalues in decreasing order
-        RHOeigvecs: Change the order of columns accordingly
+    arguments
+    ---------
+    Nvals : dimension of rho = # of orbitals
+    RHOeigvals : End up with eigenvalues in decreasing order
+    RHOeigvecs : Change the order of columns accordingly to eigenvalues
     """
     auxR = 0.0;
     auxC = 0.0;
@@ -229,5 +248,21 @@ def EigSort(Nvals, RHOeigvals, RHOeigvecs):
 
 
 def NatOrb(RHOeigvecs, Orb):
-    """ return numpy 2Darray Morb x Mpos of Natural Orbitals """
+    """
+    CALLING:
+    --------
+    ( 2D numpy array [Morb x Mpos] ) = NatOrb(RHOeigvecs, Orb)
+
+    Arguments:
+    ----------
+    RHOeigvecs : Matrix with eigenvectors of rho in columns
+    Orb : 2D array [Morb x Mpos] given by time propagation
+    """
     return np.matmul(RHOeigvecs.conj().T, Orb);
+
+
+
+
+def VonNeumannS(RHOeigvals):
+    N = round(RHOeigvals.sum().real);
+    return - ( (RHOeigvals.real / N) * np.log(RHOeigvals.real / N) ).sum()

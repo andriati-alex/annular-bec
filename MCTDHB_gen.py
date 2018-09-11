@@ -63,11 +63,22 @@ def IndexToFock(k, N, M, v):
             x = x - NC(N, m);
     for i in range(N, 0, -1): v[0] = v[0] + 1;
 
+def renormalize(f, dx):
+    renorm = sqrt(1.0 / simps(abs(f)**2, dx=dx));
+    return f * renorm;
+
 def AngularMom(Morb, x, S):
     S[0,:] = 1.0 / sqrt(2 * pi);
     for i in range(2, Morb, 2):
         S[i - 1,:] = np.exp(- 1.0j * (i / 2) * x, dtype=lc) / sqrt(2 * pi);
         S[i, :] = np.exp(1.0j * (i / 2) * x, dtype=lc) / sqrt(2 * pi);
+
+def NoiseAngular(Morb, x, S):
+    c = (np.random.random(2 * Morb, dtype=lc) - 0.5) / 0.1;
+    for i in range(Morb):
+        S[i,:] += c[2*i] * np.exp(- 1.0j * (i * x + c[2*i]), dtype=lc)
+        S[i,:] += c[2*i + 1] * np.exp(+ 1.0j * (i * x + c[2*i - 1]), dtype=lc)
+        renormalize(S[i,:], x[1] - x[0]);
 
 def Coef(Npar, Morb, C):
     v = np.empty(Morb, dtype=np.int32);
@@ -91,13 +102,13 @@ Mdiv = int(sys.argv[3]); # Number of divisions between -pi to pi
 x  = np.linspace(-pi, pi, Mdiv + 1, dtype=lf);
 dx = 2 * pi / Mdiv;
 
-Orb = np.empty([Morb, x.size], dtype=lc); # orbitals
-C = np.empty(NC(Npar, Morb), dtype=lc);   # coeficients
+Orb = np.zeros([Morb, x.size], dtype=lc); # orbitals
+C = np.zeros(NC(Npar, Morb), dtype=lc);   # coeficients
 
 AngularMom(Morb, x, Orb);
 Coef(Npar, Morb, C);
 
-Id_name = 'angular-' + str(Npar) + '-' + str(Morb);
+Id_name = 'NoiseAngular-' + str(Npar) + '-' + str(Morb);
 
 np.savetxt('setup/MC_' + Id_name + '_orb.dat', Orb.T, fmt='%.15E');
 np.savetxt('setup/MC_' + Id_name + '_coef.dat', C.T, fmt='%.15E');

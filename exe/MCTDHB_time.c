@@ -24,7 +24,7 @@ int main(int argc, char * argv[])
     omp_set_num_threads(omp_get_max_threads());
 
 
-    if (argc != 5)
+    if (argc != 6)
     {
         printf("\nInvalid Number of command line arguments, ");
         printf("expected: 4.\n\n");
@@ -352,7 +352,7 @@ int main(int argc, char * argv[])
     // -------------------
 
     strcpy(fname_out, "../mctdhb_data/");
-    strcat(fname_out, argv[3]);
+    strcat(fname_out, argv[5]);
     if (what_todo == 0)
     { strcat(fname_out, "_orb_time.dat");  }
     else
@@ -364,7 +364,7 @@ int main(int argc, char * argv[])
     // -----------------------
 
     strcpy(fname_out, "../mctdhb_data/");
-    strcat(fname_out, argv[3]);
+    strcat(fname_out, argv[5]);
     if (what_todo == 0)
     { strcat(fname_out, "_coef_time.dat");  }
     else
@@ -375,7 +375,7 @@ int main(int argc, char * argv[])
     // ------------------
 
     strcpy(fname_out, "../mctdhb_data/");
-    strcat(fname_out, argv[3]);
+    strcat(fname_out, argv[5]);
     if (what_todo == 0)
     { strcat(fname_out, "_E_time.dat");  }
     else
@@ -386,7 +386,7 @@ int main(int argc, char * argv[])
     // ----------------------
 
     strcpy(fname_out, "../mctdhb_data/");
-    strcat(fname_out, argv[3]);
+    strcat(fname_out, argv[5]);
     if (what_todo == 0)
     { strcat(fname_out, "_config.dat");  }
     else

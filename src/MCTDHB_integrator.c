@@ -1021,10 +1021,6 @@ void MCTDHB_itime_evolution (
         IRK4step(MC, Orb, C, dt / 2);
         // Compared to real time we need additional renormalization
         Ortonormalize(MC->Morb, Mpos, dx, Orb);
-        /* for (k = 0; k < MC->Morb; k++)
-        {   // Renormalize each orbital
-            renormalize(Mpos, Orb[k], dx, 1.0);
-        } */
         // Renormalize coeficients
         renormalizeVector(MC->nc, C, 1.0);
         // Store energy
