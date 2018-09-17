@@ -4,6 +4,430 @@
 
 
 
+/* ========================================================================
+ *
+ *                    APPLY THE MANY BODY HAMILTONIAN
+ *                    -------------------------------
+ *
+ * Once defined a set of Single-Particle Wave Functions (SPWF) a many
+ * body state  can be expanded  in  a  Occupation Number Basis  (ONB)
+ * whose vector are also named Fock states.Then to apply an  operator
+ * on a state we need  its  coefficients in this basis  (Cj)  and the 
+ * matrix elements of the operator that is done below.
+ *
+ * ======================================================================== */
+
+
+
+
+
+void applyHconf (MCTDHBsetup MC, Carray C, Cmatrix Ho, Carray Hint, Carray out)
+{ // Apply Many-Body Hamiltonian on a state in configuration basis
+    
+    int // Index of coeficients
+        i,
+        j,
+        nc = MC->nc;
+
+    int // enumerate orbitals
+        k,
+        l,
+        s,
+        q;
+
+    /* ==================================================================== *
+     *                                                                      *
+     *                         Auxiliary variables                          *
+     *                                                                      *
+     * ==================================================================== */
+
+    int  M  = MC->Morb,
+         N  = MC->Npar,
+         M2 = M * M,
+         M3 = M * M * M,
+         ** IF = MC->IF;
+    
+    int ** NCmat = MC->NCmat;
+
+    int * v;             // Occupation vector on each iteration
+
+    double sqrtOf;       // Factor from creation/annihilation operator
+
+    double complex rhsI; // line step value of right-hand-side for C
+
+    /* ==================================================================== *
+     *                                                                      *
+     *    Apply Hamiltonian in a state expanded in Fock-occupation basis    *
+     *                                                                      *
+     * ==================================================================== */
+
+    #pragma omp parallel firstprivate(N, M, M2, M3) \
+    private(i, j, k, l, s, q, rhsI, sqrtOf, v)
+    {
+
+    v = (int * ) malloc(M * sizeof(int));
+
+    #pragma omp for
+    for (i = 0; i < nc; i++)
+    {
+        rhsI = 0;
+
+        for (k = 0; k < M; k++) v[k] = IF[i][k];
+    
+        /* ================================================================ *
+         *                                                                  *
+         *                       One-body contribution                      *
+         *                                                                  *
+         * ================================================================ */
+
+        for (k = 0; k < M; k++)
+        {
+            if (v[k] < 1) continue;
+            rhsI += Ho[k][k] * v[k] * C[i];
+            for (l = 0; l < M; l++)
+            {
+                if (l == k) continue;
+                sqrtOf = sqrt(v[k] * (v[l] + 1));
+                v[k] -= 1;
+                v[l] += 1;
+                j = FockToIndex(N, M, NCmat, v);
+                rhsI += Ho[k][l] * sqrtOf * C[j];
+                v[k] += 1;
+                v[l] -= 1;
+            }
+        }
+
+
+        /* ================================================================ *
+         *                                                                  *
+         *                       Two-body contribution                      *
+         *                                                                  *
+         * ================================================================ */
+
+
+        /* ---------------------------------------------
+         * Rule 1: Creation on k k / Annihilation on k k
+        ------------------------------------------------------------------- */
+        for (k = 0; k < M; k++)
+        {
+            sqrtOf = v[k] * (v[k] - 1);
+            rhsI += Hint[k + M * k + M2 * k + M3 * k] * C[i] * sqrtOf;
+        }
+        /* ---------------------------------------------------------------- */
+
+
+        /* ---------------------------------------------
+         * Rule 2: Creation on k s / Annihilation on k s
+        ------------------------------------------------------------------- */
+        for (k = 0; k < M; k++)
+        {
+            for (s = k + 1; s < M; s++)
+            {
+                sqrtOf = v[k] * v[s];
+                rhsI += Hint[k + s*M + k*M2 + s*M3] * sqrtOf * C[i];
+                rhsI += Hint[s + k*M + k*M2 + s*M3] * sqrtOf * C[i];
+                rhsI += Hint[s + k*M + s*M2 + k*M3] * sqrtOf * C[i];
+                rhsI += Hint[k + s*M + s*M2 + k*M3] * sqrtOf * C[i];
+            }
+        }
+        /* ---------------------------------------------------------------- */
+
+
+        /* ---------------------------------------------
+         * Rule 3: Creation on k k / Annihilation on q q
+        ------------------------------------------------------------------- */
+        for (k = 0; k < M; k++)
+        {
+            if (v[k] < 2) continue;
+            for (q = 0; q < M; q++)
+            {
+                if (q == k) continue;
+                sqrtOf = sqrt((v[k] - 1) * v[k] * (v[q] + 1) * (v[q] + 2));
+                v[k] -= 2;
+                v[q] += 2;
+                j = FockToIndex(N, M, NCmat, v);
+                rhsI += Hint[k + k * M + q * M2 + q * M3] * C[j] * sqrtOf;
+                v[k] += 2;
+                v[q] -= 2;
+            }
+        }
+        /* ---------------------------------------------------------------- */
+
+
+        /* ---------------------------------------------
+         * Rule 4: Creation on k k / Annihilation on k l
+        ------------------------------------------------------------------- */
+        for (k = 0; k < M; k++)
+        {
+            if (v[k] < 2) continue;
+            for (l = 0; l < M; l++)
+            {
+                if (l == k) continue;
+                sqrtOf = (v[k] - 1) * sqrt(v[k] * (v[l] + 1));
+                v[k] -= 1;
+                v[l] += 1;
+                j = FockToIndex(N, M, NCmat, v);
+                rhsI += Hint[k + k * M + k * M2 + l * M3] * C[j] * sqrtOf;
+                rhsI += Hint[k + k * M + l * M2 + k * M3] * C[j] * sqrtOf;
+                v[k] += 1;
+                v[l] -= 1;
+            }
+        }
+        /* ---------------------------------------------------------------- */
+
+
+        /* ---------------------------------------------
+         * Rule 5: Creation on k s / Annihilation on s s
+        ------------------------------------------------------------------- */
+        for (k = 0; k < M; k++)
+        {
+            if (v[k] < 1) continue;
+            for (s = 0; s < M; s++)
+            {
+                if (s == k) continue;
+                sqrtOf = v[s] * sqrt(v[k] * (v[s] + 1));
+                v[k] -= 1;
+                v[s] += 1;
+                j = FockToIndex(N, M, NCmat, v);
+                rhsI += Hint[k + s * M + s * M2 + s * M3] * C[j] * sqrtOf;
+                rhsI += Hint[s + k * M + s * M2 + s * M3] * C[j] * sqrtOf;
+                v[k] += 1;
+                v[s] -= 1;
+            }
+        }
+        /* ---------------------------------------------------------------- */
+
+
+        /* -----------------------------------------------------------
+         * Rule 6.0: Creation on k k / Annihilation on q l (k < q < l)
+        ------------------------------------------------------------------- */
+        for (k = 0; k < M; k++)
+        {
+            if (v[k] < 2) continue;
+            for (q = k + 1; q < M; q++)
+            {
+                for (l = q + 1; l < M; l++)
+                {
+                    sqrtOf = sqrt(v[k] * (v[k] - 1) * (v[q] + 1) * (v[l] + 1));
+                    v[k] -= 2;
+                    v[l] += 1;
+                    v[q] += 1;
+                    j = FockToIndex(N, M, NCmat, v);
+                    rhsI += Hint[k + k*M + q*M2 + l*M3] * C[j] * sqrtOf;
+                    rhsI += Hint[k + k*M + l*M2 + q*M3] * C[j] * sqrtOf;
+                    v[k] += 2;
+                    v[l] -= 1;
+                    v[q] -= 1;
+                }
+            }
+        }
+        /* ---------------------------------------------------------------- */
+
+
+        /* -----------------------------------------------------------
+         * Rule 6.1: Creation on k k / Annihilation on q l (q < k < l)
+        ------------------------------------------------------------------- */
+        for (q = 0; q < M; q++)
+        {
+            for (k = q + 1; k < M; k++)
+            {
+                if (v[k] < 2) continue;
+                for (l = k + 1; l < M; l++)
+                {
+                    sqrtOf = sqrt(v[k] * (v[k] - 1) * (v[q] + 1) * (v[l] + 1));
+                    v[k] -= 2;
+                    v[l] += 1;
+                    v[q] += 1;
+                    j = FockToIndex(N, M, NCmat, v);
+                    rhsI += Hint[k + k*M + q*M2 + l*M3] * C[j] * sqrtOf;
+                    rhsI += Hint[k + k*M + l*M2 + q*M3] * C[j] * sqrtOf;
+                    v[k] += 2;
+                    v[l] -= 1;
+                    v[q] -= 1;
+                }
+            }
+        }
+        /* ---------------------------------------------------------------- */
+
+
+        /* -----------------------------------------------------------
+         * Rule 6.2: Creation on k k / Annihilation on q l (q < l < k)
+        ------------------------------------------------------------------- */
+        for (q = 0; q < M; q++)
+        {
+            for (l = q + 1; l < M; l++)
+            {
+                for (k = l + 1; k < M; k++)
+                {
+                    if (v[k] < 2) continue;
+                    sqrtOf = sqrt(v[k] * (v[k] - 1) * (v[q] + 1) * (v[l] + 1));
+                    v[k] -= 2;
+                    v[l] += 1;
+                    v[q] += 1;
+                    j = FockToIndex(N, M, NCmat, v);
+                    rhsI += Hint[k + k*M + q*M2 + l*M3] * C[j] * sqrtOf;
+                    rhsI += Hint[k + k*M + l*M2 + q*M3] * C[j] * sqrtOf;
+                    v[k] += 2;
+                    v[l] -= 1;
+                    v[q] -= 1;
+                }
+            }
+        }
+        /* ---------------------------------------------------------------- */
+
+
+        /* -----------------------------------------------------------
+         * Rule 7.0: Creation on k s / Annihilation on q q (q > k > s)
+        ------------------------------------------------------------------- */
+        for (q = 0; q < M; q++)
+        {
+            for (k = q + 1; k < M; k++)
+            {
+                if (v[k] < 1) continue;
+                for (s = k + 1; s < M; s++)
+                {
+                    if (v[s] < 1) continue;
+                    sqrtOf = sqrt(v[k] * v[s] * (v[q] + 1) * (v[q] + 2));
+                    v[k] -= 1;
+                    v[s] -= 1;
+                    v[q] += 2;
+                    j = FockToIndex(N, M, NCmat, v);
+                    rhsI += Hint[k + s*M + q*M2 + q*M3] * C[j] * sqrtOf;
+                    rhsI += Hint[s + k*M + q*M2 + q*M3] * C[j] * sqrtOf;
+                    v[k] += 1;
+                    v[s] += 1;
+                    v[q] -= 2;
+                }
+            }
+        }
+        /* ---------------------------------------------------------------- */
+
+
+        /* -----------------------------------------------------------
+         * Rule 7.1: Creation on k s / Annihilation on q q (k > q > s)
+        ------------------------------------------------------------------- */
+        for (k = 0; k < M; k++)
+        {
+            if (v[k] < 1) continue;
+            for (q = k + 1; q < M; q++)
+            {
+                for (s = q + 1; s < M; s++)
+                {
+                    if (v[s] < 1) continue;
+                    sqrtOf = sqrt(v[k] * v[s] * (v[q] + 1) * (v[q] + 2));
+                    v[k] -= 1;
+                    v[s] -= 1;
+                    v[q] += 2;
+                    j = FockToIndex(N, M, NCmat, v);
+                    rhsI += Hint[k + s*M + q*M2 + q*M3] * C[j] * sqrtOf;
+                    rhsI += Hint[s + k*M + q*M2 + q*M3] * C[j] * sqrtOf;
+                    v[k] += 1;
+                    v[s] += 1;
+                    v[q] -= 2;
+                }
+            }
+        }
+        /* ---------------------------------------------------------------- */
+
+
+        /* -----------------------------------------------------------
+         * Rule 7.2: Creation on k s / Annihilation on q q (k > s > q)
+        ------------------------------------------------------------------- */
+        for (k = 0; k < M; k++)
+        {
+            if (v[k] < 1) continue;
+            for (s = k + 1; s < M; s++)
+            {
+                if (v[s] < 1) continue;
+                for (q = s + 1; q < M; q++)
+                {
+                    sqrtOf = sqrt(v[k] * v[s] * (v[q] + 1) * (v[q] + 2));
+                    v[k] -= 1;
+                    v[s] -= 1;
+                    v[q] += 2;
+                    j = FockToIndex(N, M, NCmat, v);
+                    rhsI += Hint[k + s*M + q*M2 + q*M3] * C[j] * sqrtOf;
+                    rhsI += Hint[s + k*M + q*M2 + q*M3] * C[j] * sqrtOf;
+                    v[k] += 1;
+                    v[s] += 1;
+                    v[q] -= 2;
+                }
+            }
+        }
+        /* ---------------------------------------------------------------- */
+
+
+        /* ---------------------------------------------
+         * Rule 8: Creation on k s / Annihilation on s l
+        ------------------------------------------------------------------- */
+        for (s = 0; s < M; s++)
+        {
+            if (v[s] < 1) continue; // may improve performance
+            for (k = 0; k < M; k++)
+            {
+                if (v[k] < 1 || k == s) continue;
+                for (l = 0; l < M; l++)
+                {
+                    if (l == k || l == s) continue;
+                    sqrtOf = v[s] * sqrt(v[k] * (v[l] + 1));
+                    v[k] -= 1;
+                    v[l] += 1;
+                    j = FockToIndex(N, M, NCmat, v);
+                    rhsI += Hint[k + s*M + s*M2 + l*M3] * C[j] * sqrtOf;
+                    rhsI += Hint[s + k*M + s*M2 + l*M3] * C[j] * sqrtOf;
+                    rhsI += Hint[s + k*M + l*M2 + s*M3] * C[j] * sqrtOf;
+                    rhsI += Hint[k + s*M + l*M2 + s*M3] * C[j] * sqrtOf;
+                    v[k] += 1;
+                    v[l] -= 1;
+                }
+            }
+        }
+
+
+        /* ---------------------------------------------
+         * Rule 9: Creation on k s / Annihilation on q l
+        ------------------------------------------------------------------- */
+        for (k = 0; k < M; k++)
+        {
+            if (v[k] < 1) continue;
+            for (s = 0; s < M; s++)
+            {
+                if (v[s] < 1 || s == k) continue;
+                for (q = 0; q < M; q++)
+                {
+                    if (q == s || q == k) continue;
+                    for (l = 0; l < M; l ++)
+                    {
+                        if (l == k || l == s || l == q) continue;
+                        sqrtOf = sqrt(v[k] * v[s] * (v[q] + 1) * (v[l] + 1));
+                        v[k] -= 1;
+                        v[s] -= 1;
+                        v[q] += 1;
+                        v[l] += 1;
+                        j = FockToIndex(N, M, NCmat, v);
+                        rhsI += Hint[k + s*M + q*M2 + l*M3] * C[j] * sqrtOf;
+                        v[k] += 1;
+                        v[s] += 1;
+                        v[q] -= 1;
+                        v[l] -= 1;
+                    }   // Finish l
+                }       // Finish q
+            }           // Finish s
+        }               // Finish k
+
+        out[i] = rhsI;
+    }
+
+    free(v);
+
+    } // End of parallel region
+
+}
+
+
+
+
+
 double complex Proj_Hint (int M, int k, int i, Cmatrix rho_inv,
                Carray rho2, Carray Hint )
 {   // k and i enumerate orbitals maintaned fixed
@@ -73,364 +497,6 @@ double complex NonLinear (int M, int k, int n, Cmatrix Omat,
 
 
 
-void applyHcoef (MCTDHBsetup MC, Carray C, Cmatrix Ho, Carray Hint, Carray out)
-{   // Apply Many-Body Hamiltonian on a state in configuration basis
-
-    long // Index of coeficients
-        i,
-        j,
-        nc = MC->nc;
-
-    int // enumerate orbitals
-        k,
-        l,
-        s,
-        q;
-
-    /* ================================================================== */
-    /*                                                                    */
-    /*                        Auxiliary variables                         */
-    /*                                                                    */
-    /* ================================================================== */
-
-    int  M  = MC->Morb,
-         N  = MC->Npar,
-         M2 = M * M,
-         M3 = M * M * M,
-         ** IF = MC->IF;
-    
-    long ** NCmat = MC->NCmat;
-
-    int * v;             // Occupation vector on each iteration
-
-    double sqrtOf;       // Factor from creation/annihilation operator
-
-    double complex rhsI; // line step value of right-hand-side for C
-
-    rhsI = 0;
-
-    /* ================================================================== */
-    /*                                                                    */
-    /*                      Apply RHS of coeficients                      */
-    /*                                                                    */
-    /* ================================================================== */
-
-    #pragma omp parallel firstprivate(N, M, M2, M3) \
-    private(i, j, k, l, s, q, rhsI, sqrtOf, v)
-    {
-
-    v = (int * ) malloc(M * sizeof(int));
-
-    #pragma omp for
-    for (i = 0; i < nc; i++)
-    {
-        rhsI = 0;
-
-        for (k = 0; k < M; k++) v[k] = IF[i][k];
-    
-        /* ============================================================== */
-        /*                                                                */
-        /*                      One-body contribution                     */
-        /*                                                                */
-        /* ============================================================== */
-
-        for (k = 0; k < M; k++)
-        {
-            if (v[k] < 1) continue;
-            rhsI += Ho[k][k] * v[k] * C[i];
-            for (l = 0; l < M; l++)
-            {
-                if (l == k) continue;
-                sqrtOf = sqrt(v[k] * (v[l] + 1));
-                v[k] -= 1;
-                v[l] += 1;
-                j = FockToIndex(N, M, NCmat, v);
-                rhsI += Ho[k][l] * sqrtOf * C[j];
-                v[k] += 1;
-                v[l] -= 1;
-            }
-        }
-
-        /* ============================================================== */
-        /*                                                                */
-        /*                      Two-body contribution                     */
-        /*                                                                */
-        /* ============================================================== */
-
-        /****************************** Rule 1 ******************************/
-
-        for (k = 0; k < M; k++)
-        {
-            sqrtOf = v[k] * (v[k] - 1);
-            rhsI += Hint[k + M * k + M2 * k + M3 * k] * C[i] * sqrtOf;
-        }
-        
-        /****************************** Rule 2 ******************************/
-
-        for (k = 0; k < M; k++)
-        {
-            for (s = k + 1; s < M; s++)
-            {
-                sqrtOf = v[k] * v[s];
-                rhsI += Hint[k + s*M + k*M2 + s*M3] * sqrtOf * C[i];
-                rhsI += Hint[s + k*M + k*M2 + s*M3] * sqrtOf * C[i];
-                rhsI += Hint[s + k*M + s*M2 + k*M3] * sqrtOf * C[i];
-                rhsI += Hint[k + s*M + s*M2 + k*M3] * sqrtOf * C[i];
-            }
-        }
-
-        /****************************** Rule 3 ******************************/
-
-        for (k = 0; k < M; k++)
-        {
-            if (v[k] < 2) continue;
-            for (q = 0; q < M; q++)
-            {
-                if (q == k) continue;
-                sqrtOf = sqrt((v[k] - 1) * v[k] * (v[q] + 1) * (v[q] + 2));
-                v[k] -= 2;
-                v[q] += 2;
-                j = FockToIndex(N, M, NCmat, v);
-                rhsI += Hint[k + k * M + q * M2 + q * M3] * C[j] * sqrtOf;
-                v[k] += 2;
-                v[q] -= 2;
-            }
-        }
-
-        /****************************** Rule 4 ******************************/
-
-        for (k = 0; k < M; k++)
-        {
-            if (v[k] < 2) continue;
-            for (l = 0; l < M; l++)
-            {
-                if (l == k) continue;
-                sqrtOf = (v[k] - 1) * sqrt(v[k] * (v[l] + 1));
-                v[k] -= 1;
-                v[l] += 1;
-                j = FockToIndex(N, M, NCmat, v);
-                rhsI += Hint[k + k * M + k * M2 + l * M3] * C[j] * sqrtOf;
-                rhsI += Hint[k + k * M + l * M2 + k * M3] * C[j] * sqrtOf;
-                v[k] += 1;
-                v[l] -= 1;
-            }
-        }
-
-        /****************************** Rule 5 ******************************/
-
-        for (k = 0; k < M; k++)
-        {
-            if (v[k] < 1) continue;
-            for (s = 0; s < M; s++)
-            {
-                if (s == k) continue;
-                sqrtOf = v[s] * sqrt(v[k] * (v[s] + 1));
-                v[k] -= 1;
-                v[s] += 1;
-                j = FockToIndex(N, M, NCmat, v);
-                rhsI += Hint[k + s * M + s * M2 + s * M3] * C[j] * sqrtOf;
-                rhsI += Hint[s + k * M + s * M2 + s * M3] * C[j] * sqrtOf;
-                v[k] += 1;
-                v[s] -= 1;
-            }
-        }
-
-        /****************************** Rule 6 ******************************/
-
-        for (k = 0; k < M; k++)
-        {
-            if (v[k] < 2) continue;
-            for (q = k + 1; q < M; q++)
-            {
-                for (l = q + 1; l < M; l++)
-                {
-                    sqrtOf = sqrt(v[k] * (v[k] - 1) * (v[q] + 1) * (v[l] + 1));
-                    v[k] -= 2;
-                    v[l] += 1;
-                    v[q] += 1;
-                    j = FockToIndex(N, M, NCmat, v);
-                    rhsI += Hint[k + k*M + q*M2 + l*M3] * C[j] * sqrtOf;
-                    rhsI += Hint[k + k*M + l*M2 + q*M3] * C[j] * sqrtOf;
-                    v[k] += 2;
-                    v[l] -= 1;
-                    v[q] -= 1;
-                }
-            }
-        }
-
-        for (q = 0; q < M; q++)
-        {
-            for (k = q + 1; k < M; k++)
-            {
-                if (v[k] < 2) continue;
-                for (l = k + 1; l < M; l++)
-                {
-                    sqrtOf = sqrt(v[k] * (v[k] - 1) * (v[q] + 1) * (v[l] + 1));
-                    v[k] -= 2;
-                    v[l] += 1;
-                    v[q] += 1;
-                    j = FockToIndex(N, M, NCmat, v);
-                    rhsI += Hint[k + k*M + q*M2 + l*M3] * C[j] * sqrtOf;
-                    rhsI += Hint[k + k*M + l*M2 + q*M3] * C[j] * sqrtOf;
-                    v[k] += 2;
-                    v[l] -= 1;
-                    v[q] -= 1;
-                }
-            }
-        }
-
-        for (q = 0; q < M; q++)
-        {
-            for (l = q + 1; l < M; l++)
-            {
-                for (k = l + 1; k < M; k++)
-                {
-                    if (v[k] < 2) continue;
-                    sqrtOf = sqrt(v[k] * (v[k] - 1) * (v[q] + 1) * (v[l] + 1));
-                    v[k] -= 2;
-                    v[l] += 1;
-                    v[q] += 1;
-                    j = FockToIndex(N, M, NCmat, v);
-                    rhsI += Hint[k + k*M + q*M2 + l*M3] * C[j] * sqrtOf;
-                    rhsI += Hint[k + k*M + l*M2 + q*M3] * C[j] * sqrtOf;
-                    v[k] += 2;
-                    v[l] -= 1;
-                    v[q] -= 1;
-                }
-            }
-        }
-        
-        /****************************** Rule 6.1 ******************************/
-
-        for (q = 0; q < M; q++)
-        {
-            for (k = q + 1; k < M; k++)
-            {
-                if (v[k] < 1) continue;
-                for (s = k + 1; s < M; s++)
-                {
-                    if (v[s] < 1) continue;
-                    sqrtOf = sqrt(v[k] * v[s] * (v[q] + 1) * (v[q] + 2));
-                    v[k] -= 1;
-                    v[s] -= 1;
-                    v[q] += 2;
-                    j = FockToIndex(N, M, NCmat, v);
-                    rhsI += Hint[k + s*M + q*M2 + q*M3] * C[j] * sqrtOf;
-                    rhsI += Hint[s + k*M + q*M2 + q*M3] * C[j] * sqrtOf;
-                    v[k] += 1;
-                    v[s] += 1;
-                    v[q] -= 2;
-                }
-            }
-        }
-
-        for (k = 0; k < M; k++)
-        {
-            if (v[k] < 1) continue;
-            for (q = k + 1; q < M; q++)
-            {
-                for (s = q + 1; s < M; s++)
-                {
-                    if (v[s] < 1) continue;
-                    sqrtOf = sqrt(v[k] * v[s] * (v[q] + 1) * (v[q] + 2));
-                    v[k] -= 1;
-                    v[s] -= 1;
-                    v[q] += 2;
-                    j = FockToIndex(N, M, NCmat, v);
-                    rhsI += Hint[k + s*M + q*M2 + q*M3] * C[j] * sqrtOf;
-                    rhsI += Hint[s + k*M + q*M2 + q*M3] * C[j] * sqrtOf;
-                    v[k] += 1;
-                    v[s] += 1;
-                    v[q] -= 2;
-                }
-            }
-        }
-
-        for (k = 0; k < M; k++)
-        {
-            if (v[k] < 1) continue;
-            for (s = k + 1; s < M; s++)
-            {
-                if (v[s] < 1) continue;
-                for (q = s + 1; q < M; q++)
-                {
-                    sqrtOf = sqrt(v[k] * v[s] * (v[q] + 1) * (v[q] + 2));
-                    v[k] -= 1;
-                    v[s] -= 1;
-                    v[q] += 2;
-                    j = FockToIndex(N, M, NCmat, v);
-                    rhsI += Hint[k + s*M + q*M2 + q*M3] * C[j] * sqrtOf;
-                    rhsI += Hint[s + k*M + q*M2 + q*M3] * C[j] * sqrtOf;
-                    v[k] += 1;
-                    v[s] += 1;
-                    v[q] -= 2;
-                }
-            }
-        }
-
-        /****************************** Rule 7 ******************************/
-
-        for (s = 0; s < M; s++)
-        {
-            // if (v[s] < 1) continue // may improve performance 
-            for (k = 0; k < M; k++)
-            {
-                if (v[k] < 1 || k == s) continue;
-                for (l = k + 1; l < M; l++)
-                {
-                    if (l == k || l == s) continue;
-                    sqrtOf = v[s] * sqrt(v[k] * (v[l] + 1));
-                    v[k] -= 1;
-                    v[l] += 1;
-                    j = FockToIndex(N, M, NCmat, v);
-                    rhsI += Hint[k + s*M + s*M2 + l*M3] * C[j] * sqrtOf;
-                    rhsI += Hint[s + k*M + s*M2 + l*M3] * C[j] * sqrtOf;
-                    rhsI += Hint[s + k*M + l*M2 + s*M3] * C[j] * sqrtOf;
-                    rhsI += Hint[k + s*M + l*M2 + s*M3] * C[j] * sqrtOf;
-                    v[k] += 1;
-                    v[l] -= 1;
-                }
-            }
-        }
-        
-        /****************************** Rule 8 ******************************/
-
-        for (k = 0; k < M; k++)
-        {
-            if (v[k] < 1) continue;
-            for (s = 0; s < M; s++)
-            {
-                if (v[s] < 1 || s == k) continue;
-                for (q = 0; q < M; q++)
-                {
-                    if (q == s || q == k) continue;
-                    for (l = 0; l < M; l ++)
-                    {
-                        if (l == k || l == s || l == q) continue;
-                        sqrtOf = sqrt(v[k] * v[s] * (v[q] + 1) * (v[l] + 1));
-                        v[k] -= 1;
-                        v[s] -= 1;
-                        v[q] += 1;
-                        v[l] += 1;
-                        j = FockToIndex(N, M, NCmat, v);
-                        rhsI += Hint[k + s*M + q*M2 + l*M3] * C[j] * sqrtOf;
-                        v[k] += 1;
-                        v[s] += 1;
-                        v[q] -= 1;
-                        v[l] -= 1;
-                    }   // Finish l
-                }       // Finish q
-            }           // Finish s
-        }               // Finish k
-
-        out[i] = rhsI;
-    }
-
-    free(v);
-
-    } // End of parallel region
-
-}
 
 
 
@@ -443,23 +509,24 @@ void OrbDDT (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix newOrb,
         s,
         j;
 
-    double complex Proj;
-    
     int  M  = MC->Morb,
          N  = MC->Npar,
          Mpos  = MC->Mpos,
          ** IF = MC->IF;
     
-    long ** NCmat = MC->NCmat;
+    int ** NCmat = MC->NCmat;
 
     double dx = MC->dx;
     
-    /* ================================================================== */
-    /*                                                                    */
-    /*                       Setup Density Matrices                       */
-    /*                                                                    */
-    /* ================================================================== */
-    
+    double complex Proj,
+                   g = MC->inter;
+
+    /* ==================================================================== *
+     *                                                                      *
+     *        Setup single/two particle hamiltonian matrix elements         *
+     *                                                                      *
+     * ==================================================================== */
+
     SetupHo(M, Mpos, Orb, dx, MC->a2, MC->a1, MC->V, Ho);
     SetupHint(M, Mpos, Orb, dx, MC->inter, Hint);
 
@@ -470,8 +537,10 @@ void OrbDDT (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix newOrb,
     OBrho(N, M, NCmat, IF, C, rho);
     TBrho(N, M, NCmat, IF, C, rho2);
 
-    s = HermitianInv(M, rho, rho_inv); // Needed in nonlinear orbital part
-    
+    s = HermitianInv(M, rho, rho_inv);
+    if (s != 0)
+    { printf("\n\n\t\tFailed on Lapack inversion routine!\n\n"); }
+
     for (k = 0; k < M; k++)
     {   // Take k orbital
         for (j = 0; j < Mpos; j++)
@@ -482,8 +551,8 @@ void OrbDDT (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix newOrb,
                 Proj += Ho[s][k] * Orb[s][j]; 
                 Proj += Proj_Hint(M, k, s, rho_inv, rho2, Hint) * Orb[s][j];
             }
-            newOrb[k][j] = -I * (MC->inter * \
-                            NonLinear(M, k, j, Orb, rho_inv, rho2) - Proj);
+            newOrb[k][j] = \
+            -I * (g * NonLinear(M, k, j, Orb, rho_inv, rho2) - Proj);
         }
     }
 
@@ -496,424 +565,13 @@ void OrbDDT (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix newOrb,
 
 
 
-void RHSforRK4 (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix Ho,
+void OrbConfDDT (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix Ho,
      Carray Hint, Carray newC, Cmatrix newOrb )
 {   // Right-Hand-Side of time derivatives both for coefficients and orbitals
-    long // Index of coeficients
-        i,
-        j,
-        nc = MC->nc;
-
-    int // enumerate orbitals
-        k,
-        l,
-        s,
-        q;
-
-    /* ================================================================== */
-    /*                                                                    */
-    /*                        Auxiliary variables                         */
-    /*                                                                    */
-    /* ================================================================== */
-
-    int  M  = MC->Morb,
-         N  = MC->Npar,
-         M2 = M * M,
-         M3 = M * M * M,
-         Mpos  = MC->Mpos,
-         ** IF = MC->IF;
-    
-    long ** NCmat = MC->NCmat;
-
-    double dx = MC->dx;
-
-    int * v;             // Occupation vector on each iteration
-
-    double sqrtOf;       // Factor from creation/annihilation operator
-
-    double complex rhsI, // line step value of right-hand-side for C
-                   Proj; // Hold value of projector contribution for orbitals
-
-    rhsI = 0;
-    Proj = 0;
-
-    /* ================================================================== */
-    /*                                                                    */
-    /*                       Setup Density Matrices                       */
-    /*                                                                    */
-    /* ================================================================== */
-
-    Cmatrix rho = cmatDef(M, M);
-    Cmatrix rho_inv = cmatDef(M, M);
-    Carray rho2 = carrDef(M * M * M * M);
-
-    OBrho(N, M, NCmat, IF, C, rho);
-    TBrho(N, M, NCmat, IF, C, rho2);
-
-    l = HermitianInv(M, rho, rho_inv); // Needed in nonlinear orbital part
-
-
-
-    /* ================================================================== */
-    /*                                                                    */
-    /*                Setup Ho and Hint given the orbitals                */
-    /*                                                                    */
-    /* ================================================================== */
-
-    SetupHo(M, Mpos, Orb, dx, MC->a2, MC->a1, MC->V, Ho);
-    SetupHint(M, Mpos, Orb, dx, MC->inter, Hint);
-
-
-
-    /* ================================================================== */
-    /*                                                                    */
-    /*                      Apply RHS of coeficients                      */
-    /*                                                                    */
-    /* ================================================================== */
-
-    #pragma omp parallel firstprivate(N, M, M2, M3) \
-    private(i, j, k, l, s, q, rhsI, sqrtOf, v)
-    {
-
-    v = (int * ) malloc(M * sizeof(int));
-
-    #pragma omp for
-    for (i = 0; i < nc; i++)
-    {
-        rhsI = 0;
-
-        for (k = 0; k < M; k++) v[k] = IF[i][k];
-    
-        /* ============================================================== */
-        /*                                                                */
-        /*                      One-body contribution                     */
-        /*                                                                */
-        /* ============================================================== */
-
-        for (k = 0; k < M; k++)
-        {
-            if (v[k] < 1) continue;
-            rhsI += Ho[k][k] * v[k] * C[i];
-            for (l = 0; l < M; l++)
-            {
-                if (l == k) continue;
-                sqrtOf = sqrt(v[k] * (v[l] + 1));
-                v[k] -= 1;
-                v[l] += 1;
-                j = FockToIndex(N, M, NCmat, v);
-                rhsI += Ho[k][l] * sqrtOf * C[j];
-                v[k] += 1;
-                v[l] -= 1;
-            }
-        }
-
-        /* ============================================================== */
-        /*                                                                */
-        /*                      Two-body contribution                     */
-        /*                                                                */
-        /* ============================================================== */
-
-        /****************************** Rule 1 ******************************/
-
-        for (k = 0; k < M; k++)
-        {
-            sqrtOf = v[k] * (v[k] - 1);
-            rhsI += Hint[k + M * k + M2 * k + M3 * k] * C[i] * sqrtOf;
-        }
-        
-        /****************************** Rule 2 ******************************/
-
-        for (k = 0; k < M; k++)
-        {
-            for (s = k + 1; s < M; s++)
-            {
-                sqrtOf = v[k] * v[s];
-                rhsI += Hint[k + s*M + k*M2 + s*M3] * sqrtOf * C[i];
-                rhsI += Hint[s + k*M + k*M2 + s*M3] * sqrtOf * C[i];
-                rhsI += Hint[s + k*M + s*M2 + k*M3] * sqrtOf * C[i];
-                rhsI += Hint[k + s*M + s*M2 + k*M3] * sqrtOf * C[i];
-            }
-        }
-
-        /****************************** Rule 3 ******************************/
-
-        for (k = 0; k < M; k++)
-        {
-            if (v[k] < 2) continue;
-            for (q = 0; q < M; q++)
-            {
-                if (q == k) continue;
-                sqrtOf = sqrt((v[k] - 1) * v[k] * (v[q] + 1) * (v[q] + 2));
-                v[k] -= 2;
-                v[q] += 2;
-                j = FockToIndex(N, M, NCmat, v);
-                rhsI += Hint[k + k * M + q * M2 + q * M3] * C[j] * sqrtOf;
-                v[k] += 2;
-                v[q] -= 2;
-            }
-        }
-
-        /****************************** Rule 4 ******************************/
-
-        for (k = 0; k < M; k++)
-        {
-            if (v[k] < 2) continue;
-            for (l = 0; l < M; l++)
-            {
-                if (l == k) continue;
-                sqrtOf = (v[k] - 1) * sqrt(v[k] * (v[l] + 1));
-                v[k] -= 1;
-                v[l] += 1;
-                j = FockToIndex(N, M, NCmat, v);
-                rhsI += Hint[k + k * M + k * M2 + l * M3] * C[j] * sqrtOf;
-                rhsI += Hint[k + k * M + l * M2 + k * M3] * C[j] * sqrtOf;
-                v[k] += 1;
-                v[l] -= 1;
-            }
-        }
-
-        /****************************** Rule 5 ******************************/
-
-        for (k = 0; k < M; k++)
-        {
-            if (v[k] < 1) continue;
-            for (s = 0; s < M; s++)
-            {
-                if (s == k) continue;
-                sqrtOf = v[s] * sqrt(v[k] * (v[s] + 1));
-                v[k] -= 1;
-                v[s] += 1;
-                j = FockToIndex(N, M, NCmat, v);
-                rhsI += Hint[k + s * M + s * M2 + s * M3] * C[j] * sqrtOf;
-                rhsI += Hint[s + k * M + s * M2 + s * M3] * C[j] * sqrtOf;
-                v[k] += 1;
-                v[s] -= 1;
-            }
-        }
-
-        /****************************** Rule 6 ******************************/
-
-        for (k = 0; k < M; k++)
-        {
-            if (v[k] < 2) continue;
-            for (q = k + 1; q < M; q++)
-            {
-                for (l = q + 1; l < M; l++)
-                {
-                    sqrtOf = sqrt(v[k] * (v[k] - 1) * (v[q] + 1) * (v[l] + 1));
-                    v[k] -= 2;
-                    v[l] += 1;
-                    v[q] += 1;
-                    j = FockToIndex(N, M, NCmat, v);
-                    rhsI += Hint[k + k*M + q*M2 + l*M3] * C[j] * sqrtOf;
-                    rhsI += Hint[k + k*M + l*M2 + q*M3] * C[j] * sqrtOf;
-                    v[k] += 2;
-                    v[l] -= 1;
-                    v[q] -= 1;
-                }
-            }
-        }
-
-        for (q = 0; q < M; q++)
-        {
-            for (k = q + 1; k < M; k++)
-            {
-                if (v[k] < 2) continue;
-                for (l = k + 1; l < M; l++)
-                {
-                    sqrtOf = sqrt(v[k] * (v[k] - 1) * (v[q] + 1) * (v[l] + 1));
-                    v[k] -= 2;
-                    v[l] += 1;
-                    v[q] += 1;
-                    j = FockToIndex(N, M, NCmat, v);
-                    rhsI += Hint[k + k*M + q*M2 + l*M3] * C[j] * sqrtOf;
-                    rhsI += Hint[k + k*M + l*M2 + q*M3] * C[j] * sqrtOf;
-                    v[k] += 2;
-                    v[l] -= 1;
-                    v[q] -= 1;
-                }
-            }
-        }
-
-        for (q = 0; q < M; q++)
-        {
-            for (l = q + 1; l < M; l++)
-            {
-                for (k = l + 1; k < M; k++)
-                {
-                    if (v[k] < 2) continue;
-                    sqrtOf = sqrt(v[k] * (v[k] - 1) * (v[q] + 1) * (v[l] + 1));
-                    v[k] -= 2;
-                    v[l] += 1;
-                    v[q] += 1;
-                    j = FockToIndex(N, M, NCmat, v);
-                    rhsI += Hint[k + k*M + q*M2 + l*M3] * C[j] * sqrtOf;
-                    rhsI += Hint[k + k*M + l*M2 + q*M3] * C[j] * sqrtOf;
-                    v[k] += 2;
-                    v[l] -= 1;
-                    v[q] -= 1;
-                }
-            }
-        }
-        
-        /****************************** Rule 6.1 ******************************/
-
-        for (q = 0; q < M; q++)
-        {
-            for (k = q + 1; k < M; k++)
-            {
-                if (v[k] < 1) continue;
-                for (s = k + 1; s < M; s++)
-                {
-                    if (v[s] < 1) continue;
-                    sqrtOf = sqrt(v[k] * v[s] * (v[q] + 1) * (v[q] + 2));
-                    v[k] -= 1;
-                    v[s] -= 1;
-                    v[q] += 2;
-                    j = FockToIndex(N, M, NCmat, v);
-                    rhsI += Hint[k + s*M + q*M2 + q*M3] * C[j] * sqrtOf;
-                    rhsI += Hint[s + k*M + q*M2 + q*M3] * C[j] * sqrtOf;
-                    v[k] += 1;
-                    v[s] += 1;
-                    v[q] -= 2;
-                }
-            }
-        }
-
-        for (k = 0; k < M; k++)
-        {
-            if (v[k] < 1) continue;
-            for (q = k + 1; q < M; q++)
-            {
-                for (s = q + 1; s < M; s++)
-                {
-                    if (v[s] < 1) continue;
-                    sqrtOf = sqrt(v[k] * v[s] * (v[q] + 1) * (v[q] + 2));
-                    v[k] -= 1;
-                    v[s] -= 1;
-                    v[q] += 2;
-                    j = FockToIndex(N, M, NCmat, v);
-                    rhsI += Hint[k + s*M + q*M2 + q*M3] * C[j] * sqrtOf;
-                    rhsI += Hint[s + k*M + q*M2 + q*M3] * C[j] * sqrtOf;
-                    v[k] += 1;
-                    v[s] += 1;
-                    v[q] -= 2;
-                }
-            }
-        }
-
-        for (k = 0; k < M; k++)
-        {
-            if (v[k] < 1) continue;
-            for (s = k + 1; s < M; s++)
-            {
-                if (v[s] < 1) continue;
-                for (q = s + 1; q < M; q++)
-                {
-                    sqrtOf = sqrt(v[k] * v[s] * (v[q] + 1) * (v[q] + 2));
-                    v[k] -= 1;
-                    v[s] -= 1;
-                    v[q] += 2;
-                    j = FockToIndex(N, M, NCmat, v);
-                    rhsI += Hint[k + s*M + q*M2 + q*M3] * C[j] * sqrtOf;
-                    rhsI += Hint[s + k*M + q*M2 + q*M3] * C[j] * sqrtOf;
-                    v[k] += 1;
-                    v[s] += 1;
-                    v[q] -= 2;
-                }
-            }
-        }
-
-        /****************************** Rule 7 ******************************/
-
-        for (s = 0; s < M; s++)
-        {
-            // if (v[s] < 1) continue // may improve performance 
-            for (k = 0; k < M; k++)
-            {
-                if (v[k] < 1 || k == s) continue;
-                for (l = k + 1; l < M; l++)
-                {
-                    if (l == k || l == s) continue;
-                    sqrtOf = v[s] * sqrt(v[k] * (v[l] + 1));
-                    v[k] -= 1;
-                    v[l] += 1;
-                    j = FockToIndex(N, M, NCmat, v);
-                    rhsI += Hint[k + s*M + s*M2 + l*M3] * C[j] * sqrtOf;
-                    rhsI += Hint[s + k*M + s*M2 + l*M3] * C[j] * sqrtOf;
-                    rhsI += Hint[s + k*M + l*M2 + s*M3] * C[j] * sqrtOf;
-                    rhsI += Hint[k + s*M + l*M2 + s*M3] * C[j] * sqrtOf;
-                    v[k] += 1;
-                    v[l] -= 1;
-                }
-            }
-        }
-        
-        /****************************** Rule 8 ******************************/
-
-        for (k = 0; k < M; k++)
-        {
-            if (v[k] < 1) continue;
-            for (s = 0; s < M; s++)
-            {
-                if (v[s] < 1 || s == k) continue;
-                for (q = 0; q < M; q++)
-                {
-                    if (q == s || q == k) continue;
-                    for (l = 0; l < M; l ++)
-                    {
-                        if (l == k || l == s || l == q) continue;
-                        sqrtOf = sqrt(v[k] * v[s] * (v[q] + 1) * (v[l] + 1));
-                        v[k] -= 1;
-                        v[s] -= 1;
-                        v[q] += 1;
-                        v[l] += 1;
-                        j = FockToIndex(N, M, NCmat, v);
-                        rhsI += Hint[k + s*M + q*M2 + l*M3] * C[j] * sqrtOf;
-                        v[k] += 1;
-                        v[s] += 1;
-                        v[q] -= 1;
-                        v[l] -= 1;
-                    }   // Finish l
-                }       // Finish q
-            }           // Finish s
-        }               // Finish k
-
-        newC[i] = - I * rhsI;
-    }
-    
-    free(v);
-
-    } // End of parallel region
-
-
-
-    /* ================================================================== */
-    /*                                                                    */
-    /*                        Apply RHS of Orbitals                       */
-    /*                                                                    */
-    /* ================================================================== */
-
-    for (k = 0; k < M; k++)
-    {   // Take k orbital
-        for (j = 0; j < Mpos; j++)
-        {   // At discretized position j
-            Proj = 0;
-            for (s = 0; s < M; s++)
-            {   // projection over 's' orbitals
-                Proj += Ho[s][k] * Orb[s][j]; 
-                Proj += Proj_Hint(M, k, s, rho_inv, rho2, Hint) * Orb[s][j];
-            }
-            newOrb[k][j] = -I * (MC->inter * \
-                            NonLinear(M, k, j, Orb, rho_inv, rho2) - Proj);
-        }
-    }
-
-    free(rho2);
-    cmatFree(M, rho);
-    cmatFree(M, rho_inv);
-
-    /**********                  END OF ROUTINE                  **********/
+    int i;
+    OrbDDT(MC, C, Orb, newOrb, Ho, Hint);
+    applyHconf(MC, C, Ho, Hint, newC);
+    for (i = 0; i < MC->nc; i++) newC[i] = - I * newC[i];
 }
 
 
@@ -931,7 +589,7 @@ void lanczos(MCTDHBsetup MCdata, Cmatrix Ho, Carray Hint,
     Carray out = carrDef(nc);
     Carray ortho = carrDef(lm);
 
-    applyHcoef(MCdata, lvec[0], Ho, Hint, out);
+    applyHconf(MCdata, lvec[0], Ho, Hint, out);
     diag[0] = carrDot(nc, lvec[0], out);
     for (j = 0; j < nc; j++) out[j] = out[j] - diag[0] * lvec[0][j];
 
@@ -939,7 +597,7 @@ void lanczos(MCTDHBsetup MCdata, Cmatrix Ho, Carray Hint,
     {
         offdiag[i] = carrMod(nc, out);
         carrScalarMultiply(nc, out, 1.0 / offdiag[i], lvec[i + 1]);
-        applyHcoef(MCdata, lvec[i + 1], Ho, Hint, out);
+        applyHconf(MCdata, lvec[i + 1], Ho, Hint, out);
         for (j = 0; j < nc; j++)
         {
             out[j] = out[j] - offdiag[i]*lvec[i][j];
@@ -969,7 +627,7 @@ void lanczos(MCTDHBsetup MCdata, Cmatrix Ho, Carray Hint,
 void RK4lanczosAfter (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
 {
 
-    long i;  // Coeficient Index Counter
+    int i;  // Coeficient Index Counter
 
     int  k,  // Counter
          j,  // Counter
@@ -997,7 +655,7 @@ void RK4lanczosAfter (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
     /* -----------------------------------------------------
     variables to store lanczos vectors and matrix iterations
     -------------------------------------------------------- */
-    // Lanczos Vectors (organize along rows)
+    // Lanczos Vectors (organize aint rows)
     Cmatrix lvec = cmatDef(lm, MC->nc);
     // Elements of tridiagonal lanczos matrix
     Carray diag = carrDef(lm);
@@ -1019,17 +677,12 @@ void RK4lanczosAfter (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
 
 
 
-    /* ---------------------------------------------
-    Setup values needed to solve the equations for C
-    ------------------------------------------------ */
-    offdiag[lm-1] = 0; // Useless
+    /* ---------------------------------------
+    One/Two-body Hamiltonian matrices elements
+    ------------------------------------------ */
     Cmatrix  Ho = cmatDef(M, M);
     Carray Hint = carrDef(M * M * M *M);
-    SetupHo(M, Mpos, Orb, MC->dx, MC->a2, MC->a1, MC->V, Ho);
-    SetupHint(M, Mpos, Orb, MC->dx, MC->inter, Hint);
-    // Setup initial lanczos vector
-    carrCopy(MC->nc, C, lvec[0]);
-    /* --------------------------------------------- */
+    /* --------------------------------------- */
 
 
 
@@ -1218,7 +871,7 @@ void RK4lanczosAfter (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
 
 void RK4lanczosBefore (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
 {
-    long i;  // Coeficient Index Counter
+    int i;  // Coeficient Index Counter
 
     int  k,  // Counter
          j,  // Counter
@@ -1246,7 +899,7 @@ void RK4lanczosBefore (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
     /* -----------------------------------------------------
     variables to store lanczos vectors and matrix iterations
     -------------------------------------------------------- */
-    // Lanczos Vectors (organize along rows)
+    // Lanczos Vectors (organize aint rows)
     Cmatrix lvec = cmatDef(lm, MC->nc);
     // Elements of tridiagonal lanczos matrix
     Carray diag = carrDef(lm);
@@ -1456,7 +1109,7 @@ void RK4lanczosBefore (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
 void RK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
 {   // Apply 4-th order Runge-Kutta routine given a (COMPLEX)time step
 
-    long i; // Coeficient Index Counter
+    int i; // Coeficient Index Counter
 
     int  k, // Orbital counter
          j, // discretized position counter
@@ -1477,11 +1130,18 @@ void RK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
 
 
 
-    /* __________________________________________________________________ *
-     *                             COMPUTE K1                             *
-     *                          ----------------                          */
+    /* ================================================================= *
+    
+                  COMPUTE AND SUM UP FOUR Ks OF RUNGE-KUTTA
 
-    RHSforRK4(MC, C, Orb, Ho, Hint, Crhs, Orhs);
+     * ================================================================= */
+
+
+
+    /* ------------------------------------------------------------------
+    COMPUTE K1 in ?rhs variables
+    --------------------------------------------------------------------- */
+    OrbConfDDT(MC, C, Orb, Ho, Hint, Crhs, Orhs);
 
     for (i = 0; i < MC->nc; i++)
     {   // Add K1 contribution
@@ -1502,11 +1162,10 @@ void RK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
 
 
 
-    /* __________________________________________________________________ *
-     *                             COMPUTE K2                             *
-     *                          ----------------                          */
-
-    RHSforRK4(MC, Carg, Oarg, Ho, Hint, Crhs, Orhs);
+    /* ------------------------------------------------------------------
+    COMPUTE K2 in ?rhs variables
+    --------------------------------------------------------------------- */
+    OrbConfDDT(MC, Carg, Oarg, Ho, Hint, Crhs, Orhs);
 
     for (i = 0; i < MC->nc; i++)
     {   // Add K2 contribution
@@ -1527,11 +1186,10 @@ void RK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
 
 
 
-    /* __________________________________________________________________ *
-     *                             COMPUTE K3                             *
-     *                          ----------------                          */
-
-    RHSforRK4(MC, Carg, Oarg, Ho, Hint, Crhs, Orhs);
+    /* ------------------------------------------------------------------
+    COMPUTE K3 in ?rhs variables
+    --------------------------------------------------------------------- */
+    OrbConfDDT(MC, Carg, Oarg, Ho, Hint, Crhs, Orhs);
 
     for (i = 0; i < MC->nc; i++)
     {   // Add K3 contribution
@@ -1552,11 +1210,10 @@ void RK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
 
 
 
-    /* __________________________________________________________________ *
-     *                             COMPUTE K4                             *
-     *                          ----------------                          */
-
-    RHSforRK4(MC, Carg, Oarg, Ho, Hint, Crhs, Orhs);
+    /* ------------------------------------------------------------------
+    COMPUTE K4 in ?rhs variables
+    --------------------------------------------------------------------- */
+    OrbConfDDT(MC, Carg, Oarg, Ho, Hint, Crhs, Orhs);
 
     for (i = 0; i < MC->nc; i++)
     {   // Add K4 contribution
@@ -1606,7 +1263,7 @@ void RK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
 void IRK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
 {   // Apply 4-th order Runge-Kutta routine given a (COMPLEX)time step
 
-    long i; // Coeficient Index Counter
+    int i; // Coeficient Index Counter
 
     int  k, // Orbital counter
          j, // discretized position counter
@@ -1627,11 +1284,10 @@ void IRK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
 
 
 
-    /* __________________________________________________________________ *
-     *                             COMPUTE K1                             *
-     *                          ----------------                          */
-
-    RHSforRK4(MC, C, Orb, Ho, Hint, Crhs, Orhs);
+    /* ------------------------------------------------------------------
+    COMPUTE K1 in ?rhs variables
+    --------------------------------------------------------------------- */
+    OrbConfDDT(MC, C, Orb, Ho, Hint, Crhs, Orhs);
 
     for (i = 0; i < MC->nc; i++)
     {   // Add K1 contribution
@@ -1652,11 +1308,10 @@ void IRK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
 
 
 
-    /* __________________________________________________________________ *
-     *                             COMPUTE K2                             *
-     *                          ----------------                          */
-
-    RHSforRK4(MC, Carg, Oarg, Ho, Hint, Crhs, Orhs);
+    /* ------------------------------------------------------------------
+    COMPUTE K2 in ?rhs variables
+    --------------------------------------------------------------------- */
+    OrbConfDDT(MC, Carg, Oarg, Ho, Hint, Crhs, Orhs);
 
     for (i = 0; i < MC->nc; i++)
     {   // Add K2 contribution
@@ -1677,11 +1332,10 @@ void IRK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
 
 
 
-    /* __________________________________________________________________ *
-     *                             COMPUTE K3                             *
-     *                          ----------------                          */
-
-    RHSforRK4(MC, Carg, Oarg, Ho, Hint, Crhs, Orhs);
+    /* ------------------------------------------------------------------
+    COMPUTE K3 in ?rhs variables
+    --------------------------------------------------------------------- */
+    OrbConfDDT(MC, Carg, Oarg, Ho, Hint, Crhs, Orhs);
 
     for (i = 0; i < MC->nc; i++)
     {   // Add K3 contribution
@@ -1702,11 +1356,10 @@ void IRK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
 
 
 
-    /* __________________________________________________________________ *
-     *                             COMPUTE K4                             *
-     *                          ----------------                          */
-
-    RHSforRK4(MC, Carg, Oarg, Ho, Hint, Crhs, Orhs);
+    /* ------------------------------------------------------------------
+    COMPUTE K4 in ?rhs variables
+    --------------------------------------------------------------------- */
+    OrbConfDDT(MC, Carg, Oarg, Ho, Hint, Crhs, Orhs);
 
     for (i = 0; i < MC->nc; i++)
     {   // Add K4 contribution
@@ -1755,7 +1408,7 @@ void IRK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
 
 void LinearPartSM (int Mpos, int Morb, CCSmat rhs_mat, Carray upper,
      Carray lower, Carray mid, Cmatrix Orb )
-{   // Partial differential part. Solve using CN-discretization
+{   // Laplacian part. Solve using CN-discretization
     int k, size = Mpos - 1;
 
     Carray rhs = carrDef(size);
@@ -1892,7 +1545,7 @@ void MCTDHB_REAL_LanczosRK4I (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
 
 
-void MCTDHB_RK4I (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
+void MCTDHB_REAL_RK4I (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
      double dt, int Nsteps, int cyclic )
 {
     int i,

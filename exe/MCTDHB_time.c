@@ -300,10 +300,10 @@ int main(int argc, char * argv[])
 
     if (what_todo == 0)
     {   // First estimate time needed based on 1 step
-        printf("\n\nDoing real time propagation ...\n");
+        printf("\n\nDoing real time propagation (RK4) ...\n");
         
         start = omp_get_wtime();
-        MCTDHB_REAL_LanczosRK4I(mc, Orbtimetest, Ctimetest, E, dt, 1, 1);
+        MCTDHB_REAL_RK4I(mc, Orbtimetest, Ctimetest, E, dt, 1, 1);
         time_used = (double) (omp_get_wtime() - start);
 
         printf("\n\nTime to do 1 step: %.1lf seconds\n", time_used);
@@ -315,26 +315,48 @@ int main(int argc, char * argv[])
         printf("\n\n");
 
         // Start Evolution
-        MCTDHB_REAL_LanczosRK4I(mc, Orb, C, E, dt, N, 1);
+        MCTDHB_REAL_RK4I(mc, Orb, C, E, dt, N, 1);
     }
     else
-    {   // First estimate time needed based on 1 step
-        printf("\n\nDoing imaginary time propagation ...\n");
+    {
+        if (what_todo > 0)
+        {
+            printf("\n\nDoing real time propagation (lanczos) ...\n");
         
-        start = omp_get_wtime();
-        MCTDHB_IMAG_RK4I(mc, Orbtimetest, Ctimetest, E, dt, 1, 1);
-        time_used = (double) (omp_get_wtime() - start);
+            start = omp_get_wtime();
+            MCTDHB_REAL_LanczosRK4I(mc, Orbtimetest, Ctimetest, E, dt, 1, 1);
+            time_used = (double) (omp_get_wtime() - start);
 
-        printf("\n\nTime to do 1 step: %.1lf seconds\n", time_used);
-        printf("\nTotal time estimated: ");
-        TimePrint(time_used * N);
-        free(Ctimetest);
-        cmatFree(Morb, Orbtimetest);
+            printf("\n\nTime to do 1 step: %.1lf seconds\n", time_used);
+            printf("\nTotal time estimated: ");
+            TimePrint(time_used * N);
+            free(Ctimetest);
+            cmatFree(Morb, Orbtimetest);
 
-        printf("\n\n");
+            printf("\n\n");
 
-        // Start Evolution
-        MCTDHB_IMAG_RK4I(mc, Orb, C, E, dt, N, 1);
+            // Start Evolution
+            MCTDHB_REAL_RK4I(mc, Orb, C, E, dt, N, 1);
+        }
+        else
+        {
+            printf("\n\nDoing imaginary time propagation ...\n");
+        
+            start = omp_get_wtime();
+            MCTDHB_IMAG_RK4I(mc, Orbtimetest, Ctimetest, E, dt, 1, 1);
+            time_used = (double) (omp_get_wtime() - start);
+
+            printf("\n\nTime to do 1 step: %.1lf seconds\n", time_used);
+            printf("\nTotal time estimated: ");
+            TimePrint(time_used * N);
+            free(Ctimetest);
+            cmatFree(Morb, Orbtimetest);
+
+            printf("\n\n");
+
+            // Start Evolution
+            MCTDHB_IMAG_RK4I(mc, Orb, C, E, dt, N, 1);
+        }
     }
 
 
@@ -397,7 +419,7 @@ int main(int argc, char * argv[])
     if (out_data == NULL)  // impossible to open file
     { printf("ERROR: impossible to open file %s\n", fname_out); return -1; }
 
-    fprintf(out_data, "%d %d %d %.5lf %.5lf %.10lf %d", 
+    fprintf(out_data, "%d %d %d %.15lf %.15lf %.10lf %d", 
             Npar, Morb, Mdx, xi, xf, dt, N);
 
     fclose(out_data);

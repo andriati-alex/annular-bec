@@ -73,12 +73,23 @@ def AngularMom(Morb, x, S):
         S[i - 1,:] = np.exp(- 1.0j * (i / 2) * x, dtype=lc) / sqrt(2 * pi);
         S[i, :] = np.exp(1.0j * (i / 2) * x, dtype=lc) / sqrt(2 * pi);
 
-def NoiseAngular(Morb, x, S):
-    c = (np.random.random(2 * Morb, dtype=lc) - 0.5) / 0.1;
+def NoiseAngular(Morb, x, S, k):
+    phase = 0 + 0j;
+    # n is used to index the random numbers
+    n = 0;
+    # Random phase and amplitude
+    c = (np.random.random(2 * k * Morb) - 0.5) / 0.1;
     for i in range(Morb):
-        S[i,:] += c[2*i] * np.exp(- 1.0j * (i * x + c[2*i]), dtype=lc)
-        S[i,:] += c[2*i + 1] * np.exp(+ 1.0j * (i * x + c[2*i - 1]), dtype=lc)
-        renormalize(S[i,:], x[1] - x[0]);
+        for l in range(k):
+            # add k pairs of angular momentum
+            n = 2 * l + 2 * i * k;
+            # positive angular quantum number
+            phase = np.exp(- 1.0j * ( (i*k + l) * x + c[n]), dtype=lc);
+            S[i,:] += c[n] * phase;
+            # negative angular quantum number
+            phase = np.exp(+ 1.0j * ( (i*k + l) * x + c[n + 1]), dtype=lc);
+            S[i,:] += c[n + 1] * phase;
+        S[i,:] = renormalize(S[i,:], x[1] - x[0]);
 
 def Coef(Npar, Morb, C):
     v = np.empty(Morb, dtype=np.int32);
@@ -105,7 +116,7 @@ dx = 2 * pi / Mdiv;
 Orb = np.zeros([Morb, x.size], dtype=lc); # orbitals
 C = np.zeros(NC(Npar, Morb), dtype=lc);   # coeficients
 
-AngularMom(Morb, x, Orb);
+NoiseAngular(Morb, x, Orb, 3);
 Coef(Npar, Morb, C);
 
 Id_name = 'NoiseAngular-' + str(Npar) + '-' + str(Morb);
@@ -114,5 +125,5 @@ np.savetxt('setup/MC_' + Id_name + '_orb.dat', Orb.T, fmt='%.15E');
 np.savetxt('setup/MC_' + Id_name + '_coef.dat', C.T, fmt='%.15E');
 
 f = open('setup/MC_' + Id_name + '_config.dat', "w");
-f.write("%d %d %d %.14f %.14f" % (Npar, Morb, Mdiv, -pi, pi));
+f.write("%d %d %d %.15f %.15f" % (Npar, Morb, Mdiv, -pi, pi));
 f.close();

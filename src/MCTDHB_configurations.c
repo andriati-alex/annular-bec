@@ -1,28 +1,53 @@
-#include "../include/coef_routines.h"
+#include "../include/MCTDHB_configurations.h"
 
-long fac(int n)
+
+
+
+
+/* ========================================================================
+ *
+ *       AUXILIAR FUNCTIONS TO CONFIGURE NUMBER OCCUPATION STATES
+ *       --------------------------------------------------------
+ *
+ * A configuration is defined as one of the possibles occupation number 
+ * states (Fock vectors).  This is  a  combinatorial problem  on how to
+ * fill  "M"  different Single-Particle States (SPS)  with N  available
+ * particles.  The routines below  implements a mapping  between  these
+ * Fock states and integer numbers, to address coefficients of a  many-
+ * body state in Occupation Number Basis (ONB).
+ *
+ *
+ * ======================================================================== */
+
+
+
+
+
+int fac(int n)
 {
-    long n_fac = 1;
+    int n_fac = 1;
     for (int i = 1; i < n; i++) n_fac = n_fac * (i + 1);
     return n_fac;
 }
 
-long NC(int N, int M)
+int NC(int N, int M)
 {
-    long n = 1;
+    int n = 1;
     for (int i = N + M - 1; i > N; i --) n = n * i;
     return n / fac(M - 1);
 }
 
-long ** MountNCmat(int N, int M)
+int ** MountNCmat(int N, int M)
 {
     int i,
         j;
 
-    long ** NCmat = (long ** ) malloc((N + 1) * sizeof(long * ));
+    int ** NCmat = (int ** ) malloc((N + 1) * sizeof(int * ));
 
     for (i = 0; i < N + 1; i++)
-        NCmat[i] = (long * ) malloc((M + 1) * sizeof(long));
+    {
+        NCmat[i] = (int * ) malloc((M + 1) * sizeof(int));
+    }
 
     for (i = 0; i < N + 1; i++)
     {
@@ -33,9 +58,9 @@ long ** MountNCmat(int N, int M)
     return NCmat;
 }
 
-int ** MountFocks(int N, int M, long ** NCmat)
+int ** MountFocks(int N, int M, int ** NCmat)
 {
-    long k;
+    int k;
 
     int ** ItoFock = (int **) malloc(NC(N, M) * sizeof(int *));
 
@@ -48,17 +73,18 @@ int ** MountFocks(int N, int M, long ** NCmat)
     return ItoFock;
 }
 
-void IndexToFock(long k, int N, int M, long ** NCmat, int * v)
+void IndexToFock(int k, int N, int M, int ** NCmat, int * v)
 {
-    long x;
+    int x;
 
     int  i,
          m = M - 1;
 
     for (i = 0; i < M; i++) v[i] = 0;
 
-    /***  Put the particles in orbitals while has combinations to spend  ***/
-
+    /* -------------------------------------------------------------
+     * Put the particles in orbitals while has combinations to spend
+    ----------------------------------------------------------------- */
     while ( k > 0 )
     {
         while ( k - NCmat[N][m] < 0 ) m = m - 1;
@@ -66,24 +92,26 @@ void IndexToFock(long k, int N, int M, long ** NCmat, int * v)
         while ( x >= 0 )
         {
             v[m] = v[m] + 1; // One more particle in orbital m
-            N = N - 1;       // Less one particle still to setup
+            N = N - 1;       // Less one particle to setup
             k = x;
             x = x - NCmat[N][m];
         }
     }
 
-    /***         Put the rest of particles in the first orbital         ***/
-
+    /* -------------------------------------------------------------
+     * Put the particles in orbitals while has combinations to spend
+    ----------------------------------------------------------------- */
     for (i = N; i > 0; i--) v[0] = v[0] + 1;
 }
 
-long FockToIndex(int N, int M, long ** NCmat, int * v)
+int FockToIndex(int N, int M, int ** NCmat, int * v)
 {
-    int  i, n;
-    long k = 0;
+    int i, n;
+    int k = 0;
 
-    /*******  Empty one by one orbital starting from the last one  *******/
-
+    /* ---------------------------------------------------
+     * Empty one by one orbital starting from the last one
+    ------------------------------------------------------ */
     for (i = M - 1; i > 0; i--)
     {
         n = v[i]; // Number of particles in the orbital
@@ -94,31 +122,32 @@ long FockToIndex(int N, int M, long ** NCmat, int * v)
             n = n - 1;
         }
     }
+
     return k;
 }
 
-void JumpMapping(int N, int M, long ** NCmat, int ** IF, long * Map)
+void JumpMapping(int N, int M, int ** NCmat, int ** IF, int * Map)
 {
-    long i,
-         nc = NCmat[N][M];
-
-    int  q,
-         k,
-         l;
-
-    int * v = (int *) malloc(M * sizeof(int));
+    int i,
+        q,
+        k,
+        l,
+        nc = NCmat[N][M],
+        * v = (int *) malloc(M * sizeof(int));
 
     for (i = 0; i < nc; i++)
-    {
+    {   // Copy the occupation vector from C[i] coeff.
+        for (q = 0; q < M; q++) v[q] = IF[i][q];
         for (k = 0; k < M; k++)
-        {
+        {   // Take one particle from k state
             if (v[k] < 1) continue;
             for (l = 0; l < M; l++)
-            {
-                for (q = 0; q < M; q++) v[q] = IF[i][q];
+            {   // Put one particle in l state
                 v[k] -= 1;
                 v[l] += 1;
                 Map[i + k * nc + l * M * nc] = FockToIndex(N, M, NCmat, v);
+                v[k] += 1;
+                v[l] -= 1;
             }
         }
     }
@@ -127,15 +156,35 @@ void JumpMapping(int N, int M, long ** NCmat, int ** IF, long * Map)
 }
 
 
-void OBrho(int N, int M, long ** NCmat, int ** IF, Carray C, Cmatrix rho)
-{
-    long i, // long indices to number coeficients
-         j,
-         nc = NCmat[N][M];
 
-    int  k, // int indices to density matrix (M x M)
-         l,
-         q;
+
+
+/* ========================================================================
+ *
+ *                           <   a*_k   a_l   >
+ *                    -------------------------------
+ *
+ * Once defined a set of Single-Particle Wave Functions (SPWF) a many
+ * body state  can be expanded  in a  Occupation Number Configuration
+ * Basis (ONCB) whose vector are also named Fock states. The one body
+ * density matrix is known as the expected value of 1 creation  and 1
+ * annihilation operators for a given many-body state.  Use the basis
+ * to express the state and then compute using its coefficients (Cj).
+ *
+ * ======================================================================== */
+
+
+
+
+
+void OBrho(int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix rho)
+{
+    int i, // int indices to number coeficients
+        j,
+        k,
+        l,
+        q,
+        nc = NCmat[N][M];
 
     double mod2;
 
@@ -189,17 +238,40 @@ void OBrho(int N, int M, long ** NCmat, int ** IF, Carray C, Cmatrix rho)
     }
 }
 
-void TBrho(int N, int M, long ** NCmat, int ** IF, Carray C, Carray rho)
-{
-    long i, // long indices to number coeficients
-         j,
-         nc = NCmat[N][M];
-    int  k, // int indices to density matrix (M x M x M x M)
-         s,
-         q,
-         l,
-         t; // To copy the fock vector
 
+
+
+
+/* ========================================================================
+ *
+ *                    <   a*_k   a*_s   a_q   a_l   >
+ *                    -------------------------------
+ *
+ * Once defined a set of Single-Particle Wave Functions (SPWF) a many
+ * body state  can be expanded  in a  Occupation Number Configuration
+ * Basis (ONCB) whose vector are also named Fock states. The two body
+ * density matrix is known as the expected value of 2 creation  and 2
+ * annihilation operators for a given many-body state.  Use the basis
+ * to express the state and then compute using its coefficients (Cj).
+ *
+ * ======================================================================== */
+
+
+
+
+
+void TBrho(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
+{
+    int i, // int indices to number coeficients
+        j,
+        k,
+        s,
+        q,
+        l,
+        t,
+        nc = NCmat[N][M];
+    
+    // Auxiliar to memory access
     int M2 = M * M,
         M3 = M * M * M;
 
@@ -211,8 +283,9 @@ void TBrho(int N, int M, long ** NCmat, int ** IF, Carray C, Carray rho)
     int * v; // occupation number vector in each iteration
 
 
-    /****************************** Rule 1 ******************************/
-
+    /* ---------------------------------------------
+     * Rule 1: Creation on k k / Annihilation on k k
+    ------------------------------------------------------------------- */
     for (k = 0; k < M; k++)
     {
         RHO = 0;
@@ -225,8 +298,9 @@ void TBrho(int N, int M, long ** NCmat, int ** IF, Carray C, Carray rho)
         rho[k + M * k + M2 * k + M3 * k] = RHO;
     }
 
-    /****************************** Rule 2 ******************************/
-
+    /* ---------------------------------------------
+     * Rule 2: Creation on k s / Annihilation on k s
+    ------------------------------------------------------------------- */
     for (k = 0; k < M; k++)
     {
         for (s = k + 1; s < M; s++)
@@ -245,8 +319,9 @@ void TBrho(int N, int M, long ** NCmat, int ** IF, Carray C, Carray rho)
         }
     }
     
-    /****************************** Rule 3 ******************************/
-
+    /* ---------------------------------------------
+     * Rule 3: Creation on k k / Annihilation on q q
+    ------------------------------------------------------------------- */
     for (k = 0; k < M; k++)
     {
         for (q = k + 1; q < M; q++)
@@ -271,9 +346,10 @@ void TBrho(int N, int M, long ** NCmat, int ** IF, Carray C, Carray rho)
             rho[k + k * M + q * M2 + q * M3] = RHO;
         }
     }
-        
-    /****************************** Rule 4 ******************************/
-
+ 
+    /* ---------------------------------------------
+     * Rule 4: Creation on k k / Annihilation on k l
+    ------------------------------------------------------------------- */
     for (k = 0; k < M; k++)
     {
         for (l = k + 1; l < M; l++)
@@ -285,7 +361,7 @@ void TBrho(int N, int M, long ** NCmat, int ** IF, Carray C, Carray rho)
                 #pragma omp for
                 for (i = 0; i < nc; i++)
                 {
-                    if (IF[i][k] < 1) continue;
+                    if (IF[i][k] < 2) continue;
                     for (t = 0; t < M; t++) v[t] = IF[i][t];
                     sqrtOf = (v[k] - 1) * sqrt(v[k] * (v[l] + 1));
                     v[k] -= 1;
@@ -299,8 +375,9 @@ void TBrho(int N, int M, long ** NCmat, int ** IF, Carray C, Carray rho)
         }
     }
     
-    /****************************** Rule 5 ******************************/
-
+    /* ---------------------------------------------
+     * Rule 5: Creation on k s / Annihilation on s s
+    ------------------------------------------------------------------- */
     for (k = 0; k < M; k++)
     {
         for (s = k + 1; s < M; s++)
@@ -312,7 +389,7 @@ void TBrho(int N, int M, long ** NCmat, int ** IF, Carray C, Carray rho)
                 #pragma omp for
                 for (i = 0; i < nc; i++)
                 {
-                    if (IF[i][k] < 1) continue;
+                    if (IF[i][k] < 1 || IF[i][s] < 1) continue;
                     for (t = 0; t < M; t++) v[t] = IF[i][t];
                     sqrtOf = v[s] * sqrt(v[k] * (v[s] + 1));
                     v[k] -= 1;
@@ -326,8 +403,9 @@ void TBrho(int N, int M, long ** NCmat, int ** IF, Carray C, Carray rho)
         }
     }
 
-    /****************************** Rule 6 ******************************/
-        
+    /* -----------------------------------------------------------
+     * Rule 6.0: Creation on k k / Annihilation on q l (k < q < l)
+    ------------------------------------------------------------------- */
     for (k = 0; k < M; k++)
     {
         for (q = k + 1; q < M; q++)
@@ -358,6 +436,9 @@ void TBrho(int N, int M, long ** NCmat, int ** IF, Carray C, Carray rho)
         }
     }
 
+    /* -----------------------------------------------------------
+     * Rule 6.1: Creation on k k / Annihilation on q l (q < k < l)
+    ------------------------------------------------------------------- */
     for (q = 0; q < M; q++)
     {
         for (k = q + 1; k < M; k++)
@@ -388,6 +469,9 @@ void TBrho(int N, int M, long ** NCmat, int ** IF, Carray C, Carray rho)
         }
     }
     
+    /* -----------------------------------------------------------
+     * Rule 6.2: Creation on k k / Annihilation on q l (q < l < k)
+    ------------------------------------------------------------------- */
     for (q = 0; q < M; q++)
     {
         for (l = q + 1; l < M; l++)
@@ -418,8 +502,9 @@ void TBrho(int N, int M, long ** NCmat, int ** IF, Carray C, Carray rho)
         }
     }
 
-    /****************************** Rule 7 ******************************/
-
+    /* -----------------------------------------------------------
+     * Rule 7.0: Creation on k s / Annihilation on s l (s < k < l)
+    ------------------------------------------------------------------- */
     for (s = 0; s < M; s++)
     {
         for (k = s + 1; k < M; k++)
@@ -448,6 +533,9 @@ void TBrho(int N, int M, long ** NCmat, int ** IF, Carray C, Carray rho)
         }
     }
 
+    /* -----------------------------------------------------------
+     * Rule 7.1: Creation on k s / Annihilation on s l (k < s < l)
+    ------------------------------------------------------------------- */
     for (k = 0; k < M; k++)
     {
         for (s = k + 1; s < M; s++)
@@ -476,6 +564,9 @@ void TBrho(int N, int M, long ** NCmat, int ** IF, Carray C, Carray rho)
         }
     }
 
+    /* -----------------------------------------------------------
+     * Rule 7.2: Creation on k s / Annihilation on s l (k < l < s)
+    ------------------------------------------------------------------- */
     for (k = 0; k < M; k++)
     {
         for (l = k + 1; l < M; l++)
@@ -504,8 +595,9 @@ void TBrho(int N, int M, long ** NCmat, int ** IF, Carray C, Carray rho)
         }
     }
         
-    /****************************** Rule 8 ******************************/
- 
+    /* ---------------------------------------------
+     * Rule 8: Creation on k s / Annihilation on q l
+    ------------------------------------------------------------------- */
     for (k = 0; k < M; k++)
     {
         for (s = 0; s < M; s++)
@@ -537,11 +629,22 @@ void TBrho(int N, int M, long ** NCmat, int ** IF, Carray C, Carray rho)
                         }
                         free(v);
                     }
-                    rho[k+s*M+q*M2+l*M3] = RHO;
+                    rho[k + s*M + q*M2 + l*M3] = RHO;
                 } // Finish l loop
             } // Finish q loop
         } // Finish s loop
     } // Finish k loop
+
+
+
+    /* ==================================================================== *
+     
+           TAKE ADVANTAGE OF COMPLEX CONJUGATION AND COMMUTATION RULES
+           to fill the rest of elements without call FockToIndex.
+      
+     * ==================================================================== */
+
+
 
     /****************************** CC Rule 3 ******************************/
 
@@ -627,6 +730,7 @@ void TBrho(int N, int M, long ** NCmat, int ** IF, Carray C, Carray rho)
                 rho[k + s*M + l*M2 + s*M3] = rho[k + s*M + s*M2 + l*M3];
                 rho[s + k*M + l*M2 + s*M3] = rho[k + s*M + s*M2 + l*M3];
                 rho[s + k*M + s*M2 + l*M3] = rho[k + s*M + s*M2 + l*M3];
+                // First index greater than the last
                 rho[l + s*M + s*M2 + k*M3] = conj(rho[k + s*M + s*M2 + l*M3]);
                 rho[s + l*M + s*M2 + k*M3] = rho[l + s*M + s*M2 + k*M3];
                 rho[s + l*M + k*M2 + s*M3] = rho[l + s*M + s*M2 + k*M3];
@@ -644,6 +748,7 @@ void TBrho(int N, int M, long ** NCmat, int ** IF, Carray C, Carray rho)
                 rho[k + s*M + l*M2 + s*M3] = rho[k + s*M + s*M2 + l*M3];
                 rho[s + k*M + l*M2 + s*M3] = rho[k + s*M + s*M2 + l*M3];
                 rho[s + k*M + s*M2 + l*M3] = rho[k + s*M + s*M2 + l*M3];
+                // First index greater than the last
                 rho[l + s*M + s*M2 + k*M3] = conj(rho[k + s*M + s*M2 + l*M3]);
                 rho[s + l*M + s*M2 + k*M3] = rho[l + s*M + s*M2 + k*M3];
                 rho[s + l*M + k*M2 + s*M3] = rho[l + s*M + s*M2 + k*M3];
@@ -661,6 +766,7 @@ void TBrho(int N, int M, long ** NCmat, int ** IF, Carray C, Carray rho)
                 rho[k + s*M + l*M2 + s*M3] = rho[k + s*M + s*M2 + l*M3];
                 rho[s + k*M + l*M2 + s*M3] = rho[k + s*M + s*M2 + l*M3];
                 rho[s + k*M + s*M2 + l*M3] = rho[k + s*M + s*M2 + l*M3];
+                // First index greater than the last
                 rho[l + s*M + s*M2 + k*M3] = conj(rho[k + s*M + s*M2 + l*M3]);
                 rho[s + l*M + s*M2 + k*M3] = rho[l + s*M + s*M2 + k*M3];
                 rho[s + l*M + k*M2 + s*M3] = rho[l + s*M + s*M2 + k*M3];
@@ -669,5 +775,5 @@ void TBrho(int N, int M, long ** NCmat, int ** IF, Carray C, Carray rho)
         }
     }
 
-    /**********                  END OF ROUTINE                  **********/
+    /* END OF ROUTINE */
 }

@@ -31,7 +31,7 @@ MCTDHBsetup AllocMCTDHBdata (
 
 void EraseMCTDHBdata (MCTDHBsetup MC)
 {   // release all fields in the structure
-    long i;
+    int i;
     for (i = 0; i < MC->nc; i++) free(MC->IF[i]);
     free(MC->IF);
     for (i = 0; i <= MC->Npar; i++) free(MC->NCmat[i]);

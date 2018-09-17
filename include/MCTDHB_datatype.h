@@ -2,7 +2,7 @@
 #define _MCTDHB_datatype_h
 
 #include <complex.h>
-#include "coef_routines.h"
+#include "MCTDHB_configurations.h"
 
 
 
@@ -21,7 +21,7 @@ struct _MCTDHBsetup
         Morb,   // # of orbitals
         Npar,   // # of particles
         ** IF;  // IF[i] point to the occupation number vetor of C[i]
-    long
+    int
         nc,         // Total # of configurations of Fock states
         ** NCmat;   // NCmat[n][m] # with n particles / m orbitals
     double

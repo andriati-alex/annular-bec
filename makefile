@@ -17,11 +17,11 @@ obj_gp = $(obj_linalg)   \
 		 NewtonCG.o      \
 		 rk4.o
 
-obj_mctdhb = $(obj_linalg)        \
-		 	 coef.o               \
-			 calculus.o	          \
-			 MCTDHB_datatype.o    \
-			 MCTDHB_observables.o \
+obj_mctdhb = $(obj_linalg)           \
+		 	 MCTDHB_configurations.o \
+			 calculus.o	             \
+			 MCTDHB_datatype.o       \
+			 MCTDHB_observables.o    \
 		 	 MCTDHB_integrator.o
 
 linalg_header = include/array.h 			 \
@@ -39,11 +39,11 @@ gp_header = $(linalg_header) 		\
 			include/NewtonCG.h      \
 			include/rk4.h
 
-mctdhb_header = $(linalg_header) 		     \
-				include/coef_routines.h      \
-				include/calculus.h		     \
-				include/MCTDHB_datatype.h    \
-				include/MCTDHB_observables.h \
+mctdhb_header = $(linalg_header) 	    	    \
+				include/MCTDHB_configurations.h \
+				include/calculus.h		        \
+				include/MCTDHB_datatype.h       \
+				include/MCTDHB_observables.h    \
 				include/MCTDHB_integrator.h
 
 
@@ -180,8 +180,8 @@ NewtonCG.o : src/NewtonCG.c include/NewtonCG.h
 MCTDHB_integrator.o : src/MCTDHB_integrator.c include/MCTDHB_integrator.h
 	gcc -c -O3 -fopenmp src/MCTDHB_integrator.c
 
-coef.o : src/coef.c include/coef_routines.h
-	gcc -c -O3 -fopenmp src/coef.c
+MCTDHB_configurations.o : src/MCTDHB_configurations.c include/MCTDHB_configurations.h
+	gcc -c -O3 -fopenmp src/MCTDHB_configurations.c
 
 MCTDHB_observables.o : src/MCTDHB_observables.c include/MCTDHB_observables.h
 	gcc -c -O3 -fopenmp src/MCTDHB_observables.c

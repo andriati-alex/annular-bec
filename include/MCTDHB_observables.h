@@ -7,7 +7,6 @@
 
 #include "calculus.h"
 #include "array_memory.h"
-#include "coef_routines.h"
 #include "MCTDHB_datatype.h"
 
 

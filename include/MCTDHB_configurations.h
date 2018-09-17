@@ -1,21 +1,33 @@
 #ifndef _coef_routines_h
 #define _coef_routines_h
 
+
+
+
+
 #include "array_memory.h"
 #include "array_operations.h"
+#include "MCTDHB_datatype.h"
+
+
+
+
 
 #ifdef _OPENMP
     #include <omp.h>
 #endif
 
-#define PI 3.141592653589793
-
-long fac(int n);
-/* Return the factorial of a given integer n */
 
 
 
-long NC(int N, int M);
+
+int fac(int n); /* Return the factorial of a given integer n */
+
+
+
+
+
+int NC(int N, int M);
 /* **********************************
  * Number of possible combinations of
  *
@@ -28,7 +40,9 @@ long NC(int N, int M);
 
 
 
-long ** MountNCmat(int N, int M);
+
+
+int ** MountNCmat(int N, int M);
 /* **************************************************
  *
  * Construct the matrix with all possible combination
@@ -42,7 +56,9 @@ long ** MountNCmat(int N, int M);
 
 
 
-int ** MountFocks(int N, int M, long ** NCmat);
+
+
+int ** MountFocks(int N, int M, int ** NCmat);
 /* *************************************************************
  *
  * Give a matrix whose the row i contains the occupation numbers
@@ -53,7 +69,9 @@ int ** MountFocks(int N, int M, long ** NCmat);
 
 
 
-void IndexToFock(long k, int N, int M, long ** NCmat, int * v);
+
+
+void IndexToFock(int k, int N, int M, int ** NCmat, int * v);
 /* ************************************************************
  * 
  * Convert an coeficient index into a Fock's occupation vector
@@ -78,7 +96,9 @@ void IndexToFock(long k, int N, int M, long ** NCmat, int * v);
 
 
 
-long FockToIndex(int N, int M, long ** NCmat, int * v);
+
+
+int FockToIndex(int N, int M, int ** NCmat, int * v);
 /* ****************************************************
  * 
  * Convert a Fock's occupation number vector(v) into its coeficient index
@@ -95,7 +115,9 @@ long FockToIndex(int N, int M, long ** NCmat, int * v);
 
 
 
-void JumpMapping(int N, int M, long ** NCmat, int ** IF, long * Map);
+
+
+void JumpMapping(int N, int M, int ** NCmat, int ** IF, int * Map);
 /* ******************************************************************
  *
  * Make a mapping between the coeficient i to the coeficient that
@@ -115,21 +137,24 @@ void JumpMapping(int N, int M, long ** NCmat, int ** IF, long * Map);
 
 
 
-void OBrho(int N, int M, long ** NCmat, int ** IF, Carray C, Cmatrix rho);
-/* Construct the one-body density matrix given N particles and M orbitals */
+
+
+void OBrho(int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix rho);
+/* Construct the one-body density matrix given N particles and M orbitals
+ * and the coefficients from the state in the occupation number basis **/
 
 
 
-void TBrho(int N, int M, long ** NCmat, int ** IF, Carray C, Carray rho);
-/* **********************************************************************
- * 
- * Construct the two-body density matrix given N particles and M orbitals
- *
- * rho[k, l, s, q] ---> rho[k + l * M + s * M^2 + q * M^3]
- *
- * **********************************************************************/
 
-void RHSofODES(int N, int M, int ** IF, long ** NCmat,
-               Cmatrix Ho, Carray Hint, Carray C, Carray rhs);
+
+void TBrho(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho);
+/* Construct the two-body density matrix given N particles and M orbitals
+ * and the coefficients from the state in the  occupation  number  basis.
+ * The storage in memory follow a linearization as follows:
+ * rho[k, l, s, q] = rho[k + l * M + s * M^2 + q * M^3]               **/
+
+
+
+
 
 #endif
