@@ -303,7 +303,7 @@ int main(int argc, char * argv[])
         printf("\n\nDoing real time propagation ...\n");
         
         start = omp_get_wtime();
-        MCTDHB_time_evolution(mc, Orbtimetest, Ctimetest, E, dt, 1, 1);
+        MCTDHB_REAL_LanczosRK4I(mc, Orbtimetest, Ctimetest, E, dt, 1, 1);
         time_used = (double) (omp_get_wtime() - start);
 
         printf("\n\nTime to do 1 step: %.1lf seconds\n", time_used);
@@ -315,14 +315,14 @@ int main(int argc, char * argv[])
         printf("\n\n");
 
         // Start Evolution
-        MCTDHB_time_evolution(mc, Orb, C, E, dt, N, 1);
+        MCTDHB_REAL_LanczosRK4I(mc, Orb, C, E, dt, N, 1);
     }
     else
     {   // First estimate time needed based on 1 step
         printf("\n\nDoing imaginary time propagation ...\n");
         
         start = omp_get_wtime();
-        MCTDHB_itime_evolution(mc, Orbtimetest, Ctimetest, E, dt, 1, 1);
+        MCTDHB_IMAG_RK4I(mc, Orbtimetest, Ctimetest, E, dt, 1, 1);
         time_used = (double) (omp_get_wtime() - start);
 
         printf("\n\nTime to do 1 step: %.1lf seconds\n", time_used);
@@ -334,7 +334,7 @@ int main(int argc, char * argv[])
         printf("\n\n");
 
         // Start Evolution
-        MCTDHB_itime_evolution(mc, Orb, C, E, dt, N, 1);
+        MCTDHB_IMAG_RK4I(mc, Orb, C, E, dt, N, 1);
     }
 
 

@@ -1,14 +1,12 @@
 #include "../include/MCTDHB_integrator.h"
 
-double complex Proj_Hint (
-    int M,
-    int k,
-    int i,
-    Cmatrix rho_inv,
-    Carray rho2,
-    Carray Hint )
-{   // k and i enumerate orbitals maintaned fixed
 
+
+
+
+double complex Proj_Hint (int M, int k, int i, Cmatrix rho_inv,
+               Carray rho2, Carray Hint )
+{   // k and i enumerate orbitals maintaned fixed
     int j,
         s,
         q,
@@ -37,15 +35,13 @@ double complex Proj_Hint (
     return ans;
 }
 
-double complex NonLinear (
-    int M,
-    int k,
-    int n,
-    Cmatrix Omat,
-    Cmatrix rho_inv,
-    Carray rho2 )
-{   // k enumerate orbital and n a discretized position
 
+
+
+
+double complex NonLinear (int M, int k, int n, Cmatrix Omat,
+               Cmatrix rho_inv, Carray rho2 )
+{   // k enumerate orbital and n a discretized position
     int j,
         s,
         q,
@@ -73,307 +69,436 @@ double complex NonLinear (
     return ans;
 }
 
-void RK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
-{   // Apply 4-th order Runge-Kutta routine given a (REAL)time step
-
-    long i; // Coeficient Index Counter
-
-    int  k, // Orbital counter
-         j, // discretized position counter
-         M = MC->Morb,
-         Mpos = MC->Mpos,
-         Npar = MC->Npar;
-
-    Carray Crhs = carrDef(MC->nc);
-    Carray Cnew = carrDef(MC->nc);
-    Carray Carg = carrDef(MC->nc);
-
-    Cmatrix Orhs = cmatDef(M, Mpos);
-    Cmatrix Onew = cmatDef(M, Mpos);
-    Cmatrix Oarg = cmatDef(M, Mpos);
-
-    Cmatrix  Ho = cmatDef(M, M);
-    Carray Hint = carrDef(M * M * M *M);
-
-
-
-    /* __________________________________________________________________ *
-     *                             COMPUTE K1                             *
-     *                          ----------------                          */
-
-    RHSforRK4(MC, C, Orb, Ho, Hint, Crhs, Orhs);
-
-    for (i = 0; i < MC->nc; i++)
-    {   // Add K1 contribution
-        Cnew[i] = Crhs[i];
-        // Prepare next argument to compute K2
-        Carg[i] = C[i] + Crhs[i] * 0.5 * dt;
-    }
-
-    for (k = 0; k < M; k++)
-    {
-        for (j = 0; j < Mpos; j++)
-        {   // Add K1 contribution
-            Onew[k][j] = Orhs[k][j];
-            // Prepare next argument to compute K2
-            Oarg[k][j] = Orb[k][j] + Orhs[k][j] * 0.5 * dt;
-        }
-    }
-
-
-    /* __________________________________________________________________ *
-     *                             COMPUTE K2                             *
-     *                          ----------------                          */
-
-    RHSforRK4(MC, Carg, Oarg, Ho, Hint, Crhs, Orhs);
-
-    for (i = 0; i < MC->nc; i++)
-    {   // Add K2 contribution
-        Cnew[i] += 2 * Crhs[i];
-        // Prepare next argument to compute K3
-        Carg[i] = C[i] + Crhs[i] * 0.5 * dt;
-    }
-
-    for (k = 0; k < M; k++)
-    {
-        for (j = 0; j < Mpos; j++)
-        {   // Add K2 contribution
-            Onew[k][j] += 2 * Orhs[k][j];
-            // Prepare next argument to compute K3
-            Oarg[k][j] = Orb[k][j] + Orhs[k][j] * 0.5 * dt;
-        }
-    }
 
 
 
 
-    /* __________________________________________________________________ *
-     *                             COMPUTE K3                             *
-     *                          ----------------                          */
+void applyHcoef (MCTDHBsetup MC, Carray C, Cmatrix Ho, Carray Hint, Carray out)
+{   // Apply Many-Body Hamiltonian on a state in configuration basis
 
-    RHSforRK4(MC, Carg, Oarg, Ho, Hint, Crhs, Orhs);
+    long // Index of coeficients
+        i,
+        j,
+        nc = MC->nc;
 
-    for (i = 0; i < MC->nc; i++)
-    {   // Add K3 contribution
-        Cnew[i] += 2 * Crhs[i];
-        // Prepare next argument to compute K4
-        Carg[i] = C[i] + Crhs[i] * dt;
-    }
+    int // enumerate orbitals
+        k,
+        l,
+        s,
+        q;
 
-    for (k = 0; k < M; k++)
-    {
-        for (j = 0; j < Mpos; j++)
-        {   // Add K3 contribution
-            Onew[k][j] += 2 * Orhs[k][j];
-            // Prepare next argument to compute K4
-            Oarg[k][j] = Orb[k][j] + Orhs[k][j] * dt;
-        }
-    }
+    /* ================================================================== */
+    /*                                                                    */
+    /*                        Auxiliary variables                         */
+    /*                                                                    */
+    /* ================================================================== */
 
-
-
-    /* __________________________________________________________________ *
-     *                             COMPUTE K4                             *
-     *                          ----------------                          */
-
-    RHSforRK4(MC, Carg, Oarg, Ho, Hint, Crhs, Orhs);
-
-    for (i = 0; i < MC->nc; i++)
-    {   // Add K4 contribution
-        Cnew[i] += Crhs[i];
-    }
-
-    for (k = 0; k < M; k++)
-    {
-        for (j = 0; j < Mpos; j++)
-        {   // Add K4 contribution
-            Onew[k][j] += Orhs[k][j];
-        }
-    }
-
-    // Until now ?new  holds the sum K1 + 2 * K2 + 2 * K3 + K4
-    // from the Fourth order Runge-Kutta algorithm. Therefore:
-
-    for (i = 0; i < MC->nc; i++)
-    {   // Update Coeficients
-        C[i] = C[i] + Cnew[i] * dt / 6;
-    }
-
-    for (k = 0; k < M; k++)
-    {   // Update Orbitals
-        for (j = 0; j < Mpos; j++)
-        {
-            Orb[k][j] = Orb[k][j] + Onew[k][j] * dt / 6;
-        }
-    }
-
-    free(Cnew);
-    free(Crhs);
-    free(Carg);
+    int  M  = MC->Morb,
+         N  = MC->Npar,
+         M2 = M * M,
+         M3 = M * M * M,
+         ** IF = MC->IF;
     
-    cmatFree(M, Orhs);
-    cmatFree(M, Onew);
-    cmatFree(M, Oarg);
+    long ** NCmat = MC->NCmat;
 
-    cmatFree(M, Ho);
-    free(Hint);
+    int * v;             // Occupation vector on each iteration
+
+    double sqrtOf;       // Factor from creation/annihilation operator
+
+    double complex rhsI; // line step value of right-hand-side for C
+
+    rhsI = 0;
+
+    /* ================================================================== */
+    /*                                                                    */
+    /*                      Apply RHS of coeficients                      */
+    /*                                                                    */
+    /* ================================================================== */
+
+    #pragma omp parallel firstprivate(N, M, M2, M3) \
+    private(i, j, k, l, s, q, rhsI, sqrtOf, v)
+    {
+
+    v = (int * ) malloc(M * sizeof(int));
+
+    #pragma omp for
+    for (i = 0; i < nc; i++)
+    {
+        rhsI = 0;
+
+        for (k = 0; k < M; k++) v[k] = IF[i][k];
+    
+        /* ============================================================== */
+        /*                                                                */
+        /*                      One-body contribution                     */
+        /*                                                                */
+        /* ============================================================== */
+
+        for (k = 0; k < M; k++)
+        {
+            if (v[k] < 1) continue;
+            rhsI += Ho[k][k] * v[k] * C[i];
+            for (l = 0; l < M; l++)
+            {
+                if (l == k) continue;
+                sqrtOf = sqrt(v[k] * (v[l] + 1));
+                v[k] -= 1;
+                v[l] += 1;
+                j = FockToIndex(N, M, NCmat, v);
+                rhsI += Ho[k][l] * sqrtOf * C[j];
+                v[k] += 1;
+                v[l] -= 1;
+            }
+        }
+
+        /* ============================================================== */
+        /*                                                                */
+        /*                      Two-body contribution                     */
+        /*                                                                */
+        /* ============================================================== */
+
+        /****************************** Rule 1 ******************************/
+
+        for (k = 0; k < M; k++)
+        {
+            sqrtOf = v[k] * (v[k] - 1);
+            rhsI += Hint[k + M * k + M2 * k + M3 * k] * C[i] * sqrtOf;
+        }
+        
+        /****************************** Rule 2 ******************************/
+
+        for (k = 0; k < M; k++)
+        {
+            for (s = k + 1; s < M; s++)
+            {
+                sqrtOf = v[k] * v[s];
+                rhsI += Hint[k + s*M + k*M2 + s*M3] * sqrtOf * C[i];
+                rhsI += Hint[s + k*M + k*M2 + s*M3] * sqrtOf * C[i];
+                rhsI += Hint[s + k*M + s*M2 + k*M3] * sqrtOf * C[i];
+                rhsI += Hint[k + s*M + s*M2 + k*M3] * sqrtOf * C[i];
+            }
+        }
+
+        /****************************** Rule 3 ******************************/
+
+        for (k = 0; k < M; k++)
+        {
+            if (v[k] < 2) continue;
+            for (q = 0; q < M; q++)
+            {
+                if (q == k) continue;
+                sqrtOf = sqrt((v[k] - 1) * v[k] * (v[q] + 1) * (v[q] + 2));
+                v[k] -= 2;
+                v[q] += 2;
+                j = FockToIndex(N, M, NCmat, v);
+                rhsI += Hint[k + k * M + q * M2 + q * M3] * C[j] * sqrtOf;
+                v[k] += 2;
+                v[q] -= 2;
+            }
+        }
+
+        /****************************** Rule 4 ******************************/
+
+        for (k = 0; k < M; k++)
+        {
+            if (v[k] < 2) continue;
+            for (l = 0; l < M; l++)
+            {
+                if (l == k) continue;
+                sqrtOf = (v[k] - 1) * sqrt(v[k] * (v[l] + 1));
+                v[k] -= 1;
+                v[l] += 1;
+                j = FockToIndex(N, M, NCmat, v);
+                rhsI += Hint[k + k * M + k * M2 + l * M3] * C[j] * sqrtOf;
+                rhsI += Hint[k + k * M + l * M2 + k * M3] * C[j] * sqrtOf;
+                v[k] += 1;
+                v[l] -= 1;
+            }
+        }
+
+        /****************************** Rule 5 ******************************/
+
+        for (k = 0; k < M; k++)
+        {
+            if (v[k] < 1) continue;
+            for (s = 0; s < M; s++)
+            {
+                if (s == k) continue;
+                sqrtOf = v[s] * sqrt(v[k] * (v[s] + 1));
+                v[k] -= 1;
+                v[s] += 1;
+                j = FockToIndex(N, M, NCmat, v);
+                rhsI += Hint[k + s * M + s * M2 + s * M3] * C[j] * sqrtOf;
+                rhsI += Hint[s + k * M + s * M2 + s * M3] * C[j] * sqrtOf;
+                v[k] += 1;
+                v[s] -= 1;
+            }
+        }
+
+        /****************************** Rule 6 ******************************/
+
+        for (k = 0; k < M; k++)
+        {
+            if (v[k] < 2) continue;
+            for (q = k + 1; q < M; q++)
+            {
+                for (l = q + 1; l < M; l++)
+                {
+                    sqrtOf = sqrt(v[k] * (v[k] - 1) * (v[q] + 1) * (v[l] + 1));
+                    v[k] -= 2;
+                    v[l] += 1;
+                    v[q] += 1;
+                    j = FockToIndex(N, M, NCmat, v);
+                    rhsI += Hint[k + k*M + q*M2 + l*M3] * C[j] * sqrtOf;
+                    rhsI += Hint[k + k*M + l*M2 + q*M3] * C[j] * sqrtOf;
+                    v[k] += 2;
+                    v[l] -= 1;
+                    v[q] -= 1;
+                }
+            }
+        }
+
+        for (q = 0; q < M; q++)
+        {
+            for (k = q + 1; k < M; k++)
+            {
+                if (v[k] < 2) continue;
+                for (l = k + 1; l < M; l++)
+                {
+                    sqrtOf = sqrt(v[k] * (v[k] - 1) * (v[q] + 1) * (v[l] + 1));
+                    v[k] -= 2;
+                    v[l] += 1;
+                    v[q] += 1;
+                    j = FockToIndex(N, M, NCmat, v);
+                    rhsI += Hint[k + k*M + q*M2 + l*M3] * C[j] * sqrtOf;
+                    rhsI += Hint[k + k*M + l*M2 + q*M3] * C[j] * sqrtOf;
+                    v[k] += 2;
+                    v[l] -= 1;
+                    v[q] -= 1;
+                }
+            }
+        }
+
+        for (q = 0; q < M; q++)
+        {
+            for (l = q + 1; l < M; l++)
+            {
+                for (k = l + 1; k < M; k++)
+                {
+                    if (v[k] < 2) continue;
+                    sqrtOf = sqrt(v[k] * (v[k] - 1) * (v[q] + 1) * (v[l] + 1));
+                    v[k] -= 2;
+                    v[l] += 1;
+                    v[q] += 1;
+                    j = FockToIndex(N, M, NCmat, v);
+                    rhsI += Hint[k + k*M + q*M2 + l*M3] * C[j] * sqrtOf;
+                    rhsI += Hint[k + k*M + l*M2 + q*M3] * C[j] * sqrtOf;
+                    v[k] += 2;
+                    v[l] -= 1;
+                    v[q] -= 1;
+                }
+            }
+        }
+        
+        /****************************** Rule 6.1 ******************************/
+
+        for (q = 0; q < M; q++)
+        {
+            for (k = q + 1; k < M; k++)
+            {
+                if (v[k] < 1) continue;
+                for (s = k + 1; s < M; s++)
+                {
+                    if (v[s] < 1) continue;
+                    sqrtOf = sqrt(v[k] * v[s] * (v[q] + 1) * (v[q] + 2));
+                    v[k] -= 1;
+                    v[s] -= 1;
+                    v[q] += 2;
+                    j = FockToIndex(N, M, NCmat, v);
+                    rhsI += Hint[k + s*M + q*M2 + q*M3] * C[j] * sqrtOf;
+                    rhsI += Hint[s + k*M + q*M2 + q*M3] * C[j] * sqrtOf;
+                    v[k] += 1;
+                    v[s] += 1;
+                    v[q] -= 2;
+                }
+            }
+        }
+
+        for (k = 0; k < M; k++)
+        {
+            if (v[k] < 1) continue;
+            for (q = k + 1; q < M; q++)
+            {
+                for (s = q + 1; s < M; s++)
+                {
+                    if (v[s] < 1) continue;
+                    sqrtOf = sqrt(v[k] * v[s] * (v[q] + 1) * (v[q] + 2));
+                    v[k] -= 1;
+                    v[s] -= 1;
+                    v[q] += 2;
+                    j = FockToIndex(N, M, NCmat, v);
+                    rhsI += Hint[k + s*M + q*M2 + q*M3] * C[j] * sqrtOf;
+                    rhsI += Hint[s + k*M + q*M2 + q*M3] * C[j] * sqrtOf;
+                    v[k] += 1;
+                    v[s] += 1;
+                    v[q] -= 2;
+                }
+            }
+        }
+
+        for (k = 0; k < M; k++)
+        {
+            if (v[k] < 1) continue;
+            for (s = k + 1; s < M; s++)
+            {
+                if (v[s] < 1) continue;
+                for (q = s + 1; q < M; q++)
+                {
+                    sqrtOf = sqrt(v[k] * v[s] * (v[q] + 1) * (v[q] + 2));
+                    v[k] -= 1;
+                    v[s] -= 1;
+                    v[q] += 2;
+                    j = FockToIndex(N, M, NCmat, v);
+                    rhsI += Hint[k + s*M + q*M2 + q*M3] * C[j] * sqrtOf;
+                    rhsI += Hint[s + k*M + q*M2 + q*M3] * C[j] * sqrtOf;
+                    v[k] += 1;
+                    v[s] += 1;
+                    v[q] -= 2;
+                }
+            }
+        }
+
+        /****************************** Rule 7 ******************************/
+
+        for (s = 0; s < M; s++)
+        {
+            // if (v[s] < 1) continue // may improve performance 
+            for (k = 0; k < M; k++)
+            {
+                if (v[k] < 1 || k == s) continue;
+                for (l = k + 1; l < M; l++)
+                {
+                    if (l == k || l == s) continue;
+                    sqrtOf = v[s] * sqrt(v[k] * (v[l] + 1));
+                    v[k] -= 1;
+                    v[l] += 1;
+                    j = FockToIndex(N, M, NCmat, v);
+                    rhsI += Hint[k + s*M + s*M2 + l*M3] * C[j] * sqrtOf;
+                    rhsI += Hint[s + k*M + s*M2 + l*M3] * C[j] * sqrtOf;
+                    rhsI += Hint[s + k*M + l*M2 + s*M3] * C[j] * sqrtOf;
+                    rhsI += Hint[k + s*M + l*M2 + s*M3] * C[j] * sqrtOf;
+                    v[k] += 1;
+                    v[l] -= 1;
+                }
+            }
+        }
+        
+        /****************************** Rule 8 ******************************/
+
+        for (k = 0; k < M; k++)
+        {
+            if (v[k] < 1) continue;
+            for (s = 0; s < M; s++)
+            {
+                if (v[s] < 1 || s == k) continue;
+                for (q = 0; q < M; q++)
+                {
+                    if (q == s || q == k) continue;
+                    for (l = 0; l < M; l ++)
+                    {
+                        if (l == k || l == s || l == q) continue;
+                        sqrtOf = sqrt(v[k] * v[s] * (v[q] + 1) * (v[l] + 1));
+                        v[k] -= 1;
+                        v[s] -= 1;
+                        v[q] += 1;
+                        v[l] += 1;
+                        j = FockToIndex(N, M, NCmat, v);
+                        rhsI += Hint[k + s*M + q*M2 + l*M3] * C[j] * sqrtOf;
+                        v[k] += 1;
+                        v[s] += 1;
+                        v[q] -= 1;
+                        v[l] -= 1;
+                    }   // Finish l
+                }       // Finish q
+            }           // Finish s
+        }               // Finish k
+
+        out[i] = rhsI;
+    }
+
+    free(v);
+
+    } // End of parallel region
+
 }
 
-void IRK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
-{   // Apply 4-th order Runge-Kutta routine given a (COMPLEX)time step
-
-    long i; // Coeficient Index Counter
-
-    int  k, // Orbital counter
-         j, // discretized position counter
-         M = MC->Morb,
-         Mpos = MC->Mpos,
-         Npar = MC->Npar;
-
-    Carray Crhs = carrDef(MC->nc);
-    Carray Cnew = carrDef(MC->nc);
-    Carray Carg = carrDef(MC->nc);
-
-    Cmatrix Orhs = cmatDef(M, Mpos);
-    Cmatrix Onew = cmatDef(M, Mpos);
-    Cmatrix Oarg = cmatDef(M, Mpos);
-
-    Cmatrix  Ho = cmatDef(M, M);
-    Carray Hint = carrDef(M * M * M *M);
 
 
 
-    /* __________________________________________________________________ *
-     *                             COMPUTE K1                             *
-     *                          ----------------                          */
 
-    RHSforRK4(MC, C, Orb, Ho, Hint, Crhs, Orhs);
+void OrbDDT (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix newOrb,
+     Cmatrix Ho, Carray Hint)
+{   // Right-Hand-Side when isolate orbital's time derivative
+    int k,
+        s,
+        j;
 
-    for (i = 0; i < MC->nc; i++)
-    {   // Add K1 contribution
-        Cnew[i] = Crhs[i];
-        // Prepare next argument to compute K2
-        Carg[i] = C[i] + Crhs[i] * 0.5 * dt;
-    }
-
-    for (k = 0; k < M; k++)
-    {
-        for (j = 0; j < Mpos; j++)
-        {   // Add K1 contribution
-            Onew[k][j] = Orhs[k][j];
-            // Prepare next argument to compute K2
-            Oarg[k][j] = Orb[k][j] + Orhs[k][j] * 0.5 * dt;
-        }
-    }
-
-
-
-    /* __________________________________________________________________ *
-     *                             COMPUTE K2                             *
-     *                          ----------------                          */
-
-    RHSforRK4(MC, Carg, Oarg, Ho, Hint, Crhs, Orhs);
-
-    for (i = 0; i < MC->nc; i++)
-    {   // Add K2 contribution
-        Cnew[i] += 2 * Crhs[i];
-        // Prepare next argument to compute K3
-        Carg[i] = C[i] + Crhs[i] * 0.5 * dt;
-    }
-
-    for (k = 0; k < M; k++)
-    {
-        for (j = 0; j < Mpos; j++)
-        {   // Add K2 contribution
-            Onew[k][j] += 2 * Orhs[k][j];
-            // Prepare next argument to compute K3
-            Oarg[k][j] = Orb[k][j] + Orhs[k][j] * 0.5 * dt;
-        }
-    }
-
-
-
-    /* __________________________________________________________________ *
-     *                             COMPUTE K3                             *
-     *                          ----------------                          */
-
-    RHSforRK4(MC, Carg, Oarg, Ho, Hint, Crhs, Orhs);
-
-    for (i = 0; i < MC->nc; i++)
-    {   // Add K3 contribution
-        Cnew[i] += 2 * Crhs[i];
-        // Prepare next argument to compute K4
-        Carg[i] = C[i] + Crhs[i] * dt;
-    }
-
-    for (k = 0; k < M; k++)
-    {
-        for (j = 0; j < Mpos; j++)
-        {   // Add K3 contribution
-            Onew[k][j] += 2 * Orhs[k][j];
-            // Prepare next argument to compute K4
-            Oarg[k][j] = Orb[k][j] + Orhs[k][j] * dt;
-        }
-    }
-
-
-
-    /* __________________________________________________________________ *
-     *                             COMPUTE K4                             *
-     *                          ----------------                          */
-
-    RHSforRK4(MC, Carg, Oarg, Ho, Hint, Crhs, Orhs);
-
-    for (i = 0; i < MC->nc; i++)
-    {   // Add K4 contribution
-        Cnew[i] += Crhs[i];
-    }
-
-    for (k = 0; k < M; k++)
-    {
-        for (j = 0; j < Mpos; j++)
-        {   // Add K4 contribution
-            Onew[k][j] += Orhs[k][j];
-        }
-    }
-
-    // Until now ?new  holds the sum K1 + 2 * K2 + 2 * K3 + K4
-    // from the Fourth order Runge-Kutta algorithm. Therefore:
-
-    for (i = 0; i < MC->nc; i++)
-    {   // Update Coeficients
-        C[i] = C[i] + Cnew[i] * dt / 6;
-    }
-
-    for (k = 0; k < M; k++)
-    {   // Update Orbitals
-        for (j = 0; j < Mpos; j++)
-        {
-            Orb[k][j] = Orb[k][j] + Onew[k][j] * dt / 6;
-        }
-    }
-
-    free(Cnew);
-    free(Crhs);
-    free(Carg);
+    double complex Proj;
     
-    cmatFree(M, Orhs);
-    cmatFree(M, Onew);
-    cmatFree(M, Oarg);
+    int  M  = MC->Morb,
+         N  = MC->Npar,
+         Mpos  = MC->Mpos,
+         ** IF = MC->IF;
+    
+    long ** NCmat = MC->NCmat;
 
-    cmatFree(M, Ho);
-    free(Hint);
+    double dx = MC->dx;
+    
+    /* ================================================================== */
+    /*                                                                    */
+    /*                       Setup Density Matrices                       */
+    /*                                                                    */
+    /* ================================================================== */
+    
+    SetupHo(M, Mpos, Orb, dx, MC->a2, MC->a1, MC->V, Ho);
+    SetupHint(M, Mpos, Orb, dx, MC->inter, Hint);
+
+    Cmatrix rho = cmatDef(M, M);
+    Cmatrix rho_inv = cmatDef(M, M);
+    Carray rho2 = carrDef(M * M * M * M);
+
+    OBrho(N, M, NCmat, IF, C, rho);
+    TBrho(N, M, NCmat, IF, C, rho2);
+
+    s = HermitianInv(M, rho, rho_inv); // Needed in nonlinear orbital part
+    
+    for (k = 0; k < M; k++)
+    {   // Take k orbital
+        for (j = 0; j < Mpos; j++)
+        {   // At discretized position j
+            Proj = 0;
+            for (s = 0; s < M; s++)
+            {   // projection over 's' orbitals
+                Proj += Ho[s][k] * Orb[s][j]; 
+                Proj += Proj_Hint(M, k, s, rho_inv, rho2, Hint) * Orb[s][j];
+            }
+            newOrb[k][j] = -I * (MC->inter * \
+                            NonLinear(M, k, j, Orb, rho_inv, rho2) - Proj);
+        }
+    }
+
+    free(rho2);
+    cmatFree(M, rho);
+    cmatFree(M, rho_inv);
 }
 
-void RHSforRK4 (
-    MCTDHBsetup MC,
-    Carray C,
-    Cmatrix Orb,
-    Cmatrix Ho,
-    Carray Hint,
-    Carray newC,
-    Cmatrix newOrb )
-{   // Apply nonlinear part of orbitals together with coeficients
+
+
+
+
+void RHSforRK4 (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix Ho,
+     Carray Hint, Carray newC, Cmatrix newOrb )
+{   // Right-Hand-Side of time derivatives both for coefficients and orbitals
     long // Index of coeficients
         i,
         j,
@@ -791,14 +916,845 @@ void RHSforRK4 (
     /**********                  END OF ROUTINE                  **********/
 }
 
-void LinearPartSM (
-     int Mpos,
-     int Morb,
-     CCSmat rhs_mat,
-     Carray upper,
-     Carray lower,
-     Carray mid,
-     Cmatrix Orb )
+
+
+
+
+void lanczos(MCTDHBsetup MCdata, Cmatrix Ho, Carray Hint,
+     int lm, Carray diag, Carray offdiag, Cmatrix lvec)
+{
+    int i,
+        j,
+        k,
+        nc = MCdata->nc;
+
+    Carray out = carrDef(nc);
+    Carray ortho = carrDef(lm);
+
+    applyHcoef(MCdata, lvec[0], Ho, Hint, out);
+    diag[0] = carrDot(nc, lvec[0], out);
+    for (j = 0; j < nc; j++) out[j] = out[j] - diag[0] * lvec[0][j];
+
+    for (i = 0; i < lm - 1; i++)
+    {
+        offdiag[i] = carrMod(nc, out);
+        carrScalarMultiply(nc, out, 1.0 / offdiag[i], lvec[i + 1]);
+        applyHcoef(MCdata, lvec[i + 1], Ho, Hint, out);
+        for (j = 0; j < nc; j++)
+        {
+            out[j] = out[j] - offdiag[i]*lvec[i][j];
+        }
+        diag[i + 1] = carrDot(nc, lvec[i + 1], out);
+        for (j = 0; j < nc; j++)
+        {
+            out[j] = out[j] - diag[i+1]*lvec[i+1][j];
+        }
+        // Additional re-orthogonalization procedure
+        carrFill(lm, 0, ortho);
+        for (k = 0; k < i + 2; k++) ortho[k] += carrDot(nc, lvec[k], out);
+        for (j = 0; j < nc; j++)
+        {
+            for (k = 0; k < i + 2; k++) out[j] -= lvec[k][j] * ortho[k];
+        }
+    }
+
+    free(ortho);
+    free(out);
+}
+
+
+
+
+
+void RK4lanczosAfter (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
+{
+
+    long i;  // Coeficient Index Counter
+
+    int  k,  // Counter
+         j,  // Counter
+         lm, // Number of lanczos iterations
+         M = MC->Morb,
+         Mpos = MC->Mpos,
+         Npar = MC->Npar;
+
+    lm = 4; // Follows the order of Runge-Kutta
+
+
+
+    /* -------------------------------------------------------------
+    variables to call lapack diagonalization routine for tridiagonal
+    symmetric matrix
+    ---------------------------------------------------------------- */
+    double
+        * d = malloc(lm * sizeof(double)),
+        * e = malloc(lm * sizeof(double)),
+        * eigvec = malloc(lm * lm * sizeof(double));
+    /* ------------------------------------------------------------- */
+
+
+
+    /* -----------------------------------------------------
+    variables to store lanczos vectors and matrix iterations
+    -------------------------------------------------------- */
+    // Lanczos Vectors (organize along rows)
+    Cmatrix lvec = cmatDef(lm, MC->nc);
+    // Elements of tridiagonal lanczos matrix
+    Carray diag = carrDef(lm);
+    Carray offdiag = carrDef(lm);
+    // Solve system of ODEs in lanczos vector space
+    Carray Clanczos = carrDef(lm);
+    Carray aux = carrDef(lm);
+    /* ----------------------------------------------------- */
+
+
+
+    /* ----------------------------------------------------
+    Variables to evolve 4-th order Runge-Kutta for Orbitals
+    ------------------------------------------------------- */
+    Cmatrix Orhs = cmatDef(M, Mpos);
+    Cmatrix Onew = cmatDef(M, Mpos);
+    Cmatrix Oarg = cmatDef(M, Mpos);
+    /* ---------------------------------------------------- */
+
+
+
+    /* ---------------------------------------------
+    Setup values needed to solve the equations for C
+    ------------------------------------------------ */
+    offdiag[lm-1] = 0; // Useless
+    Cmatrix  Ho = cmatDef(M, M);
+    Carray Hint = carrDef(M * M * M *M);
+    SetupHo(M, Mpos, Orb, MC->dx, MC->a2, MC->a1, MC->V, Ho);
+    SetupHint(M, Mpos, Orb, MC->dx, MC->inter, Hint);
+    // Setup initial lanczos vector
+    carrCopy(MC->nc, C, lvec[0]);
+    /* --------------------------------------------- */
+
+
+
+    /* ================================================================= *
+    
+            COMPUTE AND SUM UP FOUR Ks OF RUNGE-KUTTA for ORBITALS
+
+     * ================================================================= */
+
+
+
+    /* ------------------------------------------------------------------
+    COMPUTE K1 in Orhs
+    --------------------------------------------------------------------- */
+    OrbDDT(MC, C, Orb, Orhs, Ho, Hint);
+    for (k = 0; k < M; k++)
+    {
+        for (j = 0; j < Mpos; j++)
+        {   // Add K1 contribution
+            Onew[k][j] = Orhs[k][j];
+            // Prepare next argument to compute K2
+            Oarg[k][j] = Orb[k][j] + Orhs[k][j] * 0.5 * dt;
+        }
+    }
+
+
+
+    /* ------------------------------------------------------------------
+    COMPUTE K2 in Orhs
+    --------------------------------------------------------------------- */
+    OrbDDT(MC, C, Oarg, Orhs, Ho, Hint);
+    for (k = 0; k < M; k++)
+    {
+        for (j = 0; j < Mpos; j++)
+        {   // Add K2 contribution
+            Onew[k][j] += 2 * Orhs[k][j];
+            // Prepare next argument to compute K3
+            Oarg[k][j] = Orb[k][j] + Orhs[k][j] * 0.5 * dt;
+        }
+    }
+
+
+
+    /* ------------------------------------------------------------------
+    COMPUTE K3 in Orhs
+    --------------------------------------------------------------------- */
+    OrbDDT(MC, C, Oarg, Orhs, Ho, Hint);
+    for (k = 0; k < M; k++)
+    {
+        for (j = 0; j < Mpos; j++)
+        {   // Add K3 contribution
+            Onew[k][j] += 2 * Orhs[k][j];
+            // Prepare next argument to compute K4
+            Oarg[k][j] = Orb[k][j] + Orhs[k][j] * dt;
+        }
+    }
+
+
+
+    /* ------------------------------------------------------------------
+    COMPUTE K4 in Orhs
+    --------------------------------------------------------------------- */
+    OrbDDT(MC, C, Oarg, Orhs, Ho, Hint);
+    for (k = 0; k < M; k++)
+    {   // Add k4 contribution
+        for (j = 0; j < Mpos; j++) Onew[k][j] += Orhs[k][j];
+    }
+
+
+
+    /* ------------------------------------------------------------------
+    Update orbitals in the given time-step
+    --------------------------------------------------------------------- */
+    // Until now Onew  holds the sum K1 + 2 * K2 + 2 * K3 + K4
+    // from the Fourth order Runge-Kutta algorithm. Therefore:
+    for (k = 0; k < M; k++)
+    {   // Update Orbitals
+        for (j = 0; j < Mpos; j++)
+        {
+            Orb[k][j] = Orb[k][j] + Onew[k][j] * dt / 6;
+        }
+    }
+
+
+
+    /* ================================================================= *
+    
+            SOLVE ODE FOR COEFFICIENTS USING LANCZOS VECTOR SPACE
+
+     * ================================================================= */
+
+
+
+    /* ---------------------------------------------
+    Setup values needed to solve the equations for C
+    ------------------------------------------------ */
+    offdiag[lm-1] = 0; // Useless
+    SetupHo(M, Mpos, Orb, MC->dx, MC->a2, MC->a1, MC->V, Ho);
+    SetupHint(M, Mpos, Orb, MC->dx, MC->inter, Hint);
+    // Setup initial lanczos vector
+    carrCopy(MC->nc, C, lvec[0]);
+    /* --------------------------------------------- */
+
+
+
+    /* --------------------------------------------------------------
+    Call Lanczos what setup tridiagonal symmetric and lanczos vectors
+    ----------------------------------------------------------------- */
+    lanczos(MC, Ho, Hint, lm, diag, offdiag, lvec);
+    /* -------------------------------------------------------------- */
+
+
+
+    /* --------------------------------------------------------------
+    Transfer data to use lapack routine
+    ----------------------------------------------------------------- */
+    for (k = 0; k < lm; k++)
+    {
+        d[k] = creal(diag[k]);    // Supposed to be real
+        e[k] = creal(offdiag[k]); // Supposed to be real
+        for (j = 0; j < lm; j++) eigvec[k * lm + j] = 0;
+    }
+
+    k = LAPACKE_dstev(LAPACK_ROW_MAJOR, 'V', lm, d, e, eigvec, lm);
+    if (k != 0)
+    { printf("\n\n\t\tERROR IN DIAGONALIZATION\n\n"); }
+    /* -------------------------------------------------------------- */
+
+
+
+    /* --------------------------------------------------------------
+    Solve exactly the equation in lanczos vector space using 
+    matrix-eigenvalues to exactly exponentiate
+    ----------------------------------------------------------------- */
+    // Initial condition in Lanczos vector space
+    carrFill(lm, 0, Clanczos); Clanczos[0] = 1.0;
+
+    for (k = 0; k < lm; k++)
+    {   // Solve in diagonal basis and for this apply eigvec trasformation
+        aux[k] = 0;
+        for (j = 0; j < lm; j++) aux[k] += eigvec[j*lm + k] * Clanczos[j];
+        aux[k] = aux[k] * cexp(- I * d[k] * dt);
+    }
+
+    for (k = 0; k < lm; k++)
+    {   // Backward transformation from diagonal matrix
+        Clanczos[k] = 0;
+        for (j = 0; j < lm; j++) Clanczos[k] += eigvec[k*lm + j] * aux[j];
+    }
+
+    for (i = 0; i < MC->nc; i++)
+    {   // Matrix multiplication by lanczos vector give the solution
+        C[i] = 0;
+        for (j = 0; j < lm; j++) C[i] += lvec[j][i] * Clanczos[j];
+    }
+    /* -------------------------------------------------------------- */
+
+
+
+    /* ================================================================= *
+    
+                                RELEASE MEMORY
+
+     * ================================================================= */
+
+    free(d);
+    free(e);
+    free(eigvec);
+    free(diag);
+    free(offdiag);
+    free(Clanczos);
+    free(aux);
+
+    cmatFree(lm, lvec);
+    cmatFree(M, Orhs);
+    cmatFree(M, Onew);
+    cmatFree(M, Oarg);
+
+    cmatFree(M, Ho);
+    free(Hint);
+}
+
+
+
+
+
+void RK4lanczosBefore (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
+{
+    long i;  // Coeficient Index Counter
+
+    int  k,  // Counter
+         j,  // Counter
+         lm, // Number of lanczos iterations
+         M = MC->Morb,
+         Mpos = MC->Mpos,
+         Npar = MC->Npar;
+
+    lm = 4; // Follows the order of Runge-Kutta
+
+
+
+    /* -------------------------------------------------------------
+    variables to call lapack diagonalization routine for tridiagonal
+    symmetric matrix
+    ---------------------------------------------------------------- */
+    double
+        * d = malloc(lm * sizeof(double)),
+        * e = malloc(lm * sizeof(double)),
+        * eigvec = malloc(lm * lm * sizeof(double));
+    /* ------------------------------------------------------------- */
+
+
+
+    /* -----------------------------------------------------
+    variables to store lanczos vectors and matrix iterations
+    -------------------------------------------------------- */
+    // Lanczos Vectors (organize along rows)
+    Cmatrix lvec = cmatDef(lm, MC->nc);
+    // Elements of tridiagonal lanczos matrix
+    Carray diag = carrDef(lm);
+    Carray offdiag = carrDef(lm);
+    // Solve system of ODEs in lanczos vector space
+    Carray Clanczos = carrDef(lm);
+    Carray aux = carrDef(lm);
+    /* ----------------------------------------------------- */
+
+
+
+    /* ----------------------------------------------------
+    Variables to evolve 4-th order Runge-Kutta for Orbitals
+    ------------------------------------------------------- */
+    Cmatrix Orhs = cmatDef(M, Mpos);
+    Cmatrix Onew = cmatDef(M, Mpos);
+    Cmatrix Oarg = cmatDef(M, Mpos);
+    /* ---------------------------------------------------- */
+
+
+
+    /* ---------------------------------------------
+    Setup values needed to solve the equations for C
+    ------------------------------------------------ */
+    offdiag[lm-1] = 0; // Useless
+    Cmatrix  Ho = cmatDef(M, M);
+    Carray Hint = carrDef(M * M * M *M);
+    SetupHo(M, Mpos, Orb, MC->dx, MC->a2, MC->a1, MC->V, Ho);
+    SetupHint(M, Mpos, Orb, MC->dx, MC->inter, Hint);
+    // Setup initial lanczos vector
+    carrCopy(MC->nc, C, lvec[0]);
+    /* --------------------------------------------- */
+
+
+
+    /* ================================================================= *
+    
+            SOLVE ODE FOR COEFFICIENTS USING LANCZOS VECTOR SPACE
+
+     * ================================================================= */
+
+
+
+    /* --------------------------------------------------------------
+    Call Lanczos what setup tridiagonal symmetric and lanczos vectors
+    ----------------------------------------------------------------- */
+    lanczos(MC, Ho, Hint, lm, diag, offdiag, lvec);
+    /* -------------------------------------------------------------- */
+
+
+
+    /* --------------------------------------------------------------
+    Transfer data to use lapack routine
+    ----------------------------------------------------------------- */
+    for (k = 0; k < lm; k++)
+    {
+        d[k] = creal(diag[k]);    // Supposed to be real
+        e[k] = creal(offdiag[k]); // Supposed to be real
+        for (j = 0; j < lm; j++) eigvec[k * lm + j] = 0;
+    }
+
+    k = LAPACKE_dstev(LAPACK_ROW_MAJOR, 'V', lm, d, e, eigvec, lm);
+    if (k != 0)
+    { printf("\n\n\t\tERROR IN DIAGONALIZATION\n\n"); }
+    /* -------------------------------------------------------------- */
+
+
+
+    /* --------------------------------------------------------------
+    Solve exactly the equation in lanczos vector space using 
+    matrix-eigenvalues to exactly exponentiate
+    ----------------------------------------------------------------- */
+    // Initial condition in Lanczos vector space
+    carrFill(lm, 0, Clanczos); Clanczos[0] = 1.0;
+
+    for (k = 0; k < lm; k++)
+    {   // Solve in diagonal basis and for this apply eigvec trasformation
+        aux[k] = 0;
+        for (j = 0; j < lm; j++) aux[k] += eigvec[j*lm + k] * Clanczos[j];
+        aux[k] = aux[k] * cexp(- I * d[k] * dt);
+    }
+
+    for (k = 0; k < lm; k++)
+    {   // Backward transformation from diagonal matrix
+        Clanczos[k] = 0;
+        for (j = 0; j < lm; j++) Clanczos[k] += eigvec[k*lm + j] * aux[j];
+    }
+
+    for (i = 0; i < MC->nc; i++)
+    {   // Matrix multiplication by lanczos vector give the solution
+        C[i] = 0;
+        for (j = 0; j < lm; j++) C[i] += lvec[j][i] * Clanczos[j];
+    }
+    /* -------------------------------------------------------------- */
+
+
+
+    /* ================================================================= *
+    
+            COMPUTE AND SUM UP FOUR Ks OF RUNGE-KUTTA for ORBITALS
+
+     * ================================================================= */
+
+
+
+    /* ------------------------------------------------------------------
+    COMPUTE K1 in Orhs
+    --------------------------------------------------------------------- */
+    OrbDDT(MC, C, Orb, Orhs, Ho, Hint);
+    for (k = 0; k < M; k++)
+    {
+        for (j = 0; j < Mpos; j++)
+        {   // Add K1 contribution
+            Onew[k][j] = Orhs[k][j];
+            // Prepare next argument to compute K2
+            Oarg[k][j] = Orb[k][j] + Orhs[k][j] * 0.5 * dt;
+        }
+    }
+
+
+
+    /* ------------------------------------------------------------------
+    COMPUTE K2 in Orhs
+    --------------------------------------------------------------------- */
+    OrbDDT(MC, C, Oarg, Orhs, Ho, Hint);
+    for (k = 0; k < M; k++)
+    {
+        for (j = 0; j < Mpos; j++)
+        {   // Add K2 contribution
+            Onew[k][j] += 2 * Orhs[k][j];
+            // Prepare next argument to compute K3
+            Oarg[k][j] = Orb[k][j] + Orhs[k][j] * 0.5 * dt;
+        }
+    }
+
+
+
+    /* ------------------------------------------------------------------
+    COMPUTE K3 in Orhs
+    --------------------------------------------------------------------- */
+    OrbDDT(MC, C, Oarg, Orhs, Ho, Hint);
+    for (k = 0; k < M; k++)
+    {
+        for (j = 0; j < Mpos; j++)
+        {   // Add K3 contribution
+            Onew[k][j] += 2 * Orhs[k][j];
+            // Prepare next argument to compute K4
+            Oarg[k][j] = Orb[k][j] + Orhs[k][j] * dt;
+        }
+    }
+
+
+
+    /* ------------------------------------------------------------------
+    COMPUTE K4 in Orhs
+    --------------------------------------------------------------------- */
+    OrbDDT(MC, C, Oarg, Orhs, Ho, Hint);
+    for (k = 0; k < M; k++)
+    {   // Add k4 contribution
+        for (j = 0; j < Mpos; j++) Onew[k][j] += Orhs[k][j];
+    }
+
+
+
+    /* ------------------------------------------------------------------
+    Update orbitals in the given time-step
+    --------------------------------------------------------------------- */
+    // Until now Onew  holds the sum K1 + 2 * K2 + 2 * K3 + K4
+    // from the Fourth order Runge-Kutta algorithm. Therefore:
+    for (k = 0; k < M; k++)
+    {   // Update Orbitals
+        for (j = 0; j < Mpos; j++)
+        {
+            Orb[k][j] = Orb[k][j] + Onew[k][j] * dt / 6;
+        }
+    }
+
+
+
+    /* ================================================================= *
+    
+                                RELEASE MEMORY
+
+     * ================================================================= */
+
+    free(d);
+    free(e);
+    free(eigvec);
+    free(diag);
+    free(offdiag);
+    free(Clanczos);
+    free(aux);
+
+    cmatFree(lm, lvec);
+    cmatFree(M, Orhs);
+    cmatFree(M, Onew);
+    cmatFree(M, Oarg);
+
+    cmatFree(M, Ho);
+    free(Hint);
+}
+
+
+
+
+
+void RK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
+{   // Apply 4-th order Runge-Kutta routine given a (COMPLEX)time step
+
+    long i; // Coeficient Index Counter
+
+    int  k, // Orbital counter
+         j, // discretized position counter
+         M = MC->Morb,
+         Mpos = MC->Mpos,
+         Npar = MC->Npar;
+
+    Carray Crhs = carrDef(MC->nc);
+    Carray Cnew = carrDef(MC->nc);
+    Carray Carg = carrDef(MC->nc);
+
+    Cmatrix Orhs = cmatDef(M, Mpos);
+    Cmatrix Onew = cmatDef(M, Mpos);
+    Cmatrix Oarg = cmatDef(M, Mpos);
+
+    Cmatrix  Ho = cmatDef(M, M);
+    Carray Hint = carrDef(M * M * M *M);
+
+
+
+    /* __________________________________________________________________ *
+     *                             COMPUTE K1                             *
+     *                          ----------------                          */
+
+    RHSforRK4(MC, C, Orb, Ho, Hint, Crhs, Orhs);
+
+    for (i = 0; i < MC->nc; i++)
+    {   // Add K1 contribution
+        Cnew[i] = Crhs[i];
+        // Prepare next argument to compute K2
+        Carg[i] = C[i] + Crhs[i] * 0.5 * dt;
+    }
+
+    for (k = 0; k < M; k++)
+    {
+        for (j = 0; j < Mpos; j++)
+        {   // Add K1 contribution
+            Onew[k][j] = Orhs[k][j];
+            // Prepare next argument to compute K2
+            Oarg[k][j] = Orb[k][j] + Orhs[k][j] * 0.5 * dt;
+        }
+    }
+
+
+
+    /* __________________________________________________________________ *
+     *                             COMPUTE K2                             *
+     *                          ----------------                          */
+
+    RHSforRK4(MC, Carg, Oarg, Ho, Hint, Crhs, Orhs);
+
+    for (i = 0; i < MC->nc; i++)
+    {   // Add K2 contribution
+        Cnew[i] += 2 * Crhs[i];
+        // Prepare next argument to compute K3
+        Carg[i] = C[i] + Crhs[i] * 0.5 * dt;
+    }
+
+    for (k = 0; k < M; k++)
+    {
+        for (j = 0; j < Mpos; j++)
+        {   // Add K2 contribution
+            Onew[k][j] += 2 * Orhs[k][j];
+            // Prepare next argument to compute K3
+            Oarg[k][j] = Orb[k][j] + Orhs[k][j] * 0.5 * dt;
+        }
+    }
+
+
+
+    /* __________________________________________________________________ *
+     *                             COMPUTE K3                             *
+     *                          ----------------                          */
+
+    RHSforRK4(MC, Carg, Oarg, Ho, Hint, Crhs, Orhs);
+
+    for (i = 0; i < MC->nc; i++)
+    {   // Add K3 contribution
+        Cnew[i] += 2 * Crhs[i];
+        // Prepare next argument to compute K4
+        Carg[i] = C[i] + Crhs[i] * dt;
+    }
+
+    for (k = 0; k < M; k++)
+    {
+        for (j = 0; j < Mpos; j++)
+        {   // Add K3 contribution
+            Onew[k][j] += 2 * Orhs[k][j];
+            // Prepare next argument to compute K4
+            Oarg[k][j] = Orb[k][j] + Orhs[k][j] * dt;
+        }
+    }
+
+
+
+    /* __________________________________________________________________ *
+     *                             COMPUTE K4                             *
+     *                          ----------------                          */
+
+    RHSforRK4(MC, Carg, Oarg, Ho, Hint, Crhs, Orhs);
+
+    for (i = 0; i < MC->nc; i++)
+    {   // Add K4 contribution
+        Cnew[i] += Crhs[i];
+    }
+
+    for (k = 0; k < M; k++)
+    {
+        for (j = 0; j < Mpos; j++)
+        {   // Add K4 contribution
+            Onew[k][j] += Orhs[k][j];
+        }
+    }
+
+    // Until now ?new  holds the sum K1 + 2 * K2 + 2 * K3 + K4
+    // from the Fourth order Runge-Kutta algorithm. Therefore:
+
+    for (i = 0; i < MC->nc; i++)
+    {   // Update Coeficients
+        C[i] = C[i] + Cnew[i] * dt / 6;
+    }
+
+    for (k = 0; k < M; k++)
+    {   // Update Orbitals
+        for (j = 0; j < Mpos; j++)
+        {
+            Orb[k][j] = Orb[k][j] + Onew[k][j] * dt / 6;
+        }
+    }
+
+    free(Cnew);
+    free(Crhs);
+    free(Carg);
+    
+    cmatFree(M, Orhs);
+    cmatFree(M, Onew);
+    cmatFree(M, Oarg);
+
+    cmatFree(M, Ho);
+    free(Hint);
+}
+
+
+
+
+
+void IRK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
+{   // Apply 4-th order Runge-Kutta routine given a (COMPLEX)time step
+
+    long i; // Coeficient Index Counter
+
+    int  k, // Orbital counter
+         j, // discretized position counter
+         M = MC->Morb,
+         Mpos = MC->Mpos,
+         Npar = MC->Npar;
+
+    Carray Crhs = carrDef(MC->nc);
+    Carray Cnew = carrDef(MC->nc);
+    Carray Carg = carrDef(MC->nc);
+
+    Cmatrix Orhs = cmatDef(M, Mpos);
+    Cmatrix Onew = cmatDef(M, Mpos);
+    Cmatrix Oarg = cmatDef(M, Mpos);
+
+    Cmatrix  Ho = cmatDef(M, M);
+    Carray Hint = carrDef(M * M * M *M);
+
+
+
+    /* __________________________________________________________________ *
+     *                             COMPUTE K1                             *
+     *                          ----------------                          */
+
+    RHSforRK4(MC, C, Orb, Ho, Hint, Crhs, Orhs);
+
+    for (i = 0; i < MC->nc; i++)
+    {   // Add K1 contribution
+        Cnew[i] = Crhs[i];
+        // Prepare next argument to compute K2
+        Carg[i] = C[i] + Crhs[i] * 0.5 * dt;
+    }
+
+    for (k = 0; k < M; k++)
+    {
+        for (j = 0; j < Mpos; j++)
+        {   // Add K1 contribution
+            Onew[k][j] = Orhs[k][j];
+            // Prepare next argument to compute K2
+            Oarg[k][j] = Orb[k][j] + Orhs[k][j] * 0.5 * dt;
+        }
+    }
+
+
+
+    /* __________________________________________________________________ *
+     *                             COMPUTE K2                             *
+     *                          ----------------                          */
+
+    RHSforRK4(MC, Carg, Oarg, Ho, Hint, Crhs, Orhs);
+
+    for (i = 0; i < MC->nc; i++)
+    {   // Add K2 contribution
+        Cnew[i] += 2 * Crhs[i];
+        // Prepare next argument to compute K3
+        Carg[i] = C[i] + Crhs[i] * 0.5 * dt;
+    }
+
+    for (k = 0; k < M; k++)
+    {
+        for (j = 0; j < Mpos; j++)
+        {   // Add K2 contribution
+            Onew[k][j] += 2 * Orhs[k][j];
+            // Prepare next argument to compute K3
+            Oarg[k][j] = Orb[k][j] + Orhs[k][j] * 0.5 * dt;
+        }
+    }
+
+
+
+    /* __________________________________________________________________ *
+     *                             COMPUTE K3                             *
+     *                          ----------------                          */
+
+    RHSforRK4(MC, Carg, Oarg, Ho, Hint, Crhs, Orhs);
+
+    for (i = 0; i < MC->nc; i++)
+    {   // Add K3 contribution
+        Cnew[i] += 2 * Crhs[i];
+        // Prepare next argument to compute K4
+        Carg[i] = C[i] + Crhs[i] * dt;
+    }
+
+    for (k = 0; k < M; k++)
+    {
+        for (j = 0; j < Mpos; j++)
+        {   // Add K3 contribution
+            Onew[k][j] += 2 * Orhs[k][j];
+            // Prepare next argument to compute K4
+            Oarg[k][j] = Orb[k][j] + Orhs[k][j] * dt;
+        }
+    }
+
+
+
+    /* __________________________________________________________________ *
+     *                             COMPUTE K4                             *
+     *                          ----------------                          */
+
+    RHSforRK4(MC, Carg, Oarg, Ho, Hint, Crhs, Orhs);
+
+    for (i = 0; i < MC->nc; i++)
+    {   // Add K4 contribution
+        Cnew[i] += Crhs[i];
+    }
+
+    for (k = 0; k < M; k++)
+    {
+        for (j = 0; j < Mpos; j++)
+        {   // Add K4 contribution
+            Onew[k][j] += Orhs[k][j];
+        }
+    }
+
+    // Until now ?new  holds the sum K1 + 2 * K2 + 2 * K3 + K4
+    // from the Fourth order Runge-Kutta algorithm. Therefore:
+
+    for (i = 0; i < MC->nc; i++)
+    {   // Update Coeficients
+        C[i] = C[i] + Cnew[i] * dt / 6;
+    }
+
+    for (k = 0; k < M; k++)
+    {   // Update Orbitals
+        for (j = 0; j < Mpos; j++)
+        {
+            Orb[k][j] = Orb[k][j] + Onew[k][j] * dt / 6;
+        }
+    }
+
+    free(Cnew);
+    free(Crhs);
+    free(Carg);
+    
+    cmatFree(M, Orhs);
+    cmatFree(M, Onew);
+    cmatFree(M, Oarg);
+
+    cmatFree(M, Ho);
+    free(Hint);
+}
+
+
+
+
+
+void LinearPartSM (int Mpos, int Morb, CCSmat rhs_mat, Carray upper,
+     Carray lower, Carray mid, Cmatrix Orb )
 {   // Partial differential part. Solve using CN-discretization
     int k, size = Mpos - 1;
 
@@ -833,16 +1789,9 @@ void LinearPartSM (
 
 
 
-void MCTDHB_time_evolution (
-     MCTDHBsetup MC,
-     Cmatrix Orb,
-     Carray C,
-     Carray E,
-     double dt,
-     int Nsteps,
-     int cyclic )
-{   // real time propagation
-    
+void MCTDHB_REAL_LanczosRK4I (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
+     double dt, int Nsteps, int cyclic )
+{
     int i, Mpos = MC->Mpos, k, l, s;
 
     double dx = MC->dx,
@@ -858,11 +1807,9 @@ void MCTDHB_time_evolution (
 
 
 
-    /*                                                               *
-     *      Setup Right-Hand-Side matrix of linear part of PDE       *
-     *      --------------------------------------------------       */
-
-
+    /* ------------------------------------------------------------------- *
+     *         Setup Right-Hand-Side matrix of linear part of PDE          *
+     * ------------------------------------------------------------------- */
 
     // fill main diagonal (use upper as auxiliar array)
     carrFill(Mpos - 1, - a2 * dt / dx / dx + I, upper);
@@ -883,11 +1830,116 @@ void MCTDHB_time_evolution (
 
 
 
-    /*                                                               *
-     *                Setup Cyclic tridiagonal matrix                *
-     *                -------------------------------                */
+    /* ------------------------------------------------------------------- *
+     *                    Setup Cyclic tridiagonal matrix                  *
+     * ------------------------------------------------------------------- */
+
+    // fill main diagonal (use upper as auxiliar array)
+    carrFill(Mpos - 1, a2 * dt / dx / dx + I, upper);
+    rcarrUpdate(Mpos - 1, upper, -dt, MC->V, mid);
+
+    // fill upper diagonal
+    carrFill(Mpos - 1, - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, upper);
+    if (cyclic) { upper[Mpos-2] = - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
+    else        { upper[Mpos-2] = 0;                                          }
+
+    // fill lower diagonal
+    carrFill(Mpos - 1, - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, lower);
+    if (cyclic) { lower[Mpos-2] = - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
+    else        { lower[Mpos-2] = 0;                                          }
+
+    for (i = 0; i < Nsteps; i++)
+    {
+        RK4lanczosBefore(MC, Orb, C, dt / 2);
+        LinearPartSM(MC->Mpos, MC->Morb, rhs_mat, upper, lower, mid, Orb);
+        RK4lanczosAfter(MC, Orb, C, dt / 2);
+        // Store energy
+        E[i] = Energy(MC, Orb, C);
 
 
+
+        /* ----------------------------------------------------------------
+         * print to check orthogonality/Energy
+        ------------------------------------------------------------------- */
+        printf("\n\nAfter %d time steps, Energy = ", i + 1);
+        cPrint(E[i]);
+        printf(". Orthogonality matrix is:\n");
+        for (k = 0; k < MC->Morb; k++)
+        {
+            printf("\n\t");
+            for (l = 0; l < MC->Morb; l++)
+            {
+                for (s = 0; s < MC->Mpos; s++)
+                {
+                    to_int[s] = conj(Orb[k][s]) * Orb[l][s];
+                }
+                printf(" "); cPrint(Csimps(MC->Mpos, to_int, MC->dx));
+            }
+        }
+        printf("\n\n|| C || = %.6lf", carrMod(MC->nc, C));
+        /* ---------------------------------------------------------------- */
+    }
+
+    CCSFree(rhs_mat);
+    free(to_int);
+    free(upper);
+    free(lower);
+    free(mid);
+}
+
+
+
+
+
+
+void MCTDHB_RK4I (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
+     double dt, int Nsteps, int cyclic )
+{
+    int i,
+        k,
+        l,
+        s,
+        Mpos = MC->Mpos;
+
+    double dx = MC->dx,
+           a2 = MC->a2;
+
+    double complex a1 = MC->a1;
+
+    // used to store matrix elements of linear part
+    Carray upper = carrDef(Mpos - 1);
+    Carray lower = carrDef(Mpos - 1);
+    Carray mid   = carrDef(Mpos - 1);
+    Carray to_int = carrDef(Mpos);
+
+
+
+    /* ------------------------------------------------------------------- *
+     *         Setup Right-Hand-Side matrix of linear part of PDE          *
+     * ------------------------------------------------------------------- */
+
+    // fill main diagonal (use upper as auxiliar array)
+    carrFill(Mpos - 1, - a2 * dt / dx / dx + I, upper);
+    rcarrUpdate(Mpos - 1, upper, dt, MC->V, mid);
+
+    // fill upper diagonal
+    carrFill(Mpos - 1, a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, upper);
+    if (cyclic) { upper[Mpos-2] = a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
+    else        { upper[Mpos-2] = 0;                                        }
+
+    // fill lower diagonal
+    carrFill(Mpos - 1, a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, lower);
+    if (cyclic) { lower[Mpos-2] = a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
+    else        { lower[Mpos-2] = 0;                                        }
+
+    // Store in CCS format the RHS of discretized system of equations
+    CCSmat rhs_mat = CyclicToCCS(Mpos - 1, upper, lower, mid);
+
+
+
+    /* ------------------------------------------------------------------- *
+     *                    Setup Cyclic tridiagonal matrix                  *
+     * ------------------------------------------------------------------- */
 
     // fill main diagonal (use upper as auxiliar array)
     carrFill(Mpos - 1, a2 * dt / dx / dx + I, upper);
@@ -911,10 +1963,11 @@ void MCTDHB_time_evolution (
         // Store energy
         E[i] = Energy(MC, Orb, C);
 
-        /*     -------------------------------------------------     *
-         *            print to check orthogonality/Energy            *
-         *     -------------------------------------------------     */
 
+
+        /* ----------------------------------------------------------------
+         * print to check orthogonality/Energy
+        ------------------------------------------------------------------- */
         printf("\n\nAfter %d time steps, Energy = ", i + 1);
         cPrint(E[i]);
         printf(". Orthogonality matrix is:\n");
@@ -931,6 +1984,7 @@ void MCTDHB_time_evolution (
             }
         }
         printf("\n\n|| C || = %.6lf", carrMod(MC->nc, C));
+        /* ---------------------------------------------------------------- */
     }
 
     CCSFree(rhs_mat);
@@ -940,16 +1994,13 @@ void MCTDHB_time_evolution (
     free(mid);
 }
 
-void MCTDHB_itime_evolution (
-     MCTDHBsetup MC,
-     Cmatrix Orb,
-     Carray C,
-     Carray E,
-     double dT,
-     int Nsteps,
-     int cyclic)
-{   // imaginary time propagation
 
+
+
+
+void MCTDHB_IMAG_RK4I (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
+     double dT, int Nsteps, int cyclic)
+{
     int i,
         k,
         l,
@@ -969,11 +2020,10 @@ void MCTDHB_itime_evolution (
     Carray to_int = carrDef(Mpos);
 
 
-    /*                                                               *
-     *      Setup Right-Hand-Side matrix of linear part of PDE       *
-     *      --------------------------------------------------       */
 
-
+    /* ------------------------------------------------------------------- *
+     *         Setup Right-Hand-Side matrix of linear part of PDE          *
+     * ------------------------------------------------------------------- */
 
     // fill main diagonal (use upper as auxiliar array)
     carrFill(Mpos - 1, - a2 * dt / dx / dx + I, upper);
@@ -994,11 +2044,9 @@ void MCTDHB_itime_evolution (
 
 
 
-    /*                                                               *
-     *                Setup Cyclic tridiagonal matrix                *
-     *                -------------------------------                */
-
-
+    /* ------------------------------------------------------------------- *
+     *                    Setup Cyclic tridiagonal matrix                  *
+     * ------------------------------------------------------------------- */
 
     // fill main diagonal (use upper as auxiliar array)
     carrFill(Mpos - 1, a2 * dt / dx / dx + I, upper);
@@ -1019,17 +2067,18 @@ void MCTDHB_itime_evolution (
         IRK4step(MC, Orb, C, dt / 2);
         LinearPartSM(MC->Mpos, MC->Morb, rhs_mat, upper, lower, mid, Orb);
         IRK4step(MC, Orb, C, dt / 2);
-        // Compared to real time we need additional renormalization
+        // Loss of Norm => undefined behavior on orthogonalization
         Ortonormalize(MC->Morb, Mpos, dx, Orb);
         // Renormalize coeficients
         renormalizeVector(MC->nc, C, 1.0);
         // Store energy
         E[i] = Energy(MC, Orb, C);
 
-        /*     -------------------------------------------------     *
-         *            print to check orthogonality/Energy            *
-         *     -------------------------------------------------     */
 
+
+        /* ----------------------------------------------------------------
+         * print to check orthogonality/Energy
+        ------------------------------------------------------------------- */
         printf("\n\nAfter %d time steps, Energy = ", i + 1);
         cPrint(E[i]);
         printf(". Orthogonality matrix is:\n");
@@ -1046,6 +2095,7 @@ void MCTDHB_itime_evolution (
             }
         }
         printf("\n\n|| C || = %.6lf", carrMod(MC->nc, C));
+        /* ---------------------------------------------------------------- */
     }
 
     CCSFree(rhs_mat);

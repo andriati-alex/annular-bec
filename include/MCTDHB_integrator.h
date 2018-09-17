@@ -59,8 +59,15 @@ double complex NonLinear
  *                                                                   */
 
 
+void applyHcoef (MCTDHBsetup MC, Carray C, Cmatrix Ho, Carray Hint, Carray out);
 
-void RK4step
+void OrbDDT (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix newOrb,
+     Cmatrix ho, Carray Hint);
+
+void lanczos(MCTDHBsetup MCdata, Cmatrix Ho, Carray Hint,
+     int lm, Carray diag, Carray offdiag, Cmatrix lvec);
+
+void RK4lanczos
 (   // Evolve nonlinear part of orbitals coupled with coeficients
     MCTDHBsetup MC,
     Cmatrix orb, // End up modified by the evolution
@@ -76,6 +83,14 @@ void IRK4step
     Cmatrix Orb,
     Carray C,
     double complex dt
+);
+
+void RK4step
+(   // Evolve nonlinear part
+    MCTDHBsetup MC,
+    Cmatrix Orb,
+    Carray C,
+    double dt
 );
 
 
@@ -114,7 +129,7 @@ void LinearPartSM
 
 
 
-void MCTDHB_time_evolution
+void MCTDHB_REAL_LanczosRK4I
 (   // Call the subroutines to solve nonlinear and linear part
     MCTDHBsetup MC,
     Cmatrix Orb, // Modified/Overwritten at each time step
@@ -127,7 +142,20 @@ void MCTDHB_time_evolution
 
 
 
-void MCTDHB_itime_evolution
+void MCTDHB_RK4I
+(   // Call the subroutines to solve nonlinear and linear part
+    MCTDHBsetup MC,
+    Cmatrix Orb, // Modified/Overwritten at each time step
+    Carray C,    // Modified/Overwritten at each time step
+    Carray E,    // Energy at each time step
+    double dt,
+    int Nsteps,
+    int cyclic
+);
+
+
+
+void MCTDHB_IMAG_RK4I
 (   // Call subroutines with imaginary time to get ground state
     MCTDHBsetup MC,
     Cmatrix Orb, // Modified/Overwritten and renormalized at each time step
