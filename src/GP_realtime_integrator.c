@@ -1,7 +1,11 @@
-#include "../include/time_routine.h"
+#include "../include/GP_realtime_integrator.h"
 
-void CNsm(int M, int N, double dx, double dt, double a2, double complex a1,
-          double inter, Rarray V, int cyclic, Cmatrix S)
+
+
+
+
+void GPCNSM_all(int M, int N, double dx, double dt, double a2,
+     double complex a1, double inter, Rarray V, int cyclic, Cmatrix S)
 {
     unsigned int i, j;
     double complex Idt = 0.0 - dt * I;
@@ -12,52 +16,64 @@ void CNsm(int M, int N, double dx, double dt, double a2, double complex a1,
     Rarray abs2    = rarrDef(M); // abs square of wave function
 
     // used to store matrix elements of linear part
-    Carray upper = carrDef(M);
-    Carray lower = carrDef(M);
-    Carray mid   = carrDef(M);
-    Carray rhs   = carrDef(M);
+    Carray upper = carrDef(M - 1);
+    Carray lower = carrDef(M - 1);
+    Carray mid   = carrDef(M - 1);
+    Carray rhs   = carrDef(M - 1);
+
+
 
     /*                 ****************************                 */
     /*                 Setup Right-Hand-Side matrix                 */
     /*                 ****************************                 */
 
+
+
     // fill main diagonal (use upper as auxiliar pointer)
-    carrFill(M, - a2 * dt / dx / dx + I, upper);
-    rcarrUpdate(M, upper, dt, V, mid);
+    carrFill(M - 1, - a2 * dt / dx / dx + I, upper);
+    rcarrUpdate(M - 1, upper, dt, V, mid);
 
     // fill upper diagonal
-    carrFill(M, a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, upper);
-    if (cyclic) { upper[M-1] = a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
-    else        { upper[M-1] = 0;                                        }
+    carrFill(M - 1, a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, upper);
+    if (cyclic) { upper[M-2] = a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
+    else        { upper[M-2] = 0;                                        }
 
     // fill lower diagonal
-    carrFill(M, a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, lower);
-    if (cyclic) { lower[M-1] = a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
-    else        { lower[M-1] = 0;                                        }
+    carrFill(M - 1, a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, lower);
+    if (cyclic) { lower[M-2] = a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
+    else        { lower[M-2] = 0;                                        }
 
     // Store in CCS format
-    CCSmat rhs_mat = CyclicToCCS(M, upper, lower, mid);
+    CCSmat rhs_mat = CyclicToCCS(M - 1, upper, lower, mid);
+
+
 
     /*                *******************************                */
     /*                Setup Cyclic tridiagonal matrix                */
     /*                *******************************                */
 
+
+
     // fill main diagonal (use upper as auxiliar pointer)
-    carrFill(M, a2 * dt / dx /dx + I, upper);
-    rcarrUpdate(M, upper, -dt, V, mid);
+    carrFill(M - 1, a2 * dt / dx /dx + I, upper);
+    rcarrUpdate(M - 1, upper, -dt, V, mid);
 
     // fill upper diagonal
-    carrFill(M, - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, upper);
-    if (cyclic) { upper[M-1] = - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
-    else        { upper[M-1] = 0;                                          }
+    carrFill(M - 1, - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, upper);
+    if (cyclic) { upper[M-2] = - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
+    else        { upper[M-2] = 0;                                          }
 
     // fill lower diagonal
-    carrFill(M, - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, lower);
-    if (cyclic) { lower[M-1] = - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
-    else        { lower[M-1] = 0;                                          }
+    carrFill(M - 1, - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, lower);
+    if (cyclic) { lower[M-2] = - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
+    else        { lower[M-2] = 0;                                          }
+
+
 
     /* Apply Split step and solve separately nonlinear and linear part */
     /* *************************************************************** */
+
+
 
     for (i = 0; i < N; i++) {
         // Apply exponential with nonlinear part
@@ -66,8 +82,10 @@ void CNsm(int M, int N, double dx, double dt, double a2, double complex a1,
         carrMultiply(M, stepexp, S[i], linpart);
 
         // Solve linear part
-        CCSvec(M, rhs_mat->vec, rhs_mat->col, rhs_mat->m, linpart, rhs);
-        triCyclicSM(M, upper, lower, mid, rhs, linpart);
+        CCSvec(M - 1, rhs_mat->vec, rhs_mat->col, rhs_mat->m, linpart, rhs);
+        triCyclicSM(M - 1, upper, lower, mid, rhs, linpart);
+        if (cyclic) { linpart[M-1] = linpart[0]; } // Cyclic system
+        else        { linpart[M-1] = 0;          } // zero boundary
 
         // Apply again the exponential of nonlinear part
         carrMultiply(M, linpart, stepexp, S[i+1]);
@@ -90,8 +108,10 @@ void CNsm(int M, int N, double dx, double dt, double a2, double complex a1,
         rcarrExp(M, inter * Idt / 4, abs2, stepexp);
         carrMultiply(M, stepexp, S[i], linpart);
 
-        CCSvec(M, rhs_mat->vec, rhs_mat->col, rhs_mat->m, linpart, rhs);
-        triCyclicSM(M, upper, lower, mid, rhs, linpart);
+        CCSvec(M - 1, rhs_mat->vec, rhs_mat->col, rhs_mat->m, linpart, rhs);
+        triCyclicSM(M - 1, upper, lower, mid, rhs, linpart);
+        if (cyclic) { linpart[M-1] = linpart[0]; } // Cyclic system
+        else        { linpart[M-1] = 0;          } // zero boundary
 
         carrMultiply(M, linpart, stepexp, S[i+1]);
     }
@@ -108,8 +128,10 @@ void CNsm(int M, int N, double dx, double dt, double a2, double complex a1,
 
 
 
-void CNlu(int M, int N, double dx, double dt, double a2, double complex a1,
-          double inter, Rarray V, int cyclic, Cmatrix S)
+
+
+void GPCNLU_all(int M, int N, double dx, double dt, double a2,
+     double complex a1, double inter, Rarray V, int cyclic, Cmatrix S)
 {
     unsigned int i, j;
     double complex Idt = 0.0 - dt * I;
@@ -120,52 +142,64 @@ void CNlu(int M, int N, double dx, double dt, double a2, double complex a1,
     Rarray abs2    = rarrDef(M); // abs square of wave function
 
     // used to store matrix elements of linear part
-    Carray upper = carrDef(M);
-    Carray lower = carrDef(M);
-    Carray mid   = carrDef(M);
-    Carray rhs   = carrDef(M);
+    Carray upper = carrDef(M - 1);
+    Carray lower = carrDef(M - 1);
+    Carray mid   = carrDef(M - 1);
+    Carray rhs   = carrDef(M - 1);
+
+
 
     /*                 ****************************                 */
     /*                 Setup Right-Hand-Side matrix                 */
     /*                 ****************************                 */
 
+
+
     // fill main diagonal (use upper as auxiliar pointer)
-    carrFill(M, - a2 * dt / dx / dx + I, upper);
-    rcarrUpdate(M, upper, dt, V, mid);
+    carrFill(M - 1, - a2 * dt / dx / dx + I, upper);
+    rcarrUpdate(M - 1, upper, dt, V, mid);
 
     // fill upper diagonal
-    carrFill(M, a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, upper);
-    if (cyclic) { upper[M-1] = a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
-    else        { upper[M-1] = 0;                                        }
+    carrFill(M - 1, a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, upper);
+    if (cyclic) { upper[M-2] = a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
+    else        { upper[M-2] = 0;                                        }
 
     // fill lower diagonal
-    carrFill(M, a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, lower);
-    if (cyclic) { lower[M-1] = a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
-    else        { lower[M-1] = 0;                                        }
+    carrFill(M - 1, a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, lower);
+    if (cyclic) { lower[M-2] = a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
+    else        { lower[M-2] = 0;                                        }
 
     // Store in CCS format
-    CCSmat rhs_mat = CyclicToCCS(M, upper, lower, mid);
+    CCSmat rhs_mat = CyclicToCCS(M - 1, upper, lower, mid);
+
+
 
     /*                *******************************                */
     /*                Setup Cyclic tridiagonal matrix                */
     /*                *******************************                */
 
+
+
     // fill main diagonal (use upper as auxiliar pointer)
-    carrFill(M, a2 * dt / dx /dx + I, upper);
-    rcarrUpdate(M, upper, -dt, V, mid);
+    carrFill(M - 1, a2 * dt / dx /dx + I, upper);
+    rcarrUpdate(M - 1, upper, -dt, V, mid);
 
     // fill upper diagonal
-    carrFill(M, - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, upper);
-    if (cyclic) { upper[M-1] = - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
-    else        { upper[M-1] = 0;                                          }
+    carrFill(M - 1, - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, upper);
+    if (cyclic) { upper[M-2] = - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
+    else        { upper[M-2] = 0;                                          }
 
     // fill lower diagonal
-    carrFill(M, - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, lower);
-    if (cyclic) { lower[M-1] = - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
-    else        { lower[M-1] = 0;                                          }
+    carrFill(M - 1, - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, lower);
+    if (cyclic) { lower[M-2] = - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
+    else        { lower[M-2] = 0;                                          }
+
+
 
     /* Apply Split step and solve separately nonlinear and linear part */
     /* *************************************************************** */
+
+
 
     for (i = 0; i < N; i++) {
         // Apply exponential with nonlinear part
@@ -174,12 +208,14 @@ void CNlu(int M, int N, double dx, double dt, double a2, double complex a1,
         carrMultiply(M, stepexp, S[i], linpart);
 
         // Solve linear part
-        CCSvec(M, rhs_mat->vec, rhs_mat->col, rhs_mat->m, linpart, rhs);
-        triCyclicLU(M, upper, lower, mid, rhs, linpart);
+        CCSvec(M - 1, rhs_mat->vec, rhs_mat->col, rhs_mat->m, linpart, rhs);
+        triCyclicLU(M - 1, upper, lower, mid, rhs, linpart);
+        if (cyclic) { linpart[M-1] = linpart[0]; } // Cyclic system
+        else        { linpart[M-1] = 0;          } // zero boundary
 
-        // Update solution (solution of linear part in stepexp)
+        // Apply again the exponential of nonlinear part
         carrMultiply(M, linpart, stepexp, S[i+1]);
-        
+
         /* IMPROVEMENT
          *
          * The steps above use rectangular integration of the nonlinear
@@ -198,8 +234,10 @@ void CNlu(int M, int N, double dx, double dt, double a2, double complex a1,
         rcarrExp(M, inter * Idt / 4, abs2, stepexp);
         carrMultiply(M, stepexp, S[i], linpart);
 
-        CCSvec(M, rhs_mat->vec, rhs_mat->col, rhs_mat->m, linpart, rhs);
-        triCyclicLU(M, upper, lower, mid, rhs, linpart);
+        CCSvec(M - 1, rhs_mat->vec, rhs_mat->col, rhs_mat->m, linpart, rhs);
+        triCyclicLU(M - 1, upper, lower, mid, rhs, linpart);
+        if (cyclic) { linpart[M-1] = linpart[0]; } // Cyclic system
+        else        { linpart[M-1] = 0;          } // zero boundary
 
         carrMultiply(M, linpart, stepexp, S[i+1]);
     }
@@ -216,8 +254,10 @@ void CNlu(int M, int N, double dx, double dt, double a2, double complex a1,
 
 
 
-void spectral(int M, int N, double dx, double dt, double a2, double complex a1,
-              double inter, Rarray V, Cmatrix S)
+
+
+void GPFFT_all(int M, int N, double dx, double dt, double a2,
+     double complex a1, double inter, Rarray V, Cmatrix S)
 {
     int i, j;
     double freq;
@@ -303,8 +343,10 @@ void spectral(int M, int N, double dx, double dt, double a2, double complex a1,
 
 
 
-void lastStep(int M, int N, double dx, double dt, double a2, double complex a1,
-              double inter, Rarray V, int cyclic, Carray S)
+
+
+void GPCNSM_end(int M, int N, double dx, double dt, double a2,
+     double complex a1, double inter, Rarray V, int cyclic, Carray S)
 {
     unsigned int i, j;
     double complex Idt = 0.0 - dt * I;
@@ -317,52 +359,64 @@ void lastStep(int M, int N, double dx, double dt, double a2, double complex a1,
     Rarray abs2    = rarrDef(M); // abs square of wave function
 
     // used to store matrix elements of linear part
-    Carray upper = carrDef(M);
-    Carray lower = carrDef(M);
-    Carray mid   = carrDef(M);
-    Carray rhs   = carrDef(M);
+    Carray upper = carrDef(M - 1);
+    Carray lower = carrDef(M - 1);
+    Carray mid   = carrDef(M - 1);
+    Carray rhs   = carrDef(M - 1);
+
+
 
     /*                 ****************************                 */
     /*                 Setup Right-Hand-Side matrix                 */
     /*                 ****************************                 */
 
+
+
     // fill main diagonal (use upper as auxiliar pointer)
-    carrFill(M, - a2 * dt / dx / dx + I, upper);
-    rcarrUpdate(M, upper, dt, V, mid);
+    carrFill(M - 1, - a2 * dt / dx / dx + I, upper);
+    rcarrUpdate(M - 1, upper, dt, V, mid);
 
     // fill upper diagonal
-    carrFill(M, a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, upper);
-    if (cyclic) { upper[M-1] = a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
-    else        { upper[M-1] = 0;                                        }
+    carrFill(M - 1, a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, upper);
+    if (cyclic) { upper[M-2] = a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
+    else        { upper[M-2] = 0;                                        }
 
     // fill lower diagonal
-    carrFill(M, a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, lower);
-    if (cyclic) { lower[M-1] = a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
-    else        { lower[M-1] = 0;                                        }
+    carrFill(M - 1, a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, lower);
+    if (cyclic) { lower[M-2] = a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
+    else        { lower[M-2] = 0;                                        }
 
     // Store in CCS format
-    CCSmat rhs_mat = CyclicToCCS(M, upper, lower, mid);
+    CCSmat rhs_mat = CyclicToCCS(M - 1, upper, lower, mid);
+
+
 
     /*                *******************************                */
     /*                Setup Cyclic tridiagonal matrix                */
     /*                *******************************                */
 
+
+
     // fill main diagonal (use upper as auxiliar pointer)
-    carrFill(M, a2 * dt / dx / dx + I, upper);
-    rcarrUpdate(M, upper, -dt, V, mid);
+    carrFill(M - 1, a2 * dt / dx /dx + I, upper);
+    rcarrUpdate(M - 1, upper, -dt, V, mid);
 
     // fill upper diagonal
-    carrFill(M, - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, upper);
-    if (cyclic) { upper[M-1] = - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
-    else        { upper[M-1] = 0;                                          }
+    carrFill(M - 1, - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, upper);
+    if (cyclic) { upper[M-2] = - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
+    else        { upper[M-2] = 0;                                          }
 
     // fill lower diagonal
-    carrFill(M, - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, lower);
-    if (cyclic) { lower[M-1] = - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
-    else        { lower[M-1] = 0;                                          }
+    carrFill(M - 1, - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, lower);
+    if (cyclic) { lower[M-2] = - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
+    else        { lower[M-2] = 0;                                          }
+
+
 
     /* Apply Split step and solve separately nonlinear and linear part */
     /* *************************************************************** */
+
+
 
     for (i = 0; i < N; i++) {
         // Apply exponential with nonlinear part
@@ -371,8 +425,10 @@ void lastStep(int M, int N, double dx, double dt, double a2, double complex a1,
         carrMultiply(M, stepexp, S, linpart);
 
         // Solve linear part
-        CCSvec(M, rhs_mat->vec, rhs_mat->col, rhs_mat->m, linpart, rhs);
-        triCyclicSM(M, upper, lower, mid, rhs, linpart);
+        CCSvec(M - 1, rhs_mat->vec, rhs_mat->col, rhs_mat->m, linpart, rhs);
+        triCyclicSM(M - 1, upper, lower, mid, rhs, linpart);
+        if (cyclic) { linpart[M-1] = linpart[0]; } // Cyclic system
+        else        { linpart[M-1] = 0;          } // zero boundary
 
         // Update solution (solution of linear part in stepexp)
         carrMultiply(M, linpart, stepexp, Sstep);
@@ -395,8 +451,10 @@ void lastStep(int M, int N, double dx, double dt, double a2, double complex a1,
         rcarrExp(M, inter * Idt / 4, abs2, stepexp);
         carrMultiply(M, stepexp, S, linpart);
 
-        CCSvec(M, rhs_mat->vec, rhs_mat->col, rhs_mat->m, linpart, rhs);
-        triCyclicSM(M, upper, lower, mid, rhs, linpart);
+        CCSvec(M - 1, rhs_mat->vec, rhs_mat->col, rhs_mat->m, linpart, rhs);
+        triCyclicSM(M - 1, upper, lower, mid, rhs, linpart);
+        if (cyclic) { linpart[M-1] = linpart[0]; } // Cyclic system
+        else        { linpart[M-1] = 0;          } // zero boundary
 
         carrMultiply(M, linpart, stepexp, S);
     }
@@ -412,22 +470,32 @@ void lastStep(int M, int N, double dx, double dt, double a2, double complex a1,
     CCSFree(rhs_mat);
 }
 
-void ApplyRHS(int M, double inter, Carray S, Carray rhs)
+
+
+
+
+void RK4DDT(int M, double inter, Carray S, Carray rhs)
 {   // The Right-Hand-Side function to evolve with Runge-Kutta
 
     int i;
 
     for (i = 0; i < M; i++)
     {
-        rhs[i] = inter * (creal(S[i]) * creal(S[i]) + cimag(S[i]) * cimag(S[i])) * S[i];
+        rhs[i] = inter * \
+                 (creal(S[i]) * creal(S[i]) + cimag(S[i]) * cimag(S[i])) * S[i];
     }
 
     for (i = 0; i < M; i++) rhs[i] = (-1.0) * I * rhs[i];
 }
 
-void RK4gp(int M, int N, double dx, double dt, double a2, double complex a1,
-           double inter, Rarray V, int cyclic, Cmatrix S)
+
+
+
+
+void GPCNSMRK4_all(int M, int N, double dx, double dt, double a2,
+     double complex a1, double inter, Rarray V, int cyclic, Cmatrix S)
 {   // Evolve Gross-Pitaevskii using 4-th order Runge-Kutta
+    // to deal with nonlinear part.
     int i,
         j;
 
@@ -439,60 +507,71 @@ void RK4gp(int M, int N, double dx, double dt, double a2, double complex a1,
     Rarray abs2    = rarrDef(M); // abs square of wave function
 
     // used to store matrix elements of linear part
-    Carray upper = carrDef(M);
-    Carray lower = carrDef(M);
-    Carray mid   = carrDef(M);
-    Carray rhs   = carrDef(M);
+    Carray upper = carrDef(M - 1);
+    Carray lower = carrDef(M - 1);
+    Carray mid   = carrDef(M - 1);
+    Carray rhs   = carrDef(M - 1);
+
+
 
     /*                 ****************************                 */
     /*                 Setup Right-Hand-Side matrix                 */
     /*                 ****************************                 */
 
+
+
     // fill main diagonal (use upper as auxiliar pointer)
-    carrFill(M, - a2 * dt / dx / dx + I, upper);
-    rcarrUpdate(M, upper, dt, V, mid);
+    carrFill(M - 1, - a2 * dt / dx / dx + I, upper);
+    rcarrUpdate(M - 1, upper, dt, V, mid);
 
     // fill upper diagonal
-    carrFill(M, a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, upper);
-    if (cyclic) { upper[M-1] = a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
-    else        { upper[M-1] = 0;                                        }
+    carrFill(M - 1, a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, upper);
+    if (cyclic) { upper[M-2] = a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
+    else        { upper[M-2] = 0;                                        }
 
     // fill lower diagonal
-    carrFill(M, a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, lower);
-    if (cyclic) { lower[M-1] = a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
-    else        { lower[M-1] = 0;                                        }
+    carrFill(M - 1, a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, lower);
+    if (cyclic) { lower[M-2] = a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
+    else        { lower[M-2] = 0;                                        }
 
     // Store in CCS format
-    CCSmat rhs_mat = CyclicToCCS(M, upper, lower, mid);
+    CCSmat rhs_mat = CyclicToCCS(M - 1, upper, lower, mid);
+
+
 
     /*                *******************************                */
     /*                Setup Cyclic tridiagonal matrix                */
     /*                *******************************                */
 
+
+
     // fill main diagonal (use upper as auxiliar pointer)
-    carrFill(M, a2 * dt / dx /dx + I, upper);
-    rcarrUpdate(M, upper, -dt, V, mid);
+    carrFill(M - 1, a2 * dt / dx /dx + I, upper);
+    rcarrUpdate(M - 1, upper, -dt, V, mid);
 
     // fill upper diagonal
-    carrFill(M, - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, upper);
-    if (cyclic) { upper[M-1] = - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
-    else        { upper[M-1] = 0;                                          }
+    carrFill(M - 1, - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, upper);
+    if (cyclic) { upper[M-2] = - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
+    else        { upper[M-2] = 0;                                          }
 
     // fill lower diagonal
-    carrFill(M, - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, lower);
-    if (cyclic) { lower[M-1] = - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
-    else        { lower[M-1] = 0;                                          }
+    carrFill(M - 1, - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, lower);
+    if (cyclic) { lower[M-2] = - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
+    else        { lower[M-2] = 0;                                          }
+
+
 
     /* Apply Split step and solve separately nonlinear and linear part */
     /* *************************************************************** */
 
-    dt = dt / 2;
 
-    for (i = 0; i < N; i++) {
-        // Apply exponential with nonlinear part
+
+    dt = dt / 2; // Just needed in semi-step RK4 iteration
+    for (i = 0; i < N; i++)
+    {   // Apply exponential with nonlinear part
 
         // Compute k1 in kans
-        ApplyRHS(M, inter, S[i], kans);
+        RK4DDT(M, inter, S[i], kans);
 
         for (j = 0; j < M; j++)
         {   // Add up contribution from k1
@@ -502,7 +581,7 @@ void RK4gp(int M, int N, double dx, double dt, double a2, double complex a1,
         }
         
         // Compute k2 in kans
-        ApplyRHS(M, inter, karg, kans);
+        RK4DDT(M, inter, karg, kans);
 
         for (j = 0; j < M; j++)
         {   // Add up contribution from k2
@@ -512,7 +591,7 @@ void RK4gp(int M, int N, double dx, double dt, double a2, double complex a1,
         }
         
         // Compute k3 in kans
-        ApplyRHS(M, inter, karg, kans);
+        RK4DDT(M, inter, karg, kans);
 
         for (j = 0; j < M; j++)
         {   // Add up contribution from k3
@@ -522,7 +601,7 @@ void RK4gp(int M, int N, double dx, double dt, double a2, double complex a1,
         }
 
         // Compute k4 in kans
-        ApplyRHS(M, inter, karg, kans);
+        RK4DDT(M, inter, karg, kans);
 
         for (j = 0; j < M; j++)
         {   // Add up contribution from k4
@@ -535,11 +614,13 @@ void RK4gp(int M, int N, double dx, double dt, double a2, double complex a1,
         }
 
         // Solve linear part
-        CCSvec(M, rhs_mat->vec, rhs_mat->col, rhs_mat->m, linpart, rhs);
-        triCyclicSM(M, upper, lower, mid, rhs, linpart);
+        CCSvec(M - 1, rhs_mat->vec, rhs_mat->col, rhs_mat->m, linpart, rhs);
+        triCyclicSM(M - 1, upper, lower, mid, rhs, linpart);
+        if (cyclic) { linpart[M-1] = linpart[0]; } // Cyclic system
+        else        { linpart[M-1] = 0;          } // zero boundary
 
         // Compute k1 in kans
-        ApplyRHS(M, inter, linpart, kans);
+        RK4DDT(M, inter, linpart, kans);
 
         for (j = 0; j < M; j++)
         {   // Add up contribution from k1
@@ -549,7 +630,7 @@ void RK4gp(int M, int N, double dx, double dt, double a2, double complex a1,
         }
         
         // Compute k2 in kans
-        ApplyRHS(M, inter, karg, kans);
+        RK4DDT(M, inter, karg, kans);
 
         for (j = 0; j < M; j++)
         {   // Add up contribution from k2
@@ -559,7 +640,7 @@ void RK4gp(int M, int N, double dx, double dt, double a2, double complex a1,
         }
         
         // Compute k3 in kans
-        ApplyRHS(M, inter, karg, kans);
+        RK4DDT(M, inter, karg, kans);
 
         for (j = 0; j < M; j++)
         {   // Add up contribution from k3
@@ -569,7 +650,7 @@ void RK4gp(int M, int N, double dx, double dt, double a2, double complex a1,
         }
         
         // Compute k4 in kans
-        ApplyRHS(M, inter, karg, kans);
+        RK4DDT(M, inter, karg, kans);
 
         for (j = 0; j < M; j++)
         {   // Add up contribution from k2

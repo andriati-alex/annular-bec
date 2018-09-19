@@ -1453,10 +1453,10 @@ void MCTDHB_REAL_LanczosRK4I (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
     double complex a1 = MC->a1;
 
     // used to store matrix elements of linear part
-    Carray upper = carrDef(Mpos - 1);
-    Carray lower = carrDef(Mpos - 1);
-    Carray mid   = carrDef(Mpos - 1);
     Carray to_int = carrDef(Mpos);
+    Carray upper  = carrDef(Mpos - 1);
+    Carray lower  = carrDef(Mpos - 1);
+    Carray mid    = carrDef(Mpos - 1);
 
 
 

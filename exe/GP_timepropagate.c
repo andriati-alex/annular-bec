@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <math.h>
 #include "../include/GP_realtime_integrator.h"
+#include "../include/GP_imagtime_integrator.h"
 
 
 
@@ -36,6 +37,7 @@
  *      (2) imag part of first order derivative(have no real part)
  *      (3) interaction strength
  *      (4) Delta Barrier Strength
+ *      (5) Boundary conditions - Boolean
  *
  * setup/fileId_domain.dat
  *
@@ -53,14 +55,15 @@
  * COMMAND LINE ARGUMENTS
  * -------------------------------------------------------------------------
  * 
- * dt N fileId solverId(optional)
+ * dt N fileId method(optional)
  *
- *      dt       -> the time step
- *      N        -> number of time steps to evolve
- *      fileId   -> the prefix of required file name
- *      solverId -> Method to solve the linear part(optional)
+ *      dt     -> the time step
+ *      N      -> number of time steps to evolve
+ *      fileId -> the prefix of required file name
+ *      method -> Method to solve the linear part(optional)
+ *      timeId -> Real or imaginary time (real if not passed)
  *
- * PS: solverId, if given, must be:
+ * PS: method, if given, must be:
  *
  *      1 Crank-Nicolson with Sherman-Morrison
  *      2 Crank-Nicolson with special LU-decomposition
@@ -74,7 +77,7 @@
  * CALL
  * -------------------------------------------------------------------------
  *
- * ./time_evolution dt N fileId solverId(optional)
+ * ./time_evolution dt N fileId method(optional)
  *
  *
  *
@@ -166,7 +169,7 @@ int main(int argc, char * argv[])
 
     /* Check if there is the right number of command line arguments
      * ------------------------------------------------------------ */
-    if (argc < 4 || argc > 5)
+    if (argc < 4 || argc > 6)
     {
         printf("\nInvalid number of command line arguments, ");
         printf("expected at least 3 and at most 4.\n\n");
@@ -208,8 +211,17 @@ int main(int argc, char * argv[])
      * ----------------------------------------------------------------  */
     sscanf(argv[1], "%lf", &dt);
     sscanf(argv[2], "%d",  &N);
-    if (argc == 5) { sscanf(argv[4], "%d", &solverId); }
-    else           { solverId = 1;                     }
+    if (argc == 6)
+    {
+        sscanf(argv[4], "%d", &method);
+        sscanf(argv[5], "%d", &timeId);
+    }
+    else
+    {
+        timeId = 1;
+        if (argc == 5) { sscanf(argv[4], "%d", &method); }
+        else           { method = 1;                     }
+    }
     /* ----------------------------------------------------------------  */
 
 
@@ -289,31 +301,70 @@ int main(int argc, char * argv[])
      *  ===============================================================  */
 
     start = omp_get_wtime();
-    switch (solverId)
+
+    if (timeId > 0)
     {
-        case 1:
-            GPCNSM_all(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S);
-            time_used = (double) (omp_get_wtime() - start);
-            printf("\nTime taken to solve(Crank-Nicolson-SM)");
-            printf(" : %.3f seconds\n", time_used);
-            break;
-        case 2:
-            GPCNLU_all(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S);
-            time_used = (double) (omp_get_wtime() - start);
-            printf("\nTime taken to solve(Crank-Nicolson-LU)");
-            printf(" : %.3f seconds\n", time_used);
-            break;
-        case 3:
-            GPCNSMRK4_all(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S);
-            time_used = (double) (omp_get_wtime() - start);
-            printf("\nTime taken to solve(Crank-Nicolson-RK4)");
-            printf(" : %.3f seconds\n", time_used);
-            break;
-        case 4:
-            GPFFT_all(M + 1, N, dx, dt, a2, a1, inter, V, S);
-            time_used = (double) (omp_get_wtime() - start);
-            printf("\nTime taken to solve(FFT) : %.3f seconds\n", time_used);
-            break;
+        printf("\n\n\t=================================================\n\n");
+        printf("\t * Doing real time integration.\n\n");
+        switch (method)
+        {
+            case 1:
+                GPCNSM_all(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S);
+                time_used = (double) (omp_get_wtime() - start);
+                printf("\nTime taken to solve(Crank-Nicolson-SM)");
+                printf(" : %.3f seconds\n", time_used);
+                break;
+            case 2:
+                GPCNLU_all(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S);
+                time_used = (double) (omp_get_wtime() - start);
+                printf("\nTime taken to solve(Crank-Nicolson-LU)");
+                printf(" : %.3f seconds\n", time_used);
+                break;
+            case 3:
+                GPCNSMRK4_all(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S);
+                time_used = (double) (omp_get_wtime() - start);
+                printf("\nTime taken to solve(Crank-Nicolson-RK4)");
+                printf(" : %.3f seconds\n", time_used);
+                break;
+            case 4:
+                GPFFT_all(M + 1, N, dx, dt, a2, a1, inter, V, S);
+                time_used = (double) (omp_get_wtime() - start);
+                printf("\nTime taken to solve(FFT)");
+                printf(" : %.3f seconds\n", time_used);
+                break;
+        }
+    }
+    else
+    {
+        printf("\n\n\t=================================================\n\n");
+        printf("\t * Doing imaginary time integration.\n\n");
+        switch (method)
+        {
+            case 1:
+                IGPCNSM_all(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S);
+                time_used = (double) (omp_get_wtime() - start);
+                printf("\nTime taken to solve(Crank-Nicolson-SM)");
+                printf(" : %.3f seconds\n", time_used);
+                break;
+            case 2:
+                IGPCNLU_all(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S);
+                time_used = (double) (omp_get_wtime() - start);
+                printf("\nTime taken to solve(Crank-Nicolson-LU)");
+                printf(" : %.3f seconds\n", time_used);
+                break;
+            case 3:
+                IGPCNSMRK4_all(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S);
+                time_used = (double) (omp_get_wtime() - start);
+                printf("\nTime taken to solve(Crank-Nicolson-RK4)");
+                printf(" : %.3f seconds\n", time_used);
+                break;
+            case 4:
+                GPFFT_all(M + 1, N, dx, dt, a2, a1, inter, V, S);
+                time_used = (double) (omp_get_wtime() - start);
+                printf("\nTime taken to solve(FFT)");
+                printf(" : %.3f seconds\n", time_used);
+                break;
+        }
     }
 
 

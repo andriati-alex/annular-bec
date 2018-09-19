@@ -29,7 +29,7 @@
  * part in  diffetent methods, Crank-Nicolson  and  spectral  (using FFT),
  * whereas the first apply Sherman-Morrison or LU decomposition  to solve
  * the linear system required. In each time step renormalize the solution
- * fixing from initial guess the norm.
+ * fixing the norm from initial guess.
  *
  *
  *
@@ -53,39 +53,21 @@
 
 
 
-void IGPCNSM_all(int M, int N, double dx, double dT, double a2,
-     double complex a1,  double inter,  Rarray V,  int  cyclic,
-     Cmatrix S, Carray E);
+void IGPCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
+      double inter, Rarray V, int cyclic, Carray S, Carray E);
 
 
 
 
 
-void IGPCNLU_all(int M, int N, double dx, double dT, double a2,
-     double complex a1,  double inter,  Rarray V,  int  cyclic,
-     Cmatrix S, Carray E);
+void IGPCNLU(int M, int N, double dx, double dT, double a2, double complex a1,
+     double inter, Rarray V, int cyclic, Carray S, Carray E);
 
 
 
 
 
-void IGPFFT_all(int M, int N, double dx, double dT, double a2,
-     double complex a1, double inter, Rarray V, Cmatrix S, Carray E);
-
-
-
-
-
-void IGPCNSM_end(int M, int N, double dx, double dT, double a2,
-     double complex a1,  double inter,  Rarray V,  int  cyclic,
-     Carray S, Carray E);
-
-
-
-
-
-void IGPCNLU_end(int M, int N, double dx, double dT, double a2,
-     double complex a1,  double inter,  Rarray V,  int  cyclic,
-     Carray S, Carray E);
+void IGPFFT(int M, int N, double dx, double dT, double a2, double complex a1,
+     double inter, Rarray V, Carray S, Carray E);
 
 #endif

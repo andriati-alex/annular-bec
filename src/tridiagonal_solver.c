@@ -70,14 +70,14 @@ double complex checkLU(int n, Carray upper, Carray lower, Carray mid)
 
 
 
-/*          ***********************************************          */
-/*                        TRIDIAGONAL SOLVERS                        */
-/*          ***********************************************          */
+/*          ***********************************************          *
+ *                        TRIDIAGONAL SOLVERS                        *
+ *          ***********************************************          */
 
 
 
 void triDiag(int n, Carray upper, Carray lower, Carray mid, Carray RHS,
-             Carray ans)
+     Carray ans)
 {
     // Intermediate steps - L . U decomposition
     Carray u = carrDef(n);
@@ -152,7 +152,7 @@ void triDiag(int n, Carray upper, Carray lower, Carray mid, Carray RHS,
 }
 
 void triCyclicLU(int n, Carray upper, Carray lower, Carray mid, Carray RHS,
-                 Carray ans)
+     Carray ans)
 {
     // Intermediate steps - L . U decomposition
     // Additional line in L denoted by g vector

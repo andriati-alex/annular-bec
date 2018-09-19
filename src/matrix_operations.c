@@ -2,9 +2,9 @@
 
 
 
-/*          ***********************************************          */
-/*                   SETUP VALUES IN MATRIX ENTRIES                  */
-/*          ***********************************************          */
+/*          ***********************************************          *
+ *                   SETUP VALUES IN MATRIX ENTRIES                  *
+ *          ***********************************************          */
 
 
 
@@ -112,7 +112,7 @@ CCSmat CyclicToCCS(int n, Carray upper, Carray lower, Carray mid)
 }
 
 void RowMajor(int m, int n, Cmatrix M, Carray v)
-{   // Convert a Matrix to a vector using Row Major storage scheme
+{   // Storage a Matrix in a vector using Row Major storage scheme
     int i,
         j;
 
@@ -124,13 +124,14 @@ void RowMajor(int m, int n, Cmatrix M, Carray v)
 
 
 
-/*          **********************************************          */
-/*          MATRIX-VECTOR AND MATRIX-MATRIX MULTIPLICATION          */
-/*          **********************************************          */
+/*          **********************************************          *
+ *          MATRIX-VECTOR AND MATRIX-MATRIX MULTIPLICATION          *
+ *          **********************************************          */
 
 
 
-void cmatvec(int m, int n, Cmatrix M, Carray v, Carray ans) {
+void cmatvec(int m, int n, Cmatrix M, Carray v, Carray ans)
+{
     unsigned int i, j;
     for (i = 0; i < m; i++) {
         ans[i] = M[i][0] * v[0];
@@ -164,14 +165,16 @@ void CCSvec(int n, Carray vals, int * restrict cols, int m,
 
 
 
-/*          ***********************************************          */
-/*                        Inversion of matrices                      */
-/*          ***********************************************          */
+/*          ***********************************************          *
+ *                        Inversion of matrices                      *
+ *          ***********************************************          */
 
 
 
 int HermitianInv(int M, Cmatrix A, Cmatrix A_inv)
-{
+{   // Use Lapack routine to solve systems of equations with
+    // the right-hand-side being identity matrix to get inverse
+
     int i, // counter
         j, // counter
         l; // lapack success parameter
@@ -219,14 +222,15 @@ int HermitianInv(int M, Cmatrix A, Cmatrix A_inv)
 
 
 
-/*          ***********************************************          */
-/*          DETERMINANT AND INVERSION OF TRIDIAGONAL SYSTEM          */
-/*          ***********************************************          */
+/*          ***********************************************          *
+ *          DETERMINANT AND INVERSION OF TRIDIAGONAL SYSTEM          *
+ *          ***********************************************          */
 
 
 
 double complex detTrik(int k, Carray upper, Carray lower, Carray mid)
-{
+{   // Recursive implementation to compute tridiagonal matrix determinant
+    // of first k x k rows and columns (left upper block of k x k)
     double complex det0 = 1;
     double complex det1 = mid[0];
     double complex detK;
@@ -237,13 +241,15 @@ double complex detTrik(int k, Carray upper, Carray lower, Carray mid)
 }
 
 Carray detTri(int n, Carray upper, Carray lower, Carray mid)
-{
+{   // return array whose n component is the left upper block
+    // determinant of n rows and columns
     int i;
     Carray theta = carrDef(n + 1);
 
     theta[0] = 1;
     theta[1] = mid[0];
-    for (i = 1; i < n; i++) {
+    for (i = 1; i < n; i++)
+    {
         theta[i+1] = mid[i] * theta[i] - lower[i-1] * upper[i-1] * theta[i-1];
     }
     return theta;
@@ -263,7 +269,7 @@ Carray phiTri(int n, Carray upper, Carray lower, Carray mid)
 }
 
 void invTri(int n, Carray upper, Carray lower, Carray mid, Cmatrix ans)
-{
+{   // Inversion of tridiagonal matrix
     int i, j;
 
     Carray phi = phiTri(n, upper, lower, mid);
