@@ -51,37 +51,29 @@
  *
  * ======================================================================= */
 
+void record_step(FILE * f, int M, Carray v);
 
 
 
-
-void GPCNSM_all(int M, int N, double dx, double dt, double a2,
-     double complex a1, double inter, Rarray V, int cyclic, Cmatrix S);
+void GPCNSM(int M, int N, double dx, double dt, double a2,
+     double complex a1, double inter, Rarray V, int cyclic, Carray S);
 /* Crank-Nicolson with Sherman-Morrison for linear part */
 
 
 
 
 
-void GPCNLU_all(int M, int N, double dx, double dt, double a2,
-     double complex a1, double inter, Rarray V, int cyclic, Cmatrix S);
+void GPCNLU(int M, int N, double dx, double dt, double a2, double complex a1,
+     double inter, Rarray V, int cyclic, Carray S, char fname[], int n);
 /* Crank-Nicolson with modified LU decomposition */
 
 
 
 
 
-void GPFFT_all(int M, int N, double dx, double dt, double a2,
-     double complex a1, double inter, Rarray V, Cmatrix S);
+void GPFFT(int M, int N, double dx, double dt, double a2,
+     double complex a1, double inter, Rarray V, Carray S);
 /* Use MKL for fourier tranform and compute derivatives */
-
-
-
-
-
-void GPCNSM_end(int M, int N, double dx, double dt, double a2,
-     double complex a1, double inter, Rarray V, int cyclic, Carray S);
-/* Return just an array with the last time step obtained */
 
 
 

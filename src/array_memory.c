@@ -138,17 +138,18 @@ void carr_txt(char fname [], int M, Carray v)
         return;
     }
 
-    for (j = 0; j < M; j ++) {
-        if (cimag(v[j]) > 0) {
+    for (j = 0; j < M; j ++)
+    {
+        if (cimag(v[j]) > 0)
+        {
             fprintf(data_file, "(%.15E+%.15Ej) ", creal(v[j]), cimag(v[j]));
         }
-        else {
-            if (cimag(v[j]) == 0) {
+        else
+        {
+            if (cimag(v[j]) == 0)
                 fprintf(data_file, "(%.15E+%.15Ej) ", creal(v[j]), 0.0);
-            }
-            else {
+            else
                 fprintf(data_file, "(%.15E%.15Ej) ", creal(v[j]), cimag(v[j]));
-            }
         }
     }
 

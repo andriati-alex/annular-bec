@@ -8,8 +8,6 @@ void IGPFFT(int M, int N, double dx, double dT, double a2, double complex a1,
      double inter, Rarray V, Carray S, Carray E)
 {
 
-    // mkl_set_num_threads(mkl_get_max_threads() / 2);
-
     int
         i,
         j;
@@ -21,7 +19,7 @@ void IGPFFT(int M, int N, double dx, double dT, double a2, double complex a1,
         Idt = - dT; // factor to multiply on exponential after split-step
 
     double complex
-        dt = - I  * dT;
+        dt = - I  * dT; // imaginary time-step
 
 
 
@@ -35,30 +33,34 @@ void IGPFFT(int M, int N, double dx, double dT, double a2, double complex a1,
 
     Carray stepexp = carrDef(M);    // Exponential of potential
 
-    Carray back_fft = carrDef(M);   // go to frequency space
+    Carray back_fft = carrDef(M);   // go back to position space
 
-    Carray foward_fft = carrDef(M); // back to position space
+    Carray foward_fft = carrDef(M); // go to frequency space
 
 
 
-    // Initialize the norm and energy of initial guess
+    /* Initialize the norm and energy of initial guess
+     * ------------------------------------------------------------------- */
     carrAbs2(M, S, abs2);
     norm = sqrt(Rsimps(M, abs2, dx));
     E[0] = Functional(M, dx, a2, a1, inter / 2, V, S);
+    /* ------------------------------------------------------------------- */
 
 
 
-    /*************** setup descriptor (MKL implementation) **************/
+    /* setup descriptor (MKL implementation of FFT)
+     * ------------------------------------------------------------------- */
     DFTI_DESCRIPTOR_HANDLE desc;
     s = DftiCreateDescriptor(&desc, DFTI_DOUBLE, DFTI_COMPLEX, 1, M);
     s = DftiSetValue(desc, DFTI_FORWARD_SCALE, 1.0 / sqrt(M));
     s = DftiSetValue(desc, DFTI_BACKWARD_SCALE, 1.0 / sqrt(M));
     s = DftiCommitDescriptor(desc);
-    /********************************************************************/
+    /* ------------------------------------------------------------------- */
 
 
 
-    // setup Fourier Frequencies and the exponential of derivative operator
+    /* Fourier Frequencies to do the exponential of derivative operator
+     * ------------------------------------------------------------------- */
     for (i = 0; i < M; i++)
     {
         if (i <= (M - 1) / 2) { freq = (2 * PI * i) / (M * dx);       }
@@ -66,14 +68,15 @@ void IGPFFT(int M, int N, double dx, double dT, double a2, double complex a1,
         // exponential of derivative operators
         exp_der[i] = cexp((-1) * Idt * a2 * freq * freq);
     }
+    /* ------------------------------------------------------------------- */
 
 
 
-    /* Apply Split step and solve separately nonlinear and linear part */
-    /* *************************************************************** */
+    /*   Apply Split step and solve separately nonlinear and linear part   */
+    /*   ===============================================================   */
 
     for (i = 0; i < N; i++) {
-        // Apply exponential of potential together nonlinear part
+        // Apply exponential ofone-body potential and nonlinear part
         rarrUpdate(M, V, inter, abs2, out);
         rcarrExp(M, Idt / 2, out, stepexp);
         carrMultiply(M, stepexp, S, foward_fft);
@@ -82,7 +85,7 @@ void IGPFFT(int M, int N, double dx, double dT, double a2, double complex a1,
         carrMultiply(M, exp_der, foward_fft, back_fft); // apply derivatives
         s = DftiComputeBackward(desc, back_fft);        // back to real space
         carrMultiply(M, stepexp, back_fft, S);
-        
+
         carrAbs2(M, S, abs2);
 
         // Renormalization
@@ -115,12 +118,12 @@ void IGPCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
         j;
 
     double
-        norm,
+        norm,       // initial norm
         NormStep,   // to renormalize at each time-step
         Idt = - dT; // factor that multiplies in split-step exponentials
 
     double complex
-        dt = - I  * dT;
+        dt = - I  * dT; // pure imaginary time-step
 
     // Used to apply nonlinear part
     Carray stepexp = carrDef(M);
@@ -131,7 +134,7 @@ void IGPCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
     Carray upper = carrDef(M - 1);
     Carray lower = carrDef(M - 1);
     Carray mid   = carrDef(M - 1);
-    Carray rhs   = carrDef(M - 1);
+    Carray rhs   = carrDef(M - 1); // RHS of linear system from CN
 
     carrAbs2(M, S, abs2);
     norm = sqrt(Rsimps(M, abs2, dx));

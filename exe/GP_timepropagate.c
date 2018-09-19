@@ -112,8 +112,8 @@
 int main(int argc, char * argv[])
 {
 
-    /*  DEFINE THE NUMBER OF THREADS BASED ON THE COMPUTER
-     *  -------------------------------------------------- */
+    /*  DEFINE THE NUMBER OF THREADS BASED ON THE COMPUTER ARCHITECTURE
+     *  --------------------------------------------------------------- */
 
     mkl_set_num_threads(omp_get_max_threads() / 2);
     omp_set_num_threads(omp_get_max_threads() / 2);
@@ -121,7 +121,7 @@ int main(int argc, char * argv[])
 
 
     /* ==================================================================== *
-    /*
+     *
      *                         VARIABLES DEFINITION
      *
      * ==================================================================== */
@@ -132,7 +132,6 @@ int main(int argc, char * argv[])
         N,      // # of time steps to evolve
         trash,  // returned values from scanf (unused)
         cyclic, // boolean-like to set boundary conditions
-        timeId, // what to do: real ( == 0) or imag ( != 0) time
         method; // method of integrator
 
     double
@@ -154,14 +153,17 @@ int main(int argc, char * argv[])
         a1;         // Coefficient of (d / dx)
 
     char
-        fname_in[60],   // name to look for files with parameters
-        fname_out[60];  // name of files to write data obtained
+        timeinfo,
+        fname_in[80],   // name to look for files with parameters
+        fname_out[80];  // name of files to write data obtained
 
     FILE
         * eq_setup_file,
         * out_data;
 
-    Cmatrix S; // To store solution at each time and position step
+    Carray
+        S, // Starts with initial solution, ends with final time-step
+        E; // Energy of the system on each time-step
 
 
 
@@ -169,13 +171,17 @@ int main(int argc, char * argv[])
 
     /* Check if there is the right number of command line arguments
      * ------------------------------------------------------------ */
-    if (argc < 4 || argc > 6)
+    if (argc < 5 || argc > 6)
     {
         printf("\nInvalid number of command line arguments, ");
         printf("expected at least 3 and at most 4.\n\n");
         return -1;
     }
     /* ------------------------------------------------------------ */
+
+
+
+    timeinfo = argv[1][0]; // character i for imaginary or r for real time
 
 
 
@@ -190,7 +196,7 @@ int main(int argc, char * argv[])
     /* search and read file with values of domain
      * ----------------------------------------------------------------  */
     strcpy(fname_in, "setup/");
-    strcat(fname_in, argv[3]);
+    strcat(fname_in, argv[4]);
     strcat(fname_in, "_domain.dat");
 
     printf("\nLooking for %s\n", fname_in);
@@ -209,19 +215,10 @@ int main(int argc, char * argv[])
 
     /* Read data from command line arguments
      * ----------------------------------------------------------------  */
-    sscanf(argv[1], "%lf", &dt);
-    sscanf(argv[2], "%d",  &N);
-    if (argc == 6)
-    {
-        sscanf(argv[4], "%d", &method);
-        sscanf(argv[5], "%d", &timeId);
-    }
-    else
-    {
-        timeId = 1;
-        if (argc == 5) { sscanf(argv[4], "%d", &method); }
-        else           { method = 1;                     }
-    }
+    sscanf(argv[2], "%lf", &dt);
+    sscanf(argv[3], "%d",  &N);
+    if (argc == 6) { sscanf(argv[5], "%d", &method); }
+    else           { method = 1;                     }
     /* ----------------------------------------------------------------  */
 
 
@@ -239,7 +236,7 @@ int main(int argc, char * argv[])
     /* search and read file with values of equation parameters
      * ----------------------------------------------------------------  */
     strcpy(fname_in, "setup/");
-    strcat(fname_in, argv[3]);
+    strcat(fname_in, argv[4]);
     strcat(fname_in, "_eq.dat");
 
     printf("\nLooking for %s\n", fname_in);
@@ -266,10 +263,11 @@ int main(int argc, char * argv[])
 
     /* Read from file and setup initial condition
      * ----------------------------------------------------------------  */
-    S = cmatDef(N + 1, M + 1); // matrix to store time step solution
+    S = carrDef(M + 1); // Holds time step solution
+    E = carrDef(N + 1);
 
     strcpy(fname_in, "setup/");
-    strcat(fname_in, argv[3]);
+    strcat(fname_in, argv[4]);
     strcat(fname_in, "_init.dat");
 
     printf("\nLooking for %s\n", fname_in);
@@ -282,7 +280,7 @@ int main(int argc, char * argv[])
     for (i = 0; i < M + 1; i++)
     {
         trash = fscanf(eq_setup_file, " (%lf+%lfj)", &real, &imag);
-        S[0][i] = real + I * imag;
+        S[i] = real + I * imag;
     }
 
     fclose(eq_setup_file);
@@ -302,6 +300,7 @@ int main(int argc, char * argv[])
 
     start = omp_get_wtime();
 
+    /*
     if (timeId > 0)
     {
         printf("\n\n\t=================================================\n\n");
@@ -334,32 +333,27 @@ int main(int argc, char * argv[])
                 break;
         }
     }
-    else
+    */
+    if (timeinfo == 'i' || timeinfo == 'I')
     {
         printf("\n\n\t=================================================\n\n");
         printf("\t * Doing imaginary time integration.\n\n");
         switch (method)
         {
             case 1:
-                IGPCNSM_all(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S);
+                IGPCNSM(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S, E);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(Crank-Nicolson-SM)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
             case 2:
-                IGPCNLU_all(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S);
+                IGPCNLU(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S, E);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(Crank-Nicolson-LU)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
             case 3:
-                IGPCNSMRK4_all(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S);
-                time_used = (double) (omp_get_wtime() - start);
-                printf("\nTime taken to solve(Crank-Nicolson-RK4)");
-                printf(" : %.3f seconds\n", time_used);
-                break;
-            case 4:
-                GPFFT_all(M + 1, N, dx, dt, a2, a1, inter, V, S);
+                IGPFFT(M + 1, N, dx, dt, a2, a1, inter, V, S, E);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(FFT)");
                 printf(" : %.3f seconds\n", time_used);
@@ -377,15 +371,24 @@ int main(int argc, char * argv[])
      *
      *  ===============================================================  */
 
+
+
     strcpy(fname_out, "../gp_data/");
-    strcat(fname_out, argv[3]);
-    strcat(fname_out, "_time.dat");
+    strcat(fname_out, argv[4]);
+    strcat(fname_out, "_imagtime_state.dat");
 
     printf("\nRecording data ...\n");
-    cmat_txt(fname_out, N + 1, 10, M + 1, 1, S);
+    carr_txt(fname_out, M + 1, S);
+    
+    strcpy(fname_out, "../gp_data/");
+    strcat(fname_out, argv[4]);
+    strcat(fname_out, "_imagtime_energy.dat");
+
+    printf("\nRecording data ...\n");
+    carr_txt(fname_out, M + 1, E);
 
     strcpy(fname_out, "../gp_data/");
-    strcat(fname_out, argv[3]);
+    strcat(fname_out, argv[4]);
     strcat(fname_out, "_domain.dat");
 
     out_data = fopen(fname_out, "w");
@@ -404,7 +407,7 @@ int main(int argc, char * argv[])
      * ------------------------------------------------------------------- */
     free(x);
     free(V);
-    cmatFree(N + 1, S);
+    free(S);
     /* ------------------------------------------------------------------- */
 
 
