@@ -70,31 +70,35 @@ double Rsimps(int n, Rarray f, double dx)
 
 void dxFFT(int n, Carray f, double dx, Carray dfdx)
 {
-    int i;
+    int i,
+        N;
 
-    Carray outFFT = carrDef(n);
+    N = n - 1; // Assumes the connection f[n-1] = f[0] the boundary
+
     double freq;
-    
+
+    carrCopy(N, f, dfdx);
+
     MKL_LONG s; // status of called MKL FFT functions
 
     DFTI_DESCRIPTOR_HANDLE desc;
-    s = DftiCreateDescriptor(&desc, DFTI_DOUBLE, DFTI_COMPLEX, 1, n);
-    s = DftiSetValue(desc, DFTI_FORWARD_SCALE, 1.0 / sqrt((double) n));
-    s = DftiSetValue(desc, DFTI_BACKWARD_SCALE, 1.0 / sqrt((double) n));
-    s = DftiSetValue(desc, DFTI_PLACEMENT, DFTI_NOT_INPLACE);
+    s = DftiCreateDescriptor(&desc, DFTI_DOUBLE, DFTI_COMPLEX, 1, N);
+    s = DftiSetValue(desc, DFTI_FORWARD_SCALE, 1.0 / sqrt((double) N));
+    s = DftiSetValue(desc, DFTI_BACKWARD_SCALE, 1.0 / sqrt((double) N));
+    // s = DftiSetValue(desc, DFTI_PLACEMENT, DFTI_NOT_INPLACE);
     s = DftiCommitDescriptor(desc);
 
-    s = DftiComputeForward(desc, f, outFFT);
+    s = DftiComputeForward(desc, dfdx);
 
-    for (i = 0; i < n; i++) {
-        if (i <= (n - 1) / 2) { freq = (2 * PI * i) / (n * dx);       }
-        else                  { freq = (2 * PI * (i - n)) / (n * dx); }
-        outFFT[i] *= freq * I;
+    for (i = 0; i < N; i++) {
+        if (i <= (N - 1) / 2) { freq = (2 * PI * i) / (N * dx);       }
+        else                  { freq = (2 * PI * (i - N)) / (N * dx); }
+        dfdx[i] *= freq * I;
     }
 
-    s = DftiComputeBackward(desc, outFFT, dfdx);
+    s = DftiComputeBackward(desc, dfdx);
     s = DftiFreeDescriptor(&desc);
-    free(outFFT);
+    dfdx[N] = dfdx[0]; // boundary point
 }
 
 void dxCyclic(int n, Carray f, double dx, Carray dfdx)

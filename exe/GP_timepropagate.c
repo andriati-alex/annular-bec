@@ -322,20 +322,27 @@ int main(int argc, char * argv[])
         switch (method)
         {
             case 1:
+                GPCNSMRK4(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S,
+                fname_out, 5);
+                time_used = (double) (omp_get_wtime() - start);
+                printf("\nTime taken to solve(RK4 nonlinear CN-SM linear)");
+                printf(" : %.3f seconds\n", time_used);
+                break;
+            case 2:
                 GPCNSM(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S,
                 fname_out, 5);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(Crank-Nicolson-SM)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
-            case 2:
+            case 3:
                 GPCNLU(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S,
                 fname_out, 5);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(Crank-Nicolson-LU)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
-            case 3:
+            case 4:
                 GPFFT(M + 1, N, dx, dt, a2, a1, inter, V, S, fname_out, 5);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(FFT)");
@@ -352,18 +359,24 @@ int main(int argc, char * argv[])
         switch (method)
         {
             case 1:
+                IGPCNSMRK4(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S, E);
+                time_used = (double) (omp_get_wtime() - start);
+                printf("\nTime taken to solve(RK4 nonlinear/CN-SM linear)");
+                printf(" : %.3f seconds\n", time_used);
+                break;
+            case 2:
                 IGPCNSM(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S, E);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(Crank-Nicolson-SM)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
-            case 2:
+            case 3:
                 IGPCNLU(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S, E);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(Crank-Nicolson-LU)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
-            case 3:
+            case 4:
                 IGPFFT(M + 1, N, dx, dt, a2, a1, inter, V, S, E);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(FFT)");

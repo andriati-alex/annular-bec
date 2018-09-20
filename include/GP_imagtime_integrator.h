@@ -7,6 +7,7 @@
 #include "tridiagonal_solver.h"
 #include "matrix_operations.h"
 #include "calculus.h"
+#include "rk4.h"
 
 
 
@@ -69,5 +70,10 @@ void IGPCNLU(int M, int N, double dx, double dT, double a2, double complex a1,
 
 void IGPFFT(int M, int N, double dx, double dT, double a2, double complex a1,
      double inter, Rarray V, Carray S, Carray E);
+
+void NonLinearIDDT(int M, double t, Carray Psi, Carray inter, Carray Dpsi);
+
+void IGPCNSMRK4(int M, int N, double dx, double dT, double a2, double complex a1,
+     double inter, Rarray V, int cyclic, Carray S, Carray E);
 
 #endif

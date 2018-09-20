@@ -7,6 +7,7 @@
 #include "tridiagonal_solver.h"
 #include "matrix_operations.h"
 #include "array_operations.h"
+#include "rk4.h"
 
 
 
@@ -81,14 +82,14 @@ void GPFFT(int M, int N, double dx, double dt, double a2, double complex a1,
 
 
 
-void DDT(int M, double inter, Carray S, Carray rhs);
+void NonLinearDDT(int M, double t, Carray Psi, Carray inter, Carray Dpsi);
 /* the right-hand-side of derivatives from nonlinear part */
 
 
 
 
 
-void GPCNSMRK4_all(int M, int N, double dx, double dt, double a2,
-     double complex a1, double inter, Rarray V, int cyclic, Cmatrix S);
+void GPCNSMRK4(int M, int N, double dx, double dt, double a2, double complex a1,
+     double inter, Rarray V, int cyclic, Carray S, char fname [], int n);
 
 #endif

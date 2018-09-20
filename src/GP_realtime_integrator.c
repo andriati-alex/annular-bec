@@ -29,6 +29,7 @@ void record_step(FILE * f, int M, Carray v)
 
 
 
+
 void GPFFT(int M, int N, double dx, double dt, double a2, double complex a1,
      double inter, Rarray V, Carray S, char fname[], int n)
 {
@@ -39,7 +40,10 @@ void GPFFT(int M, int N, double dx, double dt, double a2, double complex a1,
     int
         k,
         i,
-        j;
+        j,
+        m;
+
+    m = M - 1; // ignore the last point that is the boudary
 
     double
         freq;
@@ -55,13 +59,13 @@ void GPFFT(int M, int N, double dx, double dt, double a2, double complex a1,
 
     Rarray out  = rarrDef(M);    // output of linear and nonlinear potential
 
-    Carray exp_der = carrDef(M); // exponential of derivative operator
+    Carray exp_der = carrDef(m); // exponential of derivative operator
 
     Carray stepexp = carrDef(M);    // Exponential of potential
 
-    Carray foward_fft = carrDef(M); // go to frequency space
+    Carray foward_fft = carrDef(m); // go to frequency space
 
-    Carray back_fft = carrDef(M);   // back to position space
+    Carray back_fft = carrDef(m);   // back to position space
     
     Carray Sstep = carrDef(M);      // hold one step to integrate by trapezium
 
@@ -70,9 +74,9 @@ void GPFFT(int M, int N, double dx, double dt, double a2, double complex a1,
     /* setup descriptor (MKL implementation of FFT)
      * -------------------------------------------------------------------- */
     DFTI_DESCRIPTOR_HANDLE desc;
-    s = DftiCreateDescriptor(&desc, DFTI_DOUBLE, DFTI_COMPLEX, 1, M);
-    s = DftiSetValue(desc, DFTI_FORWARD_SCALE, 1.0 / sqrt(M));
-    s = DftiSetValue(desc, DFTI_BACKWARD_SCALE, 1.0 / sqrt(M));
+    s = DftiCreateDescriptor(&desc, DFTI_DOUBLE, DFTI_COMPLEX, 1, m);
+    s = DftiSetValue(desc, DFTI_FORWARD_SCALE, 1.0 / sqrt(m));
+    s = DftiSetValue(desc, DFTI_BACKWARD_SCALE, 1.0 / sqrt(m));
     s = DftiCommitDescriptor(desc);
     /* -------------------------------------------------------------------- */
 
@@ -80,9 +84,9 @@ void GPFFT(int M, int N, double dx, double dt, double a2, double complex a1,
 
     /* setup Fourier Frequencies and the exponential of derivative operator
      * -------------------------------------------------------------------- */
-    for (i = 0; i < M; i++) {
-        if (i <= (M - 1) / 2) { freq = (2 * PI * i) / (M * dx);       }
-        else                  { freq = (2 * PI * (i - M)) / (M * dx); }
+    for (i = 0; i < m; i++) {
+        if (i <= (m - 1) / 2) { freq = (2 * PI * i) / (m * dx);       }
+        else                  { freq = (2 * PI * (i - m)) / (m * dx); }
         // exponential of derivative operators
         exp_der[i] = cexp((-1) * Idt * a2 * freq * freq);
     }
@@ -102,12 +106,13 @@ void GPFFT(int M, int N, double dx, double dt, double a2, double complex a1,
         carrAbs2(M, S, abs2);
         rarrUpdate(M, V, inter, abs2, out);
         rcarrExp(M, Idt / 2, out, stepexp);
-        carrMultiply(M, stepexp, S, foward_fft);
+        carrMultiply(m, stepexp, S, foward_fft);
 
         s = DftiComputeForward(desc, foward_fft);       // go to momentum space
-        carrMultiply(M, exp_der, foward_fft, back_fft); // apply derivatives
+        carrMultiply(m, exp_der, foward_fft, back_fft); // apply derivatives
         s = DftiComputeBackward(desc, back_fft);        // back to real space
-        carrMultiply(M, stepexp, back_fft, Sstep);
+        carrMultiply(m, stepexp, back_fft, Sstep);
+        Sstep[m] = Sstep[0]; // cyclic condition
         
         /* IMPROVEMENT
          *
@@ -127,12 +132,13 @@ void GPFFT(int M, int N, double dx, double dt, double a2, double complex a1,
         // factor / 2 due to trapezium rule
         rarrUpdate(M, V, inter / 2, abs2, out);
         rcarrExp(M, Idt / 2, out, stepexp);
-        carrMultiply(M, stepexp, S, foward_fft);
+        carrMultiply(m, stepexp, S, foward_fft);
 
         s = DftiComputeForward(desc, foward_fft);       // go to momentum space
-        carrMultiply(M, exp_der, foward_fft, back_fft); // apply derivatives
+        carrMultiply(m, exp_der, foward_fft, back_fft); // apply derivatives
         s = DftiComputeBackward(desc, back_fft);        // back to real space
-        carrMultiply(M, stepexp, back_fft, S);
+        carrMultiply(m, stepexp, back_fft, S);
+        S[m] = S[0];
         
         // record data every n steps
         if (k == n) { record_step(out_data, M, S); k = 1; }
@@ -454,37 +460,44 @@ void GPCNSM(int M, int N, double dx, double dt, double a2, double complex a1,
 
 
 
-void RK4DDT(int M, double inter, Carray S, Carray rhs)
-{   // The Right-Hand-Side function to evolve with Runge-Kutta
+void NonLinearDDT(int M, double t, Carray Psi, Carray inter, Carray Dpsi)
+{   // The Right-Hand-Side of derivative of non-linear part
+    // As a extra argument take the interaction strength
 
     int i;
 
+    // sum real and imaginary part squared to get the modulus squared
+    double mod_squared;
+
     for (i = 0; i < M; i++)
     {
-        rhs[i] = inter * \
-                 (creal(S[i]) * creal(S[i]) + cimag(S[i]) * cimag(S[i])) * S[i];
+        mod_squared  = creal(Psi[i]) * creal(Psi[i]);
+        mod_squared += cimag(Psi[i]) * cimag(Psi[i]);
+        Dpsi[i] = - I * inter[0] * mod_squared * Psi[i];
     }
-
-    for (i = 0; i < M; i++) rhs[i] = (-1.0) * I * rhs[i];
 }
 
 
 
 
 
-void GPCNSMRK4_all(int M, int N, double dx, double dt, double a2,
-     double complex a1, double inter, Rarray V, int cyclic, Cmatrix S)
+void GPCNSMRK4(int M, int N, double dx, double dt, double a2, double complex a1,
+     double inter, Rarray V, int cyclic, Carray S, char fname [], int n)
 {   // Evolve Gross-Pitaevskii using 4-th order Runge-Kutta
     // to deal with nonlinear part.
-    int i,
+    
+    // File to write every n step the time-step solution
+    FILE * out_data = fopen(fname, "w");
+
+    int k,
+        i,
         j;
 
-    Carray karg = carrDef(M);
-    Carray kans = carrDef(M);
+    double complex interv[1];
+    interv[0] = inter;
 
     // Used to apply nonlinear part
     Carray linpart = carrDef(M);
-    Rarray abs2    = rarrDef(M); // abs square of wave function
 
     // used to store matrix elements of linear part
     Carray upper = carrDef(M - 1);
@@ -546,102 +559,25 @@ void GPCNSMRK4_all(int M, int N, double dx, double dt, double a2,
 
 
 
-    dt = dt / 2; // Just needed in semi-step RK4 iteration
+    k = 1;
     for (i = 0; i < N; i++)
-    {   // Apply exponential with nonlinear part
-
-        // Compute k1 in kans
-        RK4DDT(M, inter, S[i], kans);
-
-        for (j = 0; j < M; j++)
-        {   // Add up contribution from k1
-            linpart[j] = kans[j];
-            // Argument to give k2
-            karg[j] = S[i][j] + 0.5 * dt * kans[j];
-        }
+    {
+        RK4step(M, dt/2, 0, S, interv, linpart, NonLinearDDT);
         
-        // Compute k2 in kans
-        RK4DDT(M, inter, karg, kans);
-
-        for (j = 0; j < M; j++)
-        {   // Add up contribution from k2
-            linpart[j] += 2 * kans[j];
-            // Argument to give k3
-            karg[j] = S[i][j] + 0.5 * dt * kans[j];
-        }
-        
-        // Compute k3 in kans
-        RK4DDT(M, inter, karg, kans);
-
-        for (j = 0; j < M; j++)
-        {   // Add up contribution from k3
-            linpart[j] += 2 * kans[j];
-            // Argument to give k4
-            karg[j] = S[i][j] + dt * kans[j];
-        }
-
-        // Compute k4 in kans
-        RK4DDT(M, inter, karg, kans);
-
-        for (j = 0; j < M; j++)
-        {   // Add up contribution from k4
-            linpart[j] += kans[j];
-        }
-        
-        for (j = 0; j < M; j++)
-        {   // Finish RK4
-            linpart[j] = S[i][j] + linpart[j] * dt / 6;
-        }
-
-        // Solve linear part
+        // Solve linear part (nabla ^ 2 part)
         CCSvec(M - 1, rhs_mat->vec, rhs_mat->col, rhs_mat->m, linpart, rhs);
         triCyclicSM(M - 1, upper, lower, mid, rhs, linpart);
         if (cyclic) { linpart[M-1] = linpart[0]; } // Cyclic system
         else        { linpart[M-1] = 0;          } // zero boundary
 
-        // Compute k1 in kans
-        RK4DDT(M, inter, linpart, kans);
-
-        for (j = 0; j < M; j++)
-        {   // Add up contribution from k1
-            S[i + 1][j] = kans[j];
-            // Argument to give k2
-            karg[j] = linpart[j] + 0.5 * dt * kans[j];
-        }
+        RK4step(M, dt/2, 0, linpart, interv, S, NonLinearDDT);
         
-        // Compute k2 in kans
-        RK4DDT(M, inter, karg, kans);
-
-        for (j = 0; j < M; j++)
-        {   // Add up contribution from k2
-            S[i + 1][j] += 2 * kans[j];
-            // Argument to give k3
-            karg[j] = linpart[j] + 0.5 * dt * kans[j];
-        }
-        
-        // Compute k3 in kans
-        RK4DDT(M, inter, karg, kans);
-
-        for (j = 0; j < M; j++)
-        {   // Add up contribution from k3
-            S[i + 1][j] += 2 * kans[j];
-            // Argument to give k4
-            karg[j] = linpart[j] + dt * kans[j];
-        }
-        
-        // Compute k4 in kans
-        RK4DDT(M, inter, karg, kans);
-
-        for (j = 0; j < M; j++)
-        {   // Add up contribution from k2
-            S[i + 1][j] += kans[j];
-        }
-
-        for (j = 0; j < M; j++)
-        {   // Finish RK4
-            S[i + 1][j] = linpart[j] + S[i + 1][j] * dt / 6;
-        }
+        // record data every n steps
+        if (k == n) { record_step(out_data, M, S); k = 1; }
+        else        { k = k + 1;                          }
     }
+
+    fclose(out_data);
 
     free(linpart);
     free(upper);
@@ -649,7 +585,4 @@ void GPCNSMRK4_all(int M, int N, double dx, double dt, double a2,
     free(mid);
     free(rhs);
     CCSFree(rhs_mat);
-
-    free(karg);
-    free(kans);
 }

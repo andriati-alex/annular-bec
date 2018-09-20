@@ -1,83 +1,53 @@
 #include "../include/rk4.h"
 
-void RK4step(int M, double dt, CCSmat F, Carray y, Carray y_step)
+/* dxdt(size_of_arrays, t, x, extra_argues, derivative_of_x) */
+
+void RK4step(int M, double dt, double t, Carray x, Carray extra, Carray x_step,
+     void (*dxdt)(int, double , Carray, Carray, Carray))
 {
-    unsigned int i;
+    int i;
 
-    Carray k  = carrDef(M);
-    Carray kk = carrDef(M);
+    Carray k = carrDef(M);
+    Carray karg = carrDef(M);
+    Carray holdk = carrDef(M);
 
-    Carray arg = carrDef(M); // arguments to compute k's
+    (*dxdt)(M, t, x, extra, k);
 
-    CCSvec(M, F->vec, F->col, F->m, y, k); // k1
-
-    for (i = 0; i < M; i++) {
-        arg[i] = 0.5 * dt * k[i] + y[i];  // argument for k2
+    for (i = 0; i < M; i++)
+    {   // initiate with k and prepare argument to compute k2
+        holdk[i] = k[i];
+        karg[i]  = 0.5 * dt * k[i] + x[i];
     }
 
-    CCSvec(M, F->vec, F->col, F->m, arg, kk); // k2
+    (*dxdt)(M, t + 0.5 * dt, karg, extra, k);
 
-    for (i = 0; i < M; i++) {
-        arg[i] = 0.5 * dt * kk[i] + y[i]; // argument for k3
-        k[i] += 2 * kk[i];                // Add contribution of  k2
+    for (i = 0; i < M; i++)
+    {   // Add contribution 2*k2 and prepare arg to compute k3
+        holdk[i] += 2 * k[i];
+        karg[i]   = 0.5 * dt * k[i] + x[i];
     }
 
-    CCSvec(M, F->vec, F->col, F->m, arg, kk); // k3
+    (*dxdt)(M, t + 0.5 * dt, karg, extra, k);
 
-    for (i = 0; i < M; i++) {
-        arg[i] = dt * kk[i] + y[i]; // argument of k4
-        k[i] += 2 * kk[i];          // Add contribution of k3
+    for (i = 0; i < M; i++)
+    {   // Add contribution 2*k3 and prepare arg to compute k4
+        holdk[i] += 2 * k[i];
+        karg[i]   = dt * k[i] + x[i];
+    }
+    
+    (*dxdt)(M, t + dt, karg, extra, k);
+    
+    for (i = 0; i < M; i++)
+    {   // Add contribution k4
+        holdk[i] += k[i];
     }
 
-    CCSvec(M, F->vec, F->col, F->m, arg, kk); // k4
-
-    // Add contribution of k4 and divide by 6 from the method
-    for (i = 0; i < M; i++) y_step[i] = y[i] + dt * (k[i] + kk[i]) / 6;
-
-    free(k);
-    free(kk);
-    free(arg);
-}
-
-void RK4(int M, int N, double dt, CCSmat F, Cmatrix S)
-{
-    unsigned int i, j;
-    double r = dt / 6.0;
-
-    Carray k  = carrDef(M);
-    Carray kk = carrDef(M);
-
-    Carray arg = carrDef(M); // arguments to compute k's
-
-    for (j = 0; j < N; j++) {
-
-        CCSvec(M, F->vec, F->col, F->m, S[j], k); // k1
-
-        for (i = 0; i < M; i++) {
-            arg[i] = 0.5 * dt * k[i] + S[j][i];  // argument for k2
-        }
-
-        CCSvec(M, F->vec, F->col, F->m, arg, kk); // k2
-
-        for (i = 0; i < M; i++) {
-            arg[i] = 0.5 * dt * kk[i] + S[j][i]; // argument for k3
-            k[i] += 2 * kk[i];                   // Add contribution of  k2
-        }
-
-        CCSvec(M, F->vec, F->col, F->m, arg, kk); // k3
-
-        for (i = 0; i < M; i++) {
-            arg[i] = dt * kk[i] + S[j][i]; // argument of k4
-            k[i] += 2 * kk[i];             // Add contribution of k3
-        }
-
-        CCSvec(M, F->vec, F->col, F->m, arg, kk); // k4
-
-        // Add contribution of k4 and divide by 6 from the method
-        for (i = 0; i < M; i++) S[j+1][i] = S[j][i] + r * (k[i] + kk[i]);
+    for (i = 0; i < M; i++)
+    {   // compute next time step solution
+        x_step[i] = x[i] + holdk[i] * dt / 6;
     }
 
     free(k);
-    free(kk);
-    free(arg);
+    free(karg);
+    free(holdk);
 }

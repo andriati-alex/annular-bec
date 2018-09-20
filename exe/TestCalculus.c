@@ -23,10 +23,10 @@
 int main() {
 
     /* DEFINE THE NUMBER OF THREADS BASED ON THE COMPUTER */
-    mkl_set_num_threads(2);
-    omp_set_num_threads(2);
+    mkl_set_num_threads(4);
+    omp_set_num_threads(4);
 
-    int n = 1024;
+    int n = 40000;
     int i;
 
     double dx = (2 * PI) / (n - 1);
@@ -83,9 +83,8 @@ int main() {
 
 
     start = omp_get_wtime();
-    for (i = 0; i < 1000; i++) dxFFT(n - 1, f, dx, dfdx);
+    for (i = 0; i < 1000; i++) dxFFT(n, f, dx, dfdx);
     time_used = ((double) (omp_get_wtime() - start)) / 1000;
-    dfdx[n-1] = dfdx[0];
 
     printf("\n\n\tDerivative by FFT took %.6f ms", time_used * 1000);
 
