@@ -8,16 +8,16 @@ import matplotlib as mpl;
     ******************************************
 
     Given a file ID after calling time_evolution executable show the
-    density |f(x,t)| ^ 2 where each step is a frame yeilding a movie
+    density |f(x,t)| ^ 2 where each fstep is a frame yeilding a movie
     of time evolution.
 
     CALL
     ****
 
-    $ python watch_evolution.py file_id frame_step
+    $ python watch_evolution.py file_id frame_fstep
 
     file_id    - A valid name after running time_evolution
-    frame_step - Jump some time steps of solution to show a shorter movie
+    frame_fstep - Jump some time steps of solution to show a shorter movie
 
 """
 
@@ -27,13 +27,14 @@ mpl.use('Qt5Agg');
 import matplotlib.pyplot as plt;
 from matplotlib import animation;
 
-fname = sys.argv[1];
-step  = int(sys.argv[2]);
+fname = '../gp_data/' + sys.argv[1] + '_realtime_state.dat';
+fstep = int(sys.argv[2]); # how much time-steps a frame jumps
 
-S = np.loadtxt('../gp_data/' + fname + '_time.dat', dtype=np.complex128);
-Smod2 = np.absolute(S)[::step,:] ** 2;
+S = np.loadtxt(fname, dtype=np.complex128);
+Smod2 = np.absolute(S)[::fstep,:] ** 2;
 
-domain = np.loadtxt('../gp_data/' + fname + '_domain.dat', dtype=np.float64);
+fname = '../gp_data/' + sys.argv[1] + '_realdomain.dat'
+domain = np.loadtxt(fname, dtype=np.float64);
 
 y2 = Smod2.max() + 0.1 * (Smod2.max() - Smod2.min());
 y1 = Smod2.min() - 0.1 * (Smod2.max() - Smod2.min());

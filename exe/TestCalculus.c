@@ -26,10 +26,10 @@ int main() {
     mkl_set_num_threads(2);
     omp_set_num_threads(2);
 
-    int n = 32768;
+    int n = 1024;
     int i;
 
-    double dx = 16.0 / (n - 1);
+    double dx = (2 * PI) / (n - 1);
 
     double start, time_used; // show time taken
 
@@ -44,8 +44,9 @@ int main() {
 
     // setup input data
     for (i = 0; i < n; i++) {
-        x[i] = -8 + i * dx;
-        f[i] = cos(2 * PI * x[i] / 4) + I * sin(PI * x[i] / 4 - PI / 2);
+        x[i] = -PI + i * dx;
+        f[i] = cos(x[i]) + I * sin(x[i]);
+        dfdx[i] = f[i];
     }
 
     carrRPart(n, f, freal);
@@ -82,8 +83,9 @@ int main() {
 
 
     start = omp_get_wtime();
-    for (i = 0; i < 1000; i++) dxFFT(n, f, dx, dfdx);
+    for (i = 0; i < 1000; i++) dxFFT(n - 1, f, dx, dfdx);
     time_used = ((double) (omp_get_wtime() - start)) / 1000;
+    dfdx[n-1] = dfdx[0];
 
     printf("\n\n\tDerivative by FFT took %.6f ms", time_used * 1000);
 
@@ -92,6 +94,11 @@ int main() {
     time_used = ((double) (omp_get_wtime() - start)) / 1000;
     
     printf("\n\n\tDerivative by differences took %.6f ms", time_used * 1000);
+
+    for (i = 0; i < n; i ++)
+        cints[i] = conj(f[i]) * dfdx[i];
+
+    printf("\n\n\tFFT - DIFF: %.14lf\n", creal(Csimps(n, cints, dx)) / 2);
 
 
 

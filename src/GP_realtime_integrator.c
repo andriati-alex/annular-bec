@@ -1,11 +1,15 @@
 #include "../include/GP_realtime_integrator.h"
 
+
+
+
+
 void record_step(FILE * f, int M, Carray v)
-{
+{   // Given an open file f write the complex array v in a line
     int j;
 
     for (j = 0; j < M; j ++)
-    {
+    {   // write in a format suitable to import with numpy
         if (cimag(v[j]) > 0)
         {
             fprintf(f, "(%.15E+%.15Ej) ", creal(v[j]), cimag(v[j]));
@@ -25,10 +29,15 @@ void record_step(FILE * f, int M, Carray v)
 
 
 
-void GPFFT(int M, int N, double dx, double dt, double a2,
-     double complex a1, double inter, Rarray V, Carray S)
+void GPFFT(int M, int N, double dx, double dt, double a2, double complex a1,
+     double inter, Rarray V, Carray S, char fname[], int n)
 {
+    
+    // File to write every n step the time-step solution
+    FILE * out_data = fopen(fname, "w");
+
     int
+        k,
         i,
         j;
 
@@ -84,6 +93,9 @@ void GPFFT(int M, int N, double dx, double dt, double a2,
     /* Apply Split step and solve separately nonlinear and linear part */
     /*******************************************************************/
 
+
+
+    k = 1;
     for (i = 0; i < N; i++)
     {
         // Apply exponential of potential together nonlinear part
@@ -112,8 +124,8 @@ void GPFFT(int M, int N, double dx, double dt, double a2,
             abs2[j] += cimag(Sstep[j]) * cimag(Sstep[j]);
         }
 
-        // factor / 4 due to trapezium rule
-        rarrUpdate(M, V, inter / 4, abs2, out);
+        // factor / 2 due to trapezium rule
+        rarrUpdate(M, V, inter / 2, abs2, out);
         rcarrExp(M, Idt / 2, out, stepexp);
         carrMultiply(M, stepexp, S, foward_fft);
 
@@ -121,7 +133,13 @@ void GPFFT(int M, int N, double dx, double dt, double a2,
         carrMultiply(M, exp_der, foward_fft, back_fft); // apply derivatives
         s = DftiComputeBackward(desc, back_fft);        // back to real space
         carrMultiply(M, stepexp, back_fft, S);
+        
+        // record data every n steps
+        if (k == n) { record_step(out_data, M, S); k = 1; }
+        else        { k = k + 1;                          }
     }
+    
+    fclose(out_data);
 
     s = DftiFreeDescriptor(&desc);
 
@@ -137,16 +155,166 @@ void GPFFT(int M, int N, double dx, double dt, double a2,
 
 
 
+
 void GPCNLU(int M, int N, double dx, double dt, double a2, double complex a1,
      double inter, Rarray V, int cyclic, Carray S, char fname[], int n)
 {
+    // File to write every n step the time-step solution
     FILE * out_data = fopen(fname, "w");
-    
+
     if (out_data == NULL)
     {   // impossible to open file with the given name
-        printf("ERROR: impossible to open file %s\n", fname);
+        printf("\n\n\tERROR: impossible to open file %s\n", fname);
         return;
     }
+
+    unsigned int
+        k,
+        i,
+        j;
+
+    // Factor to multiply in nonlinear exponential part after split-step
+    double complex
+        Idt = 0.0 - dt * I;
+
+    // Hold the values to go back and integrate nonlinear part by trapezium
+    Carray Sstep = carrDef(M);
+
+    // Used to apply nonlinear part
+    Carray stepexp = carrDef(M);
+    Carray linpart = carrDef(M);
+    Rarray abs2    = rarrDef(M); // abs square of wave function
+
+    // used to store matrix elements of linear part
+    Carray upper = carrDef(M - 1);
+    Carray lower = carrDef(M - 1);
+    Carray mid   = carrDef(M - 1);
+    Carray rhs   = carrDef(M - 1);
+
+
+
+    /*                 ****************************                 */
+    /*                 Setup Right-Hand-Side matrix                 */
+    /*                 ****************************                 */
+
+
+
+    // fill main diagonal (use upper as auxiliar pointer)
+    carrFill(M - 1, - a2 * dt / dx / dx + I, upper);
+    rcarrUpdate(M - 1, upper, dt, V, mid);
+
+    // fill upper diagonal
+    carrFill(M - 1, a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, upper);
+    if (cyclic) { upper[M-2] = a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
+    else        { upper[M-2] = 0;                                        }
+
+    // fill lower diagonal
+    carrFill(M - 1, a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, lower);
+    if (cyclic) { lower[M-2] = a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
+    else        { lower[M-2] = 0;                                        }
+
+    // Store in CCS format
+    CCSmat rhs_mat = CyclicToCCS(M - 1, upper, lower, mid);
+
+
+
+    /*                *******************************                */
+    /*                Setup Cyclic tridiagonal matrix                */
+    /*                *******************************                */
+
+
+
+    // fill main diagonal (use upper as auxiliar pointer)
+    carrFill(M - 1, a2 * dt / dx /dx + I, upper);
+    rcarrUpdate(M - 1, upper, -dt, V, mid);
+
+    // fill upper diagonal
+    carrFill(M - 1, - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, upper);
+    if (cyclic) { upper[M-2] = - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
+    else        { upper[M-2] = 0;                                          }
+
+    // fill lower diagonal
+    carrFill(M - 1, - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, lower);
+    if (cyclic) { lower[M-2] = - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
+    else        { lower[M-2] = 0;                                          }
+
+
+
+    /* Apply Split step and solve separately nonlinear and linear part */
+    /* *************************************************************** */
+
+
+
+    k = 1;
+    for (i = 0; i < N; i++) {
+        // Apply exponential with nonlinear part
+        carrAbs2(M, S, abs2);
+        rcarrExp(M, inter * Idt / 2, abs2, stepexp);
+        carrMultiply(M, stepexp, S, linpart);
+
+        // Solve linear part
+        CCSvec(M - 1, rhs_mat->vec, rhs_mat->col, rhs_mat->m, linpart, rhs);
+        triCyclicLU(M - 1, upper, lower, mid, rhs, linpart);
+        if (cyclic) { linpart[M-1] = linpart[0]; } // Cyclic system
+        else        { linpart[M-1] = 0;          } // zero boundary
+
+        // Update solution (solution of linear part in stepexp)
+        carrMultiply(M, linpart, stepexp, Sstep);
+        
+        /* IMPROVEMENT
+         * ------------------------------------------------------------
+         *
+         * The steps above use rectangular integration of the nonlinear
+         * part,  thus with an approximate solution to the next step we
+         * can improve by using trapezium method in the  nonlinear part.
+         *
+         * ------------------------------------------------------------ */
+
+        // Trapezium rule in the nonlinear exponential part
+        for (j = 0; j < M; j++) {
+            abs2[j] += creal(Sstep[j]) * creal(Sstep[j]);
+            abs2[j] += cimag(Sstep[j]) * cimag(Sstep[j]);
+        }
+
+        // Extra factor 1/2 due to trapezium rule
+        rcarrExp(M, inter * Idt / 4, abs2, stepexp);
+        carrMultiply(M, stepexp, S, linpart);
+
+        CCSvec(M - 1, rhs_mat->vec, rhs_mat->col, rhs_mat->m, linpart, rhs);
+        triCyclicLU(M - 1, upper, lower, mid, rhs, linpart);
+        if (cyclic) { linpart[M-1] = linpart[0]; } // Cyclic system
+        else        { linpart[M-1] = 0;          } // zero boundary
+
+        carrMultiply(M, linpart, stepexp, S);
+
+        // record data every n steps
+        if (k == n) { record_step(out_data, M, S); k = 1; }
+        else        { k = k + 1;                          }
+    }
+
+    fclose(out_data);
+
+    free(stepexp);
+    free(linpart);
+    free(abs2);
+    free(upper);
+    free(lower);
+    free(mid);
+    free(rhs);
+    free(Sstep);
+    CCSFree(rhs_mat);
+}
+
+
+
+
+
+void GPCNSM(int M, int N, double dx, double dt, double a2, double complex a1,
+     double inter, Rarray V, int cyclic, Carray S, char fname [], int n)
+{
+
+    // File to write every n step the time-step solution
+    FILE * out_data = fopen(fname, "w");
 
     unsigned int
         k,
@@ -223,6 +391,7 @@ void GPCNLU(int M, int N, double dx, double dt, double a2, double complex a1,
 
 
 
+    k = 1;
     for (i = 0; i < N; i++) {
         // Apply exponential with nonlinear part
         carrAbs2(M, S, abs2);
@@ -231,7 +400,7 @@ void GPCNLU(int M, int N, double dx, double dt, double a2, double complex a1,
 
         // Solve linear part
         CCSvec(M - 1, rhs_mat->vec, rhs_mat->col, rhs_mat->m, linpart, rhs);
-        triCyclicLU(M - 1, upper, lower, mid, rhs, linpart);
+        triCyclicSM(M - 1, upper, lower, mid, rhs, linpart);
         if (cyclic) { linpart[M-1] = linpart[0]; } // Cyclic system
         else        { linpart[M-1] = 0;          } // zero boundary
 
@@ -257,146 +426,18 @@ void GPCNLU(int M, int N, double dx, double dt, double a2, double complex a1,
         carrMultiply(M, stepexp, S, linpart);
 
         CCSvec(M - 1, rhs_mat->vec, rhs_mat->col, rhs_mat->m, linpart, rhs);
-        triCyclicLU(M - 1, upper, lower, mid, rhs, linpart);
+        triCyclicSM(M - 1, upper, lower, mid, rhs, linpart);
         if (cyclic) { linpart[M-1] = linpart[0]; } // Cyclic system
         else        { linpart[M-1] = 0;          } // zero boundary
 
         carrMultiply(M, linpart, stepexp, S);
-
+        
+        // record data every n steps
         if (k == n) { record_step(out_data, M, S); k = 1; }
         else        { k = k + 1;                          }
     }
 
     fclose(out_data);
-
-    free(stepexp);
-    free(linpart);
-    free(abs2);
-    free(upper);
-    free(lower);
-    free(mid);
-    free(rhs);
-    free(Sstep);
-    CCSFree(rhs_mat);
-}
-
-
-
-
-
-void GPCNSM(int M, int N, double dx, double dt, double a2, double complex a1,
-     double inter, Rarray V, int cyclic, Carray S)
-{
-    unsigned int i, j;
-    double complex Idt = 0.0 - dt * I;
-
-    Carray Sstep = carrDef(M);
-
-    // Used to apply nonlinear part
-    Carray stepexp = carrDef(M);
-    Carray linpart = carrDef(M);
-    Rarray abs2    = rarrDef(M); // abs square of wave function
-
-    // used to store matrix elements of linear part
-    Carray upper = carrDef(M - 1);
-    Carray lower = carrDef(M - 1);
-    Carray mid   = carrDef(M - 1);
-    Carray rhs   = carrDef(M - 1);
-
-
-
-    /*                 ****************************                 */
-    /*                 Setup Right-Hand-Side matrix                 */
-    /*                 ****************************                 */
-
-
-
-    // fill main diagonal (use upper as auxiliar pointer)
-    carrFill(M - 1, - a2 * dt / dx / dx + I, upper);
-    rcarrUpdate(M - 1, upper, dt, V, mid);
-
-    // fill upper diagonal
-    carrFill(M - 1, a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, upper);
-    if (cyclic) { upper[M-2] = a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
-    else        { upper[M-2] = 0;                                        }
-
-    // fill lower diagonal
-    carrFill(M - 1, a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, lower);
-    if (cyclic) { lower[M-2] = a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
-    else        { lower[M-2] = 0;                                        }
-
-    // Store in CCS format
-    CCSmat rhs_mat = CyclicToCCS(M - 1, upper, lower, mid);
-
-
-
-    /*                *******************************                */
-    /*                Setup Cyclic tridiagonal matrix                */
-    /*                *******************************                */
-
-
-
-    // fill main diagonal (use upper as auxiliar pointer)
-    carrFill(M - 1, a2 * dt / dx /dx + I, upper);
-    rcarrUpdate(M - 1, upper, -dt, V, mid);
-
-    // fill upper diagonal
-    carrFill(M - 1, - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, upper);
-    if (cyclic) { upper[M-2] = - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
-    else        { upper[M-2] = 0;                                          }
-
-    // fill lower diagonal
-    carrFill(M - 1, - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, lower);
-    if (cyclic) { lower[M-2] = - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
-    else        { lower[M-2] = 0;                                          }
-
-
-
-    /* Apply Split step and solve separately nonlinear and linear part */
-    /* *************************************************************** */
-
-
-
-    for (i = 0; i < N; i++) {
-        // Apply exponential with nonlinear part
-        carrAbs2(M, S, abs2);
-        rcarrExp(M, inter * Idt / 2, abs2, stepexp);
-        carrMultiply(M, stepexp, S, linpart);
-
-        // Solve linear part
-        CCSvec(M - 1, rhs_mat->vec, rhs_mat->col, rhs_mat->m, linpart, rhs);
-        triCyclicSM(M - 1, upper, lower, mid, rhs, linpart);
-        if (cyclic) { linpart[M-1] = linpart[0]; } // Cyclic system
-        else        { linpart[M-1] = 0;          } // zero boundary
-
-        // Update solution (solution of linear part in stepexp)
-        carrMultiply(M, linpart, stepexp, Sstep);
-        
-        /* IMPROVEMENT
-         *
-         * The steps above use rectangular integration of the nonlinear
-         * part,  thus with an approximate solution to the next step we
-         * can improve by using trapezium method in the nonlinear part.
-         *
-         */
-
-        // Trapezium rule in the nonlinear exponential part
-        for (j = 0; j < M; j++) {
-            abs2[j] += creal(Sstep[j]) * creal(Sstep[j]);
-            abs2[j] += cimag(Sstep[j]) * cimag(Sstep[j]);
-        }
-
-        // Extra factor 1/2 due to trapezium rule
-        rcarrExp(M, inter * Idt / 4, abs2, stepexp);
-        carrMultiply(M, stepexp, S, linpart);
-
-        CCSvec(M - 1, rhs_mat->vec, rhs_mat->col, rhs_mat->m, linpart, rhs);
-        triCyclicSM(M - 1, upper, lower, mid, rhs, linpart);
-        if (cyclic) { linpart[M-1] = linpart[0]; } // Cyclic system
-        else        { linpart[M-1] = 0;          } // zero boundary
-
-        carrMultiply(M, linpart, stepexp, S);
-    }
 
     free(stepexp);
     free(linpart);

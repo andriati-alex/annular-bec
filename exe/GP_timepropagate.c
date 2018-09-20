@@ -174,7 +174,7 @@ int main(int argc, char * argv[])
     if (argc < 5 || argc > 6)
     {
         printf("\nInvalid number of command line arguments, ");
-        printf("expected at least 3 and at most 4.\n\n");
+        printf("expected at least 4 and at most 5.\n\n");
         return -1;
     }
     /* ------------------------------------------------------------ */
@@ -182,6 +182,15 @@ int main(int argc, char * argv[])
 
 
     timeinfo = argv[1][0]; // character i for imaginary or r for real time
+
+    if (timeinfo != 'r' && timeinfo != 'R')
+    {
+        if (timeinfo != 'i' && timeinfo != 'I')
+        {
+            printf("\n\n\tInvalid first argument.\n");
+            return -1;
+        }
+    }
 
 
 
@@ -298,46 +307,48 @@ int main(int argc, char * argv[])
      *
      *  ===============================================================  */
 
+
     start = omp_get_wtime();
 
-    /*
-    if (timeId > 0)
+
+    if (timeinfo == 'r' || timeinfo == 'R')
     {
         printf("\n\n\t=================================================\n\n");
-        printf("\t * Doing real time integration.\n\n");
+            printf("\t           Doing real time integration.          \n\n");
+
+        strcpy(fname_out, "../gp_data/");
+        strcat(fname_out, argv[4]);
+        strcat(fname_out, "_realtime_state.dat");
         switch (method)
         {
             case 1:
-                GPCNSM_all(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S);
+                GPCNSM(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S,
+                fname_out, 5);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(Crank-Nicolson-SM)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
             case 2:
-                GPCNLU_all(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S);
+                GPCNLU(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S,
+                fname_out, 5);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(Crank-Nicolson-LU)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
             case 3:
-                GPCNSMRK4_all(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S);
-                time_used = (double) (omp_get_wtime() - start);
-                printf("\nTime taken to solve(Crank-Nicolson-RK4)");
-                printf(" : %.3f seconds\n", time_used);
-                break;
-            case 4:
-                GPFFT_all(M + 1, N, dx, dt, a2, a1, inter, V, S);
+                GPFFT(M + 1, N, dx, dt, a2, a1, inter, V, S, fname_out, 5);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(FFT)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
         }
     }
-    */
+    
+    
     if (timeinfo == 'i' || timeinfo == 'I')
     {
         printf("\n\n\t=================================================\n\n");
-        printf("\t * Doing imaginary time integration.\n\n");
+            printf("\t        Doing imaginary time integration.        \n\n");
         switch (method)
         {
             case 1:
@@ -373,24 +384,35 @@ int main(int argc, char * argv[])
 
 
 
-    strcpy(fname_out, "../gp_data/");
-    strcat(fname_out, argv[4]);
-    strcat(fname_out, "_imagtime_state.dat");
-
     printf("\nRecording data ...\n");
-    carr_txt(fname_out, M + 1, S);
+
+    if (timeinfo == 'i' || timeinfo == 'I')
+    {
+        strcpy(fname_out, "../gp_data/");
+        strcat(fname_out, argv[4]);
+        strcat(fname_out, "_imagtime_state.dat");
+
+        carr_txt(fname_out, M + 1, S);
     
-    strcpy(fname_out, "../gp_data/");
-    strcat(fname_out, argv[4]);
-    strcat(fname_out, "_imagtime_energy.dat");
+        strcpy(fname_out, "../gp_data/");
+        strcat(fname_out, argv[4]);
+        strcat(fname_out, "_imagtime_energy.dat");
 
-    printf("\nRecording data ...\n");
-    carr_txt(fname_out, M + 1, E);
+        carr_txt(fname_out, M + 1, E);
 
-    strcpy(fname_out, "../gp_data/");
-    strcat(fname_out, argv[4]);
-    strcat(fname_out, "_domain.dat");
+        strcpy(fname_out, "../gp_data/");
+        strcat(fname_out, argv[4]);
+        strcat(fname_out, "_imagdomain.dat");
+    }
+    else
+    {
+        strcpy(fname_out, "../gp_data/");
+        strcat(fname_out, argv[4]);
+        strcat(fname_out, "_realdomain.dat");
+    }
 
+    /* write domain of solution
+     * -------------------------------------------------------------------- */
     out_data = fopen(fname_out, "w");
 
     if (out_data == NULL)  // impossible to open file
@@ -399,7 +421,7 @@ int main(int argc, char * argv[])
     fprintf(out_data, "%.15lf %.15lf %d %.10lf %d", x1, x2, M, dt, N);
 
     fclose(out_data);
-
+    /* -------------------------------------------------------------------- */
 
 
 
@@ -408,6 +430,7 @@ int main(int argc, char * argv[])
     free(x);
     free(V);
     free(S);
+    free(E);
     /* ------------------------------------------------------------------- */
 
 
