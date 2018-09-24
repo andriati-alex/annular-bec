@@ -46,8 +46,12 @@ lc = np.complex256;
 
 def NC(Npar, Morb):
     n = 1;
-    for i in range(Npar + Morb - 1, Npar, -1): n = n * i;
-    return int(n / fac(Morb - 1));
+    if (Morb > Npar):
+        for i in range(Npar + Morb - 1, Morb - 1, -1): n = n * i;
+        return int(n / fac(Npar));
+    else:
+        for i in range(Npar + Morb - 1, Npar, -1): n = n * i;
+        return int(n / fac(Morb - 1));
 
 def IndexToFock(k, N, M, v):
     x = 0;
@@ -116,10 +120,10 @@ dx = 2 * pi / Mdiv;
 Orb = np.zeros([Morb, x.size], dtype=lc); # orbitals
 C = np.zeros(NC(Npar, Morb), dtype=lc);   # coeficients
 
-NoiseAngular(Morb, x, Orb, 3);
+AngularMom(Morb, x, Orb);
 Coef(Npar, Morb, C);
 
-Id_name = 'NoiseAngular-' + str(Npar) + '-' + str(Morb);
+Id_name = 'Angular-' + str(Npar) + '-' + str(Morb);
 
 np.savetxt('setup/MC_' + Id_name + '_orb.dat', Orb.T, fmt='%.15E');
 np.savetxt('setup/MC_' + Id_name + '_coef.dat', C.T, fmt='%.15E');

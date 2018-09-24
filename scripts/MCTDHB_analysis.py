@@ -36,14 +36,19 @@ def fac(n):
 def NC(Npar, Morb):
     """ return (Npar + Morb - 1)! / ( (Npar)! x (Morb - 1)! )"""
     n = 1;
-    for i in prange(Npar + Morb - 1, Npar, -1): n = n * i;
-    return n / fac(Morb - 1);
+    if (Npar > Morb):
+        for i in prange(Npar + Morb - 1, Npar, -1): n = n * i;
+        return n / fac(Morb - 1);
+    else :
+        for i in prange(Npar + Morb - 1, Morb - 1, -1): n = n * i;
+        return n / fac(Npar);
 
 
 
 
 
 @jit((int32, int32, int32, int32[:]), nopython=True, nogil=True)
+
 def IndexToFock(k, N, M, v):
     """
     Calling: (void) IndexToFock(k, N, M, v)

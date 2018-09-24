@@ -428,8 +428,8 @@ void applyHconf (MCTDHBsetup MC, Carray C, Cmatrix Ho, Carray Hint, Carray out)
 
 
 
-double complex Proj_Hint (int M, int k, int i, Cmatrix rho_inv,
-               Carray rho2, Carray Hint )
+double complex Proj_Hint (int M, int k, int i, Cmatrix rho_inv, Carray rho2,
+       Carray Hint )
 {   // k and i enumerate orbitals maintaned fixed
     int j,
         s,
@@ -497,29 +497,26 @@ double complex NonLinear (int M, int k, int n, Cmatrix Omat,
 
 
 
-
-
-
-
-
 void OrbDDT (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix newOrb,
      Cmatrix Ho, Carray Hint)
 {   // Right-Hand-Side when isolate orbital's time derivative
-    int k,
+
+    int
+        k,
         s,
-        j;
+        j,
+        M  = MC->Morb,
+        N  = MC->Npar,
+        Mpos  = MC->Mpos,
+        ** IF = MC->IF,
+        ** NCmat = MC->NCmat;
 
-    int  M  = MC->Morb,
-         N  = MC->Npar,
-         Mpos  = MC->Mpos,
-         ** IF = MC->IF;
+    double
+        dx = MC->dx;
     
-    int ** NCmat = MC->NCmat;
-
-    double dx = MC->dx;
-    
-    double complex Proj,
-                   g = MC->inter;
+    double complex
+        Proj,
+        g = MC->inter;
 
     /* ==================================================================== *
      *                                                                      *
@@ -566,12 +563,12 @@ void OrbDDT (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix newOrb,
 
 
 void OrbConfDDT (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix Ho,
-     Carray Hint, Carray newC, Cmatrix newOrb )
+     Carray Hint, Carray dCdt, Cmatrix dOdt )
 {   // Right-Hand-Side of time derivatives both for coefficients and orbitals
     int i;
-    OrbDDT(MC, C, Orb, newOrb, Ho, Hint);
-    applyHconf(MC, C, Ho, Hint, newC);
-    for (i = 0; i < MC->nc; i++) newC[i] = - I * newC[i];
+    OrbDDT(MC, C, Orb, dOdt, Ho, Hint);
+    applyHconf(MC, C, Ho, Hint, dCdt);
+    for (i = 0; i < MC->nc; i++) dCdt[i] = - I * dCdt[i];
 }
 
 
@@ -591,6 +588,7 @@ void lanczos(MCTDHBsetup MCdata, Cmatrix Ho, Carray Hint,
 
     applyHconf(MCdata, lvec[0], Ho, Hint, out);
     diag[0] = carrDot(nc, lvec[0], out);
+
     for (j = 0; j < nc; j++) out[j] = out[j] - diag[0] * lvec[0][j];
 
     for (i = 0; i < lm - 1; i++)
@@ -625,16 +623,17 @@ void lanczos(MCTDHBsetup MCdata, Cmatrix Ho, Carray Hint,
 
 
 void RK4lanczosAfter (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
-{
+{   // Use C in next time-step only in k4 on RK4 method for orbitals. Note
+    // that lvec[0]  ( initial lanczos vector )  holds current time-step C
 
-    int i;  // Coeficient Index Counter
-
-    int  k,  // Counter
-         j,  // Counter
-         lm, // Number of lanczos iterations
-         M = MC->Morb,
-         Mpos = MC->Mpos,
-         Npar = MC->Npar;
+    int
+        i,
+        k,  // Counter
+        j,  // Counter
+        lm, // Number of lanczos iterations
+        M = MC->Morb,
+        Mpos = MC->Mpos,
+        Npar = MC->Npar;
 
     lm = 4; // Follows the order of Runge-Kutta
 
@@ -683,99 +682,9 @@ void RK4lanczosAfter (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
     Cmatrix  Ho = cmatDef(M, M);
     Carray Hint = carrDef(M * M * M *M);
     /* --------------------------------------- */
-
-
-
-    /* ================================================================= *
     
-            COMPUTE AND SUM UP FOUR Ks OF RUNGE-KUTTA for ORBITALS
-
-     * ================================================================= */
-
-
-
-    /* ------------------------------------------------------------------
-    COMPUTE K1 in Orhs
-    --------------------------------------------------------------------- */
-    OrbDDT(MC, C, Orb, Orhs, Ho, Hint);
-    for (k = 0; k < M; k++)
-    {
-        for (j = 0; j < Mpos; j++)
-        {   // Add K1 contribution
-            Onew[k][j] = Orhs[k][j];
-            // Prepare next argument to compute K2
-            Oarg[k][j] = Orb[k][j] + Orhs[k][j] * 0.5 * dt;
-        }
-    }
-
-
-
-    /* ------------------------------------------------------------------
-    COMPUTE K2 in Orhs
-    --------------------------------------------------------------------- */
-    OrbDDT(MC, C, Oarg, Orhs, Ho, Hint);
-    for (k = 0; k < M; k++)
-    {
-        for (j = 0; j < Mpos; j++)
-        {   // Add K2 contribution
-            Onew[k][j] += 2 * Orhs[k][j];
-            // Prepare next argument to compute K3
-            Oarg[k][j] = Orb[k][j] + Orhs[k][j] * 0.5 * dt;
-        }
-    }
-
-
-
-    /* ------------------------------------------------------------------
-    COMPUTE K3 in Orhs
-    --------------------------------------------------------------------- */
-    OrbDDT(MC, C, Oarg, Orhs, Ho, Hint);
-    for (k = 0; k < M; k++)
-    {
-        for (j = 0; j < Mpos; j++)
-        {   // Add K3 contribution
-            Onew[k][j] += 2 * Orhs[k][j];
-            // Prepare next argument to compute K4
-            Oarg[k][j] = Orb[k][j] + Orhs[k][j] * dt;
-        }
-    }
-
-
-
-    /* ------------------------------------------------------------------
-    COMPUTE K4 in Orhs
-    --------------------------------------------------------------------- */
-    OrbDDT(MC, C, Oarg, Orhs, Ho, Hint);
-    for (k = 0; k < M; k++)
-    {   // Add k4 contribution
-        for (j = 0; j < Mpos; j++) Onew[k][j] += Orhs[k][j];
-    }
-
-
-
-    /* ------------------------------------------------------------------
-    Update orbitals in the given time-step
-    --------------------------------------------------------------------- */
-    // Until now Onew  holds the sum K1 + 2 * K2 + 2 * K3 + K4
-    // from the Fourth order Runge-Kutta algorithm. Therefore:
-    for (k = 0; k < M; k++)
-    {   // Update Orbitals
-        for (j = 0; j < Mpos; j++)
-        {
-            Orb[k][j] = Orb[k][j] + Onew[k][j] * dt / 6;
-        }
-    }
-
-
-
-    /* ================================================================= *
     
-            SOLVE ODE FOR COEFFICIENTS USING LANCZOS VECTOR SPACE
-
-     * ================================================================= */
-
-
-
+    
     /* ---------------------------------------------
     Setup values needed to solve the equations for C
     ------------------------------------------------ */
@@ -785,6 +694,14 @@ void RK4lanczosAfter (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
     // Setup initial lanczos vector
     carrCopy(MC->nc, C, lvec[0]);
     /* --------------------------------------------- */
+
+
+
+    /* ================================================================= *
+    
+            SOLVE ODE FOR COEFFICIENTS USING LANCZOS VECTOR SPACE
+
+     * ================================================================= */
 
 
 
@@ -844,6 +761,88 @@ void RK4lanczosAfter (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
 
     /* ================================================================= *
     
+            COMPUTE AND SUM UP FOUR Ks OF RUNGE-KUTTA for ORBITALS
+
+     * ================================================================= */
+
+
+
+    /* ------------------------------------------------------------------
+    COMPUTE K1 in Orhs
+    --------------------------------------------------------------------- */
+    OrbDDT(MC, lvec[0], Orb, Orhs, Ho, Hint);
+    for (k = 0; k < M; k++)
+    {
+        for (j = 0; j < Mpos; j++)
+        {   // Add K1 contribution
+            Onew[k][j] = Orhs[k][j];
+            // Prepare next argument to compute K2
+            Oarg[k][j] = Orb[k][j] + Orhs[k][j] * 0.5 * dt;
+        }
+    }
+
+
+
+    /* ------------------------------------------------------------------
+    COMPUTE K2 in Orhs
+    --------------------------------------------------------------------- */
+    OrbDDT(MC, lvec[0], Oarg, Orhs, Ho, Hint);
+    for (k = 0; k < M; k++)
+    {
+        for (j = 0; j < Mpos; j++)
+        {   // Add K2 contribution
+            Onew[k][j] += 2 * Orhs[k][j];
+            // Prepare next argument to compute K3
+            Oarg[k][j] = Orb[k][j] + Orhs[k][j] * 0.5 * dt;
+        }
+    }
+
+
+
+    /* ------------------------------------------------------------------
+    COMPUTE K3 in Orhs
+    --------------------------------------------------------------------- */
+    OrbDDT(MC, lvec[0], Oarg, Orhs, Ho, Hint);
+    for (k = 0; k < M; k++)
+    {
+        for (j = 0; j < Mpos; j++)
+        {   // Add K3 contribution
+            Onew[k][j] += 2 * Orhs[k][j];
+            // Prepare next argument to compute K4
+            Oarg[k][j] = Orb[k][j] + Orhs[k][j] * dt;
+        }
+    }
+
+
+
+    /* ------------------------------------------------------------------
+    COMPUTE K4 in Orhs
+    --------------------------------------------------------------------- */
+    OrbDDT(MC, C, Oarg, Orhs, Ho, Hint);
+    for (k = 0; k < M; k++)
+    {   // Add k4 contribution
+        for (j = 0; j < Mpos; j++) Onew[k][j] += Orhs[k][j];
+    }
+
+
+
+    /* ------------------------------------------------------------------
+    Update orbitals in the given time-step
+    --------------------------------------------------------------------- */
+    // Until now Onew  holds the sum K1 + 2 * K2 + 2 * K3 + K4
+    // from the Fourth order Runge-Kutta algorithm. Therefore:
+    for (k = 0; k < M; k++)
+    {   // Update Orbitals
+        for (j = 0; j < Mpos; j++)
+        {
+            Orb[k][j] = Orb[k][j] + Onew[k][j] * dt / 6;
+        }
+    }
+
+
+
+    /* ================================================================= *
+    
                                 RELEASE MEMORY
 
      * ================================================================= */
@@ -870,15 +869,17 @@ void RK4lanczosAfter (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
 
 
 void RK4lanczosBefore (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
-{
-    int i;  // Coeficient Index Counter
-
-    int  k,  // Counter
-         j,  // Counter
-         lm, // Number of lanczos iterations
-         M = MC->Morb,
-         Mpos = MC->Mpos,
-         Npar = MC->Npar;
+{   // Use C in next time-step in k2 k3 and k4 on  RK4  method for orbitals
+    // Note that lvec[0] (initial lanczos vector) holds current time-step C
+    
+    int
+        i,
+        k,  // Counter
+        j,  // Counter
+        lm, // Number of lanczos iterations
+        M = MC->Morb,
+        Mpos = MC->Mpos,
+        Npar = MC->Npar;
 
     lm = 4; // Follows the order of Runge-Kutta
 
@@ -1008,7 +1009,7 @@ void RK4lanczosBefore (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
     /* ------------------------------------------------------------------
     COMPUTE K1 in Orhs
     --------------------------------------------------------------------- */
-    OrbDDT(MC, C, Orb, Orhs, Ho, Hint);
+    OrbDDT(MC, lvec[0], Orb, Orhs, Ho, Hint);
     for (k = 0; k < M; k++)
     {
         for (j = 0; j < Mpos; j++)
@@ -1263,13 +1264,13 @@ void RK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
 void IRK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
 {   // Apply 4-th order Runge-Kutta routine given a (COMPLEX)time step
 
-    int i; // Coeficient Index Counter
-
-    int  k, // Orbital counter
-         j, // discretized position counter
-         M = MC->Morb,
-         Mpos = MC->Mpos,
-         Npar = MC->Npar;
+    int
+        i,
+        k, // Orbital counter
+        j, // discretized position counter
+        M = MC->Morb,
+        Mpos = MC->Mpos,
+        Npar = MC->Npar;
 
     Carray Crhs = carrDef(MC->nc);
     Carray Cnew = carrDef(MC->nc);

@@ -1,14 +1,7 @@
 #include "../include/MCTDHB_observables.h"
 
-void SetupHo (
-    int Morb,
-    int Mpos,
-    Cmatrix Omat,
-    double dx,
-    double a2,
-    double complex a1,
-    Rarray V,
-    Cmatrix Ho )
+void SetupHo (int Morb, int Mpos, Cmatrix Omat, double dx, double a2,
+     double complex a1, Rarray V, Cmatrix Ho )
 {   // Setup matrix elements of noninteracting part
 
     int i,
@@ -39,13 +32,8 @@ void SetupHo (
     free(ddxi); free(ddxj); free(toInt);
 }
 
-void SetupHint (
-    int Morb,
-    int Mpos,
-    Cmatrix Omat,
-    double dx,
-    double inter,
-    Carray Hint )
+void SetupHint (int Morb, int Mpos, Cmatrix Omat, double dx, double inter,
+     Carray Hint)
 {   // Matrix elements of interacting part
 
     int i,

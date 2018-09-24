@@ -4,9 +4,54 @@
 
 
 
+/* =======================================================================
+ *
+ *
+ * MODULE OF FUNCTIONS THAT PROPAGATE THE GROSS-PITAEVSKII EQUATION
+ * IN IMAGINARY TIME : t = - i T with T being real
+ *
+ *
+ * i dS/dt = ( a2 (d^2/dx^2) + a1 (d/dx) + V(x) + inter |S|^2 ) S(x,t)
+ *
+ *
+ * This module implement the mostly well know and used  integrators  to
+ * the Gross-Pitaevskii(GP) equation. The routines are named as follows
+ *
+ *  - First 3 letters : IGP (from Gross-Pitaevskii)
+ *
+ *  - Next letters : identify the methods
+ *      (1) CN for Crank-Nicolson finite differences scheme
+ *      (2) FFT for Fast Fourier transform to deal with derivatives
+ *
+ *  - The next letters apply to CN on how to solve the linear system
+ *      (1) SM for Sherman-Morrison formula.
+ *      (2) LU for the decomposition.
+ *  
+ *  - For those who use 4th order Runge-Kutta method to integrate the
+ *    nonlinear part from the split-step, we have additionally RK4 as
+ *    a suffix, otherwise,  it  is  done going one step forward using
+ *    integration by rectangles and doing again the same steps  using
+ *    integration by trapezium rule
+ *
+ *  M is the number of discretized points (size of arrays)
+ *  N is the number of time-steps to be propagated the initial condition
+ *  E end up with the energy on every time-step
+ *
+ *  CN methods supports both cyclic and zero boundary condition as
+ *  identified by the cyclic(boolean) parameter.
+ *
+ * ======================================================================= */
+
+
+
+
+
 void IGPFFT(int M, int N, double dx, double dT, double a2, double complex a1,
      double inter, Rarray V, Carray S, Carray E)
-{
+{   // Evolve the wave-function given an initial condition in S
+    // on pure imaginary time to converge to an energy minimum.
+    // Use FFT to compute derivatives on  linear  part  of  PDE
+    // hence the boundary is required to be periodic
 
     int
         i,
@@ -28,17 +73,17 @@ void IGPFFT(int M, int N, double dx, double dT, double a2, double complex a1,
 
     MKL_LONG s; // status of called MKL FFT functions
 
-    Rarray abs2 = rarrDef(M);       // abs square of wave function
+    Rarray abs2 = rarrDef(M);        // abs square of wave function
 
-    Rarray out  = rarrDef(M);       // hold linear and nonlinear potential
+    Rarray out  = rarrDef(M);        // hold linear and nonlinear potential
 
-    Carray exp_der = carrDef(m);    // exponential of derivative operator
+    Carray exp_der = carrDef(m);     // exponential of derivative operator
 
-    Carray stepexp = carrDef(M);    // Exponential of potential
+    Carray stepexp = carrDef(M);     // Exponential of potential
 
-    Carray back_fft = carrDef(m);   // go back to position space
+    Carray back_fft = carrDef(m);    // go back to position space
 
-    Carray foward_fft = carrDef(m); // go to frequency space
+    Carray forward_fft = carrDef(m); // go to frequency space
 
 
 
@@ -69,7 +114,7 @@ void IGPFFT(int M, int N, double dx, double dT, double a2, double complex a1,
         if (i <= (m - 1) / 2) { freq = (2 * PI * i) / (m * dx);       }
         else                  { freq = (2 * PI * (i - m)) / (m * dx); }
         // exponential of derivative operators
-        exp_der[i] = cexp((-1) * Idt * a2 * freq * freq);
+        exp_der[i] = cexp(Idt * a1 * freq * I - Idt * a2 * freq * freq);
     }
     /* ------------------------------------------------------------------- */
 
@@ -82,11 +127,14 @@ void IGPFFT(int M, int N, double dx, double dT, double a2, double complex a1,
         // Apply exponential ofone-body potential and nonlinear part
         rarrUpdate(M, V, inter, abs2, out);
         rcarrExp(M, Idt / 2, out, stepexp);
-        carrMultiply(m, stepexp, S, foward_fft);
+        carrMultiply(m, stepexp, S, forward_fft);
 
-        s = DftiComputeForward(desc, foward_fft);       // go to momentum space
-        carrMultiply(m, exp_der, foward_fft, back_fft); // apply derivatives
-        s = DftiComputeBackward(desc, back_fft);        // back to real space
+        // go to momentum space
+        s = DftiComputeForward(desc, forward_fft);
+        // apply exponential of derivatives
+        carrMultiply(m, exp_der, forward_fft, back_fft);
+        // go back to position space
+        s = DftiComputeBackward(desc, back_fft);
         carrMultiply(m, stepexp, back_fft, S);
         S[m] = S[0];
 
@@ -104,7 +152,7 @@ void IGPFFT(int M, int N, double dx, double dT, double a2, double complex a1,
 
     free(exp_der);
     free(stepexp);
-    free(foward_fft);
+    free(forward_fft);
     free(back_fft);
     free(abs2);
     free(out);

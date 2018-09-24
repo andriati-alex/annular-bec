@@ -1,5 +1,69 @@
 #include "../include/calculus.h"
 
+
+
+
+
+double complex Csimps(int n, Carray f, double dx)
+{
+    if (n == 1) return 0; // integrating over empty set
+
+    int i, m = n - 1;
+    double complex sums = 0;
+
+    #pragma omp parallel for private(i) reduction(+:sums)
+    for (i = 0; i < m / 2 - 1; i++)
+    {
+        sums = sums + 2 * f[2*(i+1)] + 4 * f[2*i+1];
+    }
+
+    if (m % 2 == 0) { return (sums + f[0] + f[m] + 4 * f[m-1]) * dx / 3; }
+
+    // case odd number of intervals integrate last by trapezium
+    if (m > 2) sums = (sums + f[0] + f[m-1] + 4 * f[m-2]) * dx / 3;
+    return sums + (f[m-1] + f[m]) * dx * 0.5;
+}
+
+
+
+
+
+double Rsimps(int n, Rarray f, double dx)
+{
+    if (n == 1) return 0; // integrating over empty set
+
+    int i, m = n - 1;
+    double sums = 0;
+
+    #pragma omp parallel for private(i) reduction(+:sums)
+    for (i = 0; i < m / 2 - 1; i++) sums += 2 * f[2*(i+1)] + 4 * f[2*i+1];
+
+    if (m % 2 == 0) return (sums + f[0] + f[m] + 4 * f[m-1]) * dx / 3;
+
+    /* case odd number of intervals integrate last by trapezium */
+    if (m > 2) sums = (sums + f[0] + f[m-1] + 4 * f[m-2]) * dx / 3;
+    return sums + (f[m-1] + f[m]) * dx * 0.5;
+}
+
+
+
+
+
+void renormalize(int n, Carray f, double dx, double norm)
+{
+    int i;
+    double renorm;
+    Rarray ToInt = rarrDef(n);
+
+    carrAbs2(n, f, ToInt);
+    renorm = norm * sqrt(1.0 / Rsimps(n, ToInt, dx));
+    for (i = 0; i < n; i++) f[i] = f[i] * renorm;
+}
+
+
+
+
+
 void Ortonormalize(int Mfun, int Mpos, double dx, Cmatrix F)
 {   // F[k][:] has the k-th function of the basis
     int i, j, k;
@@ -23,50 +87,9 @@ void Ortonormalize(int Mfun, int Mpos, double dx, Cmatrix F)
     free(toInt);
 }
 
-void renormalize(int n, Carray f, double dx, double norm)
-{
-    int i;
-    double renorm;
-    Rarray ToInt = rarrDef(n);
 
-    carrAbs2(n, f, ToInt);
-    renorm = norm * sqrt(1.0 / Rsimps(n, ToInt, dx));
-    for (i = 0; i < n; i++) f[i] = f[i] * renorm;
-}
 
-double complex Csimps(int n, Carray f, double dx)
-{
-    if (n == 1) return 0; // integrating over empty set
 
-    int i, m = n - 1;
-    double complex sums = 0;
-
-    #pragma omp parallel for private(i) reduction(+:sums)
-    for (i = 0; i < m / 2 - 1; i++) sums += 2 * f[2*(i+1)] + 4 * f[2*i+1];
-
-    if (m % 2 == 0) { return (sums + f[0] + f[m] + 4 * f[m-1]) * dx / 3; }
-
-    /* case odd number of intervals integrate last by trapezium */
-    if (m > 2) sums = (sums + f[0] + f[m-1] + 4 * f[m-2]) * dx / 3;
-    return sums + (f[m-1] + f[m]) * dx * 0.5;
-}
-
-double Rsimps(int n, Rarray f, double dx)
-{
-    if (n == 1) return 0; // integrating over empty set
-
-    int i, m = n - 1;
-    double sums = 0;
-
-    #pragma omp parallel for private(i) reduction(+:sums)
-    for (i = 0; i < m / 2 - 1; i++) sums += 2 * f[2*(i+1)] + 4 * f[2*i+1];
-
-    if (m % 2 == 0) return (sums + f[0] + f[m] + 4 * f[m-1]) * dx / 3;
-
-    /* case odd number of intervals integrate last by trapezium */
-    if (m > 2) sums = (sums + f[0] + f[m-1] + 4 * f[m-2]) * dx / 3;
-    return sums + (f[m-1] + f[m]) * dx * 0.5;
-}
 
 void dxFFT(int n, Carray f, double dx, Carray dfdx)
 {
@@ -101,6 +124,10 @@ void dxFFT(int n, Carray f, double dx, Carray dfdx)
     dfdx[N] = dfdx[0]; // boundary point
 }
 
+
+
+
+
 void dxCyclic(int n, Carray f, double dx, Carray dfdx)
 {
     int i;
@@ -111,6 +138,10 @@ void dxCyclic(int n, Carray f, double dx, Carray dfdx)
     dfdx[n-1] = dfdx[0];
     for (i = 1; i < n - 1; i++) dfdx[i] = (f[i+1] - f[i-1]) * r;
 }
+
+
+
+
 
 void applyL0(int n, Carray f, double dx, double a2, double complex a1, 
              Rarray V, double inter, double mu, Carray L0f)
@@ -128,18 +159,22 @@ void applyL0(int n, Carray f, double dx, double a2, double complex a1,
     }
     
     abs2 = creal(f[0]) * creal(f[0]) + cimag(f[0]) * cimag(f[0]);
-    L0f[0] =  (f[1] - f[n - 1]) * ddx;
+    L0f[0]  =  (f[1] - f[n - 1]) * ddx;
     L0f[0] += (f[1] - 2 * f[0] + f[n - 1]) * d2dx;
     L0f[0] += f[0] * (V[0] - mu + inter * abs2);
     
     abs2 = creal(f[n-1]) * creal(f[n-1]) + cimag(f[n-1]) * cimag(f[n-1]);
-    L0f[n-1] =  (f[0] - f[n - 2]) * ddx;
+    L0f[n-1]  =  (f[0] - f[n - 2]) * ddx;
     L0f[n-1] += (f[0] - 2 * f[n-1] + f[n - 2]) * d2dx;
     L0f[n-1] += f[n-1] * (V[n-1] - mu + inter * abs2);
 }
 
+
+
+
+
 double complex Functional(int M, double dx, double a2, double complex a1,
-                          double inter, Rarray V, Carray f)
+               double inter, Rarray V, Carray f)
 {
     int i;
     double norm;

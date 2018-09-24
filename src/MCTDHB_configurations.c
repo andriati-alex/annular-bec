@@ -24,21 +24,38 @@
 
 
 int fac(int n)
-{
+{   // return n !
     int n_fac = 1;
     for (int i = 1; i < n; i++) n_fac = n_fac * (i + 1);
     return n_fac;
 }
 
+
+
+
+
 int NC(int N, int M)
-{
-    int n = 1;
-    for (int i = N + M - 1; i > N; i --) n = n * i;
-    return n / fac(M - 1);
+{   // Return # of possible configurations of N particles in M orbitals
+    int i, n = 1;
+    if (M > N)
+    {
+        for (i = N + M - 1; i > M - 1; i --) n = n * i;
+        return n / fac(N);
+    }
+    else
+    {
+        for (i = N + M - 1; i > N; i --) n = n * i;
+        return n / fac(M - 1);
+    }
 }
 
+
+
+
+
 int ** MountNCmat(int N, int M)
-{
+{   // Matrix of all possible configurations with
+    // # particles < N and M < # of orbitals
     int i,
         j;
 
@@ -58,8 +75,12 @@ int ** MountNCmat(int N, int M)
     return NCmat;
 }
 
+
+
+
+
 int ** MountFocks(int N, int M, int ** NCmat)
-{
+{   // All possible occupation vectors organized by rows
     int k;
 
     int ** ItoFock = (int **) malloc(NC(N, M) * sizeof(int *));
@@ -72,6 +93,10 @@ int ** MountFocks(int N, int M, int ** NCmat)
 
     return ItoFock;
 }
+
+
+
+
 
 void IndexToFock(int k, int N, int M, int ** NCmat, int * v)
 {
@@ -104,6 +129,10 @@ void IndexToFock(int k, int N, int M, int ** NCmat, int * v)
     for (i = N; i > 0; i--) v[0] = v[0] + 1;
 }
 
+
+
+
+
 int FockToIndex(int N, int M, int ** NCmat, int * v)
 {
     int i, n;
@@ -125,6 +154,10 @@ int FockToIndex(int N, int M, int ** NCmat, int * v)
 
     return k;
 }
+
+
+
+
 
 void JumpMapping(int N, int M, int ** NCmat, int ** IF, int * Map)
 {
