@@ -525,7 +525,7 @@ void OrbDDT (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix newOrb,
      * ==================================================================== */
 
     SetupHo(M, Mpos, Orb, dx, MC->a2, MC->a1, MC->V, Ho);
-    SetupHint(M, Mpos, Orb, dx, MC->inter, Hint);
+    SetupHint(M, Mpos, Orb, dx, g, Hint);
 
     Cmatrix rho = cmatDef(M, M);
     Cmatrix rho_inv = cmatDef(M, M);
@@ -577,7 +577,10 @@ void OrbConfDDT (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix Ho,
 
 void lanczos(MCTDHBsetup MCdata, Cmatrix Ho, Carray Hint,
      int lm, Carray diag, Carray offdiag, Cmatrix lvec)
-{
+{   // Improved lanczos iterations  with  reorthogonalization
+    // lanczos vectors are store in lvec and diag and offdiag
+    // hold the values of tridiagonal real matrix
+
     int i,
         j,
         k,
@@ -1418,7 +1421,26 @@ void LinearPartSM (int Mpos, int Morb, CCSmat rhs_mat, Carray upper,
     {   // For each orbital k solve a tridiagonal system obtained by CN
         CCSvec(size, rhs_mat->vec, rhs_mat->col, rhs_mat->m, Orb[k], rhs);
         triCyclicSM(size, upper, lower, mid, rhs, Orb[k]);
-        Orb[k][size] = Orb[k][0]; // the boundary
+    }
+
+    free(rhs);
+}
+
+
+
+
+
+void LinearPartLU (int Mpos, int Morb, CCSmat rhs_mat, Carray upper,
+     Carray lower, Carray mid, Cmatrix Orb )
+{   // Laplacian part. Solve using CN-discretization
+    int k, size = Mpos - 1;
+
+    Carray rhs = carrDef(size);
+
+    for (k = 0; k < Morb; k++)
+    {   // For each orbital k solve a tridiagonal system obtained by CN
+        CCSvec(size, rhs_mat->vec, rhs_mat->col, rhs_mat->m, Orb[k], rhs);
+        triCyclicLU(size, upper, lower, mid, rhs, Orb[k]);
     }
 
     free(rhs);
@@ -1432,139 +1454,49 @@ void LinearPartSM (int Mpos, int Morb, CCSmat rhs_mat, Carray upper,
      *                                                                    *
      *              Give the solution after some time steps               *
      *                                                                    *
-     * Given the structure MCTDHBsetup whose contains all relevant        *
-     * parameters, do the time (real or complex) evolution calling        *
-     * separetely the nonlinear part together with the coeficients        *
+     * Given the structure MCTDHBsetup whose contains all  relevant       *
+     * parameters, do the time (real or complex) evolution  calling       *
+     * separetely the nonlinear part together with the  coeficients       *
      * in half of the time step. Then It evolves an entire step the       *
-     * linear part of orbital's equation. Finally evolve one  more        *
+     * linear part of orbital's equation. Finally evolve  one  more       *
      * half time step the nonlinear part.                                 */
 
 
 
 
 
-void MCTDHB_REAL_LanczosRK4I (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
-     double dt, int Nsteps, int cyclic )
+void MCTDHB_CN_REAL (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
+     int Nsteps, int method, int cyclic)
 {
-    int i, Mpos = MC->Mpos, k, l, s;
-
-    double dx = MC->dx,
-           a2 = MC->a2;
-
-    double complex a1 = MC->a1;
-
-    // used to store matrix elements of linear part
-    Carray to_int = carrDef(Mpos);
-    Carray upper  = carrDef(Mpos - 1);
-    Carray lower  = carrDef(Mpos - 1);
-    Carray mid    = carrDef(Mpos - 1);
-
-
-
-    /* ------------------------------------------------------------------- *
-     *         Setup Right-Hand-Side matrix of linear part of PDE          *
-     * ------------------------------------------------------------------- */
-
-    // fill main diagonal (use upper as auxiliar array)
-    carrFill(Mpos - 1, - a2 * dt / dx / dx + I, upper);
-    rcarrUpdate(Mpos - 1, upper, dt, MC->V, mid);
-
-    // fill upper diagonal
-    carrFill(Mpos - 1, a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, upper);
-    if (cyclic) { upper[Mpos-2] = a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
-    else        { upper[Mpos-2] = 0;                                        }
-
-    // fill lower diagonal
-    carrFill(Mpos - 1, a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, lower);
-    if (cyclic) { lower[Mpos-2] = a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
-    else        { lower[Mpos-2] = 0;                                        }
-
-    // Store in CCS format the RHS of discretized system of equations
-    CCSmat rhs_mat = CyclicToCCS(Mpos - 1, upper, lower, mid);
-
-
-
-    /* ------------------------------------------------------------------- *
-     *                    Setup Cyclic tridiagonal matrix                  *
-     * ------------------------------------------------------------------- */
-
-    // fill main diagonal (use upper as auxiliar array)
-    carrFill(Mpos - 1, a2 * dt / dx / dx + I, upper);
-    rcarrUpdate(Mpos - 1, upper, -dt, MC->V, mid);
-
-    // fill upper diagonal
-    carrFill(Mpos - 1, - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, upper);
-    if (cyclic) { upper[Mpos-2] = - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
-    else        { upper[Mpos-2] = 0;                                          }
-
-    // fill lower diagonal
-    carrFill(Mpos - 1, - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, lower);
-    if (cyclic) { lower[Mpos-2] = - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
-    else        { lower[Mpos-2] = 0;                                          }
-
-    for (i = 0; i < Nsteps; i++)
-    {
-        RK4lanczosBefore(MC, Orb, C, dt / 2);
-        LinearPartSM(MC->Mpos, MC->Morb, rhs_mat, upper, lower, mid, Orb);
-        RK4lanczosAfter(MC, Orb, C, dt / 2);
-        // Store energy
-        E[i] = Energy(MC, Orb, C);
-
-
-
-        /* ----------------------------------------------------------------
-         * print to check orthogonality/Energy
-        ------------------------------------------------------------------- */
-        printf("\n\nAfter %d time steps, Energy = ", i + 1);
-        cPrint(E[i]);
-        printf(". Orthogonality matrix is:\n");
-        for (k = 0; k < MC->Morb; k++)
-        {
-            printf("\n\t");
-            for (l = 0; l < MC->Morb; l++)
-            {
-                for (s = 0; s < MC->Mpos; s++)
-                {
-                    to_int[s] = conj(Orb[k][s]) * Orb[l][s];
-                }
-                printf(" "); cPrint(Csimps(MC->Mpos, to_int, MC->dx));
-            }
-        }
-        printf("\n\n|| C || = %.6lf", carrMod(MC->nc, C));
-        /* ---------------------------------------------------------------- */
-    }
-
-    CCSFree(rhs_mat);
-    free(to_int);
-    free(upper);
-    free(lower);
-    free(mid);
-}
-
-
-
-
-
-
-void MCTDHB_REAL_RK4I (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
-     double dt, int Nsteps, int cyclic )
-{
-    int i,
+    int
+        i,
         k,
         l,
         s,
-        Mpos = MC->Mpos;
+        Mpos;
 
-    double dx = MC->dx,
-           a2 = MC->a2;
+    Mpos = MC->Mpos;
 
-    double complex a1 = MC->a1;
+    double
+        dx = MC->dx,
+        a2 = MC->a2;
+
+    double complex
+        tr,
+        a1 = MC->a1;
 
     // used to store matrix elements of linear part
-    Carray upper = carrDef(Mpos - 1);
-    Carray lower = carrDef(Mpos - 1);
-    Carray mid   = carrDef(Mpos - 1);
-    Carray to_int = carrDef(Mpos);
+    Carray
+        to_int = carrDef(Mpos),
+        upper  = carrDef(Mpos - 1),
+        lower  = carrDef(Mpos - 1),
+        mid    = carrDef(Mpos - 1);
+
+    Cmatrix
+        rho = cmatDef(MC->Morb, MC->Morb);
+
+    CCSmat
+        rhs_mat;
 
 
 
@@ -1587,7 +1519,7 @@ void MCTDHB_REAL_RK4I (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
     else        { lower[Mpos-2] = 0;                                        }
 
     // Store in CCS format the RHS of discretized system of equations
-    CCSmat rhs_mat = CyclicToCCS(Mpos - 1, upper, lower, mid);
+    rhs_mat = CyclicToCCS(Mpos - 1, upper, lower, mid);
 
 
 
@@ -1611,20 +1543,49 @@ void MCTDHB_REAL_RK4I (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
     for (i = 0; i < Nsteps; i++)
     {
-        RK4step(MC, Orb, C, dt / 2);
-        LinearPartSM(MC->Mpos, MC->Morb, rhs_mat, upper, lower, mid, Orb);
-        RK4step(MC, Orb, C, dt / 2);
-        // Store energy
-        E[i] = Energy(MC, Orb, C);
+        /* Half step nonlinear part
+         * -------------------------------------- */
+        if (method == 12 || method == 22)
+            RK4lanczosBefore(MC, Orb, C, dt / 2);
+        else
+            RK4step(MC, Orb, C, dt / 2);
+        /* -------------------------------------- */
+
+        /* One step linear part
+         * --------------------------------------------------------------- */
+        if (method == 21 || method == 22)
+            LinearPartLU(Mpos, MC->Morb, rhs_mat, upper, lower, mid, Orb);
+        else
+            LinearPartSM(Mpos, MC->Morb, rhs_mat, upper, lower, mid, Orb);
+        // The boundary
+        if (cyclic)
+        { for (k = 0; k < MC->Morb; k++) Orb[k][Mpos-1] = Orb[k][0]; }
+        else
+        { for (k = 0; k < MC->Morb; k++) Orb[k][Mpos-1] = 0;         }
+        /* --------------------------------------------------------------- */
+
+
+        /* Another Half step nonlinear part
+         * -------------------------------------- */
+        if (method == 12 || method == 22)
+            RK4lanczosAfter(MC, Orb, C, dt / 2);
+        else
+            RK4step(MC, Orb, C, dt / 2);
+        /* -------------------------------------- */
+
+
+        // Build rho after have evolved one step
+        OBrho(MC->Npar, MC->Morb, MC->NCmat, MC->IF, C, rho);
+        tr = 0;
+        for (k = 0; k < MC->Morb; k++) tr = tr + rho[k][k];
 
 
 
         /* ----------------------------------------------------------------
          * print to check orthogonality/Energy
         ------------------------------------------------------------------- */
-        printf("\n\nAfter %d time steps, Energy = ", i + 1);
-        cPrint(E[i]);
-        printf(". Orthogonality matrix is:\n");
+        printf("\n\nAfter %d time steps, Tr(rho) = ", i + 1); cPrint(tr);
+        printf(". Orthogonality matrix is:\n\n");
         for (k = 0; k < MC->Morb; k++)
         {
             printf("\n\t");
@@ -1641,6 +1602,7 @@ void MCTDHB_REAL_RK4I (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
         /* ---------------------------------------------------------------- */
     }
 
+    cmatFree(MC->Morb, rho);
     CCSFree(rhs_mat);
     free(to_int);
     free(upper);
@@ -1652,7 +1614,7 @@ void MCTDHB_REAL_RK4I (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
 
 
-void MCTDHB_IMAG_RK4I (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
+void MCTDHB_CN_IMAG (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
      double dT, int Nsteps, int cyclic)
 {
     int i,
@@ -1661,17 +1623,23 @@ void MCTDHB_IMAG_RK4I (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
         s,
         Mpos = MC->Mpos;
 
-    double dx = MC->dx,
-           a2 = MC->a2;
+    double
+        dx = MC->dx,
+        a2 = MC->a2;
 
-    double complex a1 = MC->a1,
-                   dt = - I * dT;
+    double complex
+        a1 = MC->a1,
+        dt = - I * dT;
 
     // used to store matrix elements of linear part
-    Carray upper = carrDef(Mpos - 1);
-    Carray lower = carrDef(Mpos - 1);
-    Carray mid   = carrDef(Mpos - 1);
-    Carray to_int = carrDef(Mpos);
+    Carray
+        upper  = carrDef(Mpos - 1),
+        lower  = carrDef(Mpos - 1),
+        mid    = carrDef(Mpos - 1),
+        to_int = carrDef(Mpos);
+
+    CCSmat
+        rhs_mat;
 
 
 
@@ -1694,7 +1662,7 @@ void MCTDHB_IMAG_RK4I (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
     else        { lower[Mpos-2] = 0;                                        }
 
     // Store in CCS format the RHS of discretized system of equations
-    CCSmat rhs_mat = CyclicToCCS(Mpos - 1, upper, lower, mid);
+    rhs_mat = CyclicToCCS(Mpos - 1, upper, lower, mid);
 
 
 
@@ -1735,7 +1703,7 @@ void MCTDHB_IMAG_RK4I (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
         ------------------------------------------------------------------- */
         printf("\n\nAfter %d time steps, Energy = ", i + 1);
         cPrint(E[i]);
-        printf(". Orthogonality matrix is:\n");
+        printf(". Orthogonality matrix is:\n\n");
         for (k = 0; k < MC->Morb; k++)
         {
             printf("\n\t");

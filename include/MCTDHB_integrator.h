@@ -158,6 +158,13 @@ void LinearPartSM
 
 
 
+void LinearPartLU (int Mpos, int Morb, CCSmat rhs_mat, Carray upper,
+     Carray lower, Carray mid, Cmatrix Orb);
+
+
+
+
+
 /* ==========================================================================
  *                                                                   *
  *                     Main routine to be called                     *
@@ -168,46 +175,15 @@ void LinearPartSM
 
 
 
-void MCTDHB_REAL_LanczosRK4I
-(   // Call the subroutines to solve nonlinear and linear part
-    MCTDHBsetup MC,
-    Cmatrix Orb, // Modified/Overwritten at each time step
-    Carray C,    // Modified/Overwritten at each time step
-    Carray E,    // Energy at each time step
-    double dt,
-    int Nsteps,
-    int cyclic
-);
+void MCTDHB_CN_REAL (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
+     int Nsteps, int method, int cyclic);
 
 
 
 
 
-void MCTDHB_REAL_RK4I
-(   // Call the subroutines to solve nonlinear and linear part
-    MCTDHBsetup MC,
-    Cmatrix Orb, // Modified/Overwritten at each time step
-    Carray C,    // Modified/Overwritten at each time step
-    Carray E,    // Energy at each time step
-    double dt,
-    int Nsteps,
-    int cyclic
-);
-
-
-
-
-
-void MCTDHB_IMAG_RK4I
-(   // Call subroutines with imaginary time to get ground state
-    MCTDHBsetup MC,
-    Cmatrix Orb, // Modified/Overwritten and renormalized at each time step
-    Carray C,    // Modified/Overwritten and renormalized at each time step
-    Carray E,    // Energy at each time step
-    double dT,
-    int Nsteps,
-    int cyclic
-);
+void MCTDHB_CN_IMAG (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
+     double dT, int Nsteps, int cyclic);
 
 
 
