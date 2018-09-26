@@ -528,6 +528,16 @@ void GPCNSM(int M, int N, double dx, double dt, double a2, double complex a1,
 
 
 
+/*  =====================================================================  *
+
+                      NONLINEAR PART SOLVED BY RUNGE-KUTTA
+
+    =====================================================================  */
+
+
+
+
+
 void NonLinearDDT(int M, double t, Carray Psi, Carray inter, Carray Dpsi)
 {   // The Right-Hand-Side of derivative of non-linear part is computed
     // on Dpsi after used split-step technique. A function  to  be used
@@ -544,6 +554,28 @@ void NonLinearDDT(int M, double t, Carray Psi, Carray inter, Carray Dpsi)
         mod_squared  = creal(Psi[i]) * creal(Psi[i]);
         mod_squared += cimag(Psi[i]) * cimag(Psi[i]);
         Dpsi[i] = - I * inter[0] * mod_squared * Psi[i];
+    }
+}
+
+
+
+
+
+void NonLinearVDDT(int M, double t, Carray Psi, Carray FullPot, Carray Dpsi)
+{   // The Right-Hand-Side of derivative of non-linear and linear  potential
+    // part. As a extra argument take the interaction strength in FullPot[0]
+    // and the linear potential computed at position i in FullPot[i + 1]
+
+    int i;
+
+    // sum real and imaginary part squared to get the modulus squared
+    double mod_squared;
+
+    for (i = 0; i < M; i++)
+    {
+        mod_squared  = creal(Psi[i]) * creal(Psi[i]);
+        mod_squared += cimag(Psi[i]) * cimag(Psi[i]);
+        Dpsi[i] = - I * (FullPot[0] * mod_squared + FullPot[i + 1] ) * Psi[i];
     }
 }
 
@@ -655,4 +687,116 @@ void GPCNSMRK4(int M, int N, double dx, double dt, double a2, double complex a1,
     free(mid);
     free(rhs);
     CCSFree(rhs_mat);
+}
+
+
+
+
+void GPFFTRK4(int M, int N, double dx, double dt, double a2, double complex a1,
+     double inter, Rarray V, Carray S, char fname[], int n)
+{   // Evolve the wave-function given an initial condition in S
+    // that is overwritten at each time-step.  The  results are
+    // recorded in a file named 'fname' on every 'n' steps. Use
+    // FFT to compute linear derivatives part of  PDE hence the
+    // boundary is consider to be periodic in the last position
+    // Solve nonlinear part using 4th order Runge-Kutta
+    
+    // File to write every n step the time-step solution
+    FILE * out_data = fopen(fname, "w");
+
+    int
+        k,
+        i,
+        j,
+        m;
+
+    m = M - 1; // ignore the last point that is the boudary
+
+    double
+        freq;
+
+    double complex
+        Idt;
+    
+    Idt = 0.0 - dt * I;
+
+
+
+    MKL_LONG s; // status of called MKL FFT functions
+
+    Carray argRK4  = carrDef(M);     // output of linear and nonlinear pot
+
+    Carray exp_der = carrDef(m);     // exponential of derivative operator
+
+    Carray forward_fft = carrDef(m); // go to frequency space
+
+    Carray back_fft = carrDef(m);    // back to position space
+    
+    Carray FullPot = carrDef(M + 1);
+
+    // Setup RHS of potential splitted-step part of derivatives
+    FullPot[0] = inter;
+    for (i = 0; i < M; i++) FullPot[i + 1] = V[i];
+    
+
+
+    /* setup descriptor (MKL implementation of FFT)
+     * -------------------------------------------------------------------- */
+    DFTI_DESCRIPTOR_HANDLE desc;
+    s = DftiCreateDescriptor(&desc, DFTI_DOUBLE, DFTI_COMPLEX, 1, m);
+    s = DftiSetValue(desc, DFTI_FORWARD_SCALE, 1.0 / sqrt(m));
+    s = DftiSetValue(desc, DFTI_BACKWARD_SCALE, 1.0 / sqrt(m));
+    s = DftiCommitDescriptor(desc);
+    /* -------------------------------------------------------------------- */
+
+
+
+    /* setup Fourier Frequencies and the exponential of derivative operator
+     * -------------------------------------------------------------------- */
+    for (i = 0; i < m; i++) {
+        if (i <= (m - 1) / 2) { freq = (2 * PI * i) / (m * dx);       }
+        else                  { freq = (2 * PI * (i - m)) / (m * dx); }
+        // exponential of derivative operators
+        exp_der[i] = cexp(Idt * a1 * freq * I - Idt * a2 * freq * freq);
+    }
+    /* -------------------------------------------------------------------- */
+
+
+
+    /* Apply Split step and solve separately nonlinear and linear part */
+    /*******************************************************************/
+
+
+
+    k = 1;
+    for (i = 0; i < N; i++)
+    {
+        RK4step(M, dt/2, 0, S, FullPot, argRK4, NonLinearVDDT);
+        carrCopy(m, argRK4, forward_fft);
+
+        // go to momentum space
+        s = DftiComputeForward(desc, forward_fft);
+        // apply exponential of derivatives
+        carrMultiply(m, exp_der, forward_fft, back_fft);
+        // go back to position space
+        s = DftiComputeBackward(desc, back_fft);
+        carrCopy(m, back_fft, argRK4);
+        argRK4[m] = argRK4[0]; // cyclic condition
+
+        RK4step(M, dt/2, 0, argRK4, FullPot, S, NonLinearVDDT);
+
+        // record data every n steps
+        if (k == n) { record_step(out_data, M, S); k = 1; }
+        else        { k = k + 1;                          }
+    }
+
+    fclose(out_data);
+
+    s = DftiFreeDescriptor(&desc);
+
+    free(exp_der);
+    free(forward_fft);
+    free(back_fft);
+    free(argRK4);
+    free(FullPot);
 }

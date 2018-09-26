@@ -109,11 +109,30 @@ void NonLinearDDT(int M, double t, Carray Psi, Carray inter, Carray Dpsi);
 
 
 
+void NonLinearVDDT(int M, double t, Carray Psi, Carray FullPot, Carray Dpsi);
+/* ------------------------------------------------------------------------
+ * Time-derivative from nonderivative part after split-step (called in RK4)
+ * ------------------------------------------------------------------------ */
+
+
+
+
+
 void GPCNSMRK4(int M, int N, double dx, double dt, double a2, double complex a1,
      double inter, Rarray V, int cyclic, Carray S, char fname [], int n);
 /* ---------------------------------------
  * Crank-Nicolson with Sherman-Morrison to
  * solve linear part and RK4 to  nonlinear
  * --------------------------------------- */
+
+
+
+
+
+void GPFFTRK4(int M, int N, double dx, double dt, double a2, double complex a1,
+     double inter, Rarray V, Carray S, char fname[], int n);
+/* -----------------------------------------------------------
+ * Use FFT to solve derivative part and RK4 for potential part
+ * ----------------------------------------------------------- */
 
 #endif

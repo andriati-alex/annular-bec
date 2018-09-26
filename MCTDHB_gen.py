@@ -71,6 +71,11 @@ def renormalize(f, dx):
     renorm = sqrt(1.0 / simps(abs(f)**2, dx=dx));
     return f * renorm;
 
+def BrightSoliton(x, a, c):
+    numerator = a * np.exp(0.5j * c * x * np.sqrt(2), dtype=lc);
+    denominator = np.cosh(a * x / np.sqrt(2), dtype=lf);
+    return numerator / denominator / np.sqrt(2 * np.sqrt(2) * a);
+
 def AngularMom(Morb, x, S):
     S[0,:] = 1.0 / sqrt(2 * pi);
     for i in range(2, Morb, 2):
@@ -114,20 +119,21 @@ Npar = int(sys.argv[1]); # Number of Particles
 Morb = int(sys.argv[2]); # Number of orbitals
 Mdiv = int(sys.argv[3]); # Number of divisions between -pi to pi
 
-x  = np.linspace(-pi, pi, Mdiv + 1, dtype=lf);
-dx = 2 * pi / Mdiv;
+x  = np.linspace(-8, 8, Mdiv + 1, dtype=lf);
+dx = 2 * 8.0 / Mdiv;
 
 Orb = np.zeros([Morb, x.size], dtype=lc); # orbitals
 C = np.zeros(NC(Npar, Morb), dtype=lc);   # coeficients
 
-AngularMom(Morb, x, Orb);
-Coef(Npar, Morb, C);
+C[0] = 1;
+Orb[0] = BrightSoliton(x, 2.0, 3.0);
+# Coef(Npar, Morb, C);
 
-Id_name = 'Angular-' + str(Npar) + '-' + str(Morb);
+Id_name = 'BrightSoliton-' + str(Npar) + '-' + str(Morb);
 
 np.savetxt('setup/MC_' + Id_name + '_orb.dat', Orb.T, fmt='%.15E');
 np.savetxt('setup/MC_' + Id_name + '_coef.dat', C.T, fmt='%.15E');
 
 f = open('setup/MC_' + Id_name + '_config.dat', "w");
-f.write("%d %d %d %.15f %.15f" % (Npar, Morb, Mdiv, -pi, pi));
+f.write("%d %d %d %.15f %.15f" % (Npar, Morb, Mdiv, -8, 8));
 f.close();

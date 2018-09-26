@@ -34,7 +34,7 @@ def FourierLocModes(x, a, c, n):
     # generate random numbers in the range [-1, 1]
     noise = (np.random.random(int(n)) - 0.5) / 0.5;
     # Localized by a Gaussian like-shape
-    sig = 0.15 * (x[-1] - x[0]);
+    sig = 0.2 * (x[-1] - x[0]);
     mid = (x[-1] + x[0]) / 2;
     # Fourier modes with some noise
     k = (np.arange(1, int(n) + 1) + noise) * 2 * np.pi / sig;
@@ -47,6 +47,11 @@ def BrightSoliton(x, a, c):
     numerator = a * np.exp(0.5j * c * x * np.sqrt(2), dtype=lc);
     denominator = np.cosh(a * x / np.sqrt(2), dtype=lf);
     return numerator / denominator;
+
+def NBrightSoliton(x, a, c):
+    numerator = a * np.exp(0.5j * c * x * np.sqrt(2), dtype=lc);
+    denominator = np.cosh(a * x / np.sqrt(2), dtype=lf);
+    return numerator / denominator / np.sqrt(2 * np.sqrt(2) * a);
 
 def DarkSolitonModes(x, a, b, c, n):
     S = np.sqrt(a + b * (np.tanh(x / c) ** 2));
@@ -75,7 +80,7 @@ dx = (x2 - x1) / M;
 out = np.empty(x.size, dtype=lc);
 
 if (Id == 1):
-    out = BrightSoliton(x, *Params);
+    out = NBrightSoliton(x, *Params);
     Id_name = 'BrightSoliton';
 elif (Id == 2):
     out = FourierLocModes(x, *Params)

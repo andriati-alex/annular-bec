@@ -101,11 +101,31 @@ void NonLinearIDDT(int M, double t, Carray Psi, Carray inter, Carray Dpsi);
 
 
 
+
+void NonLinearVIDDT(int M, double t, Carray Psi, Carray FullPot, Carray Dpsi);
+/* ------------------------------------------------------------------------
+ * Time-derivative from nonderivative part after split-step (called in RK4)
+ * ------------------------------------------------------------------------ */
+
+
+
+
+
 void IGPCNSMRK4(int M, int N, double dx, double dT, double a2, double complex a1,
      double inter, Rarray V, int cyclic, Carray S, Carray E);
 /* ---------------------------------------
  * Crank-Nicolson with Sherman-Morrison to
  * solve linear part and RK4 to  nonlinear
  * --------------------------------------- */
+
+
+
+
+
+void IGPFFTRK4(int M, int N, double dx, double dT, double a2, double complex a1,
+     double inter, Rarray V, Carray S, Carray E);
+/* ------------------------------------------------------------
+ * Use FFT to solve linear part and RK4 for nonderivatives part
+ * ------------------------------------------------------------ */
 
 #endif

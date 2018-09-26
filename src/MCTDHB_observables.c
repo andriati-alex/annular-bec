@@ -1,8 +1,12 @@
 #include "../include/MCTDHB_observables.h"
 
+
+
+
+
 void SetupHo (int Morb, int Mpos, Cmatrix Omat, double dx, double a2,
      double complex a1, Rarray V, Cmatrix Ho )
-{   // Setup matrix elements of noninteracting part
+{   // Setup matrix elements of onebody hamiltonian part
 
     int i,
         j,
@@ -25,16 +29,19 @@ void SetupHo (int Morb, int Mpos, Cmatrix Omat, double dx, double a2,
                            + V[k] * conj(Omat[i][k]) * Omat[j][k];
             }
             Ho[i][j] = Csimps(Mpos, toInt, dx);
-            // Ho[j][i] = conj(Ho[i][j]);
         }
     }
 
     free(ddxi); free(ddxj); free(toInt);
 }
 
+
+
+
+
 void SetupHint (int Morb, int Mpos, Cmatrix Omat, double dx, double inter,
      Carray Hint)
-{   // Matrix elements of interacting part
+{   // Matrix elements of twobody hamiltonian part
 
     int i,
         k,
@@ -75,9 +82,14 @@ void SetupHint (int Morb, int Mpos, Cmatrix Omat, double dx, double inter,
     free(toInt);
 }
 
+
+
+
+
 double complex Energy (MCTDHBsetup mc, Cmatrix Orb, Carray C)
-{
-    int Morb = mc->Morb;
+{   // return the energy from multiconfigurational description  with
+    // configurations coeficients C respect to occupation in the set
+    // of orbitals Orb[k].
 
     int
         i,
@@ -85,7 +97,10 @@ double complex Energy (MCTDHBsetup mc, Cmatrix Orb, Carray C)
         k,
         l,
         s,
-        q;
+        q,
+        Morb;
+
+    Morb = mc->Morb;
 
     double complex
         z,

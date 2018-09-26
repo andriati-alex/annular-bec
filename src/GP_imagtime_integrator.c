@@ -404,6 +404,18 @@ void IGPCNLU(int M, int N, double dx, double dT, double a2, double complex a1,
 
 
 
+
+
+/*  =====================================================================  *
+
+                      NONLINEAR PART SOLVED BY RUNGE-KUTTA
+
+    =====================================================================  */
+
+
+
+
+
 void NonLinearIDDT(int M, double t, Carray Psi, Carray inter, Carray Dpsi)
 {   // The Right-Hand-Side of derivative of non-linear part
     // As a extra argument take the interaction strength
@@ -418,6 +430,26 @@ void NonLinearIDDT(int M, double t, Carray Psi, Carray inter, Carray Dpsi)
         mod_squared  = creal(Psi[i]) * creal(Psi[i]);
         mod_squared += cimag(Psi[i]) * cimag(Psi[i]);
         Dpsi[i] = - inter[0] * mod_squared * Psi[i];
+    }
+}
+
+
+
+void NonLinearVIDDT(int M, double t, Carray Psi, Carray FullPot, Carray Dpsi)
+{   // The Right-Hand-Side of derivative of non-linear and linear  potential
+    // part. As a extra argument take the interaction strength in FullPot[0]
+    // and the linear potential computed at position i in FullPot[i + 1]
+
+    int i;
+
+    // sum real and imaginary part squared to get the modulus squared
+    double mod_squared;
+
+    for (i = 0; i < M; i++)
+    {
+        mod_squared  = creal(Psi[i]) * creal(Psi[i]);
+        mod_squared += cimag(Psi[i]) * cimag(Psi[i]);
+        Dpsi[i] = - (FullPot[0] * mod_squared + FullPot[i + 1] ) * Psi[i];
     }
 }
 
@@ -542,4 +574,128 @@ void IGPCNSMRK4(int M, int N, double dx, double dT, double a2, double complex a1
     free(mid);
     free(rhs);
     CCSFree(rhs_mat);
+}
+
+
+
+
+
+void IGPFFTRK4(int M, int N, double dx, double dT, double a2, double complex a1,
+     double inter, Rarray V, Carray S, Carray E)
+{   // Evolve the wave-function given an initial condition in S
+    // on pure imaginary time to converge to an energy minimum.
+    // Use FFT to compute derivatives on  linear  part  of  PDE
+    // hence the boundary is required to be periodic. Nonlinear
+    // part is solved by 4th order Runge-Kutta
+
+    int
+        i,
+        j,
+        m;
+
+    m = M - 1; // ignore last point that is the boundary
+
+    double
+        freq,       // frequencies in Fourier space
+        norm,       // initial norm
+        NormStep,   // to renormalize on each time-step
+        Idt = - dT; // factor to multiply on exponential after split-step
+
+    double complex
+        dt;
+
+    dt = - I  * dT; // imaginary time-step
+
+
+
+    MKL_LONG s; // status of called MKL FFT functions
+
+    Rarray abs2 = rarrDef(M);        // abs square of wave function
+
+    Carray argRK4  = carrDef(M);     // hold linear and nonlinear potential
+
+    Carray exp_der = carrDef(m);     // exponential of derivative operator
+
+    Carray back_fft = carrDef(m);    // go back to position space
+
+    Carray forward_fft = carrDef(m); // go to frequency space
+
+    Carray FullPot = carrDef(M + 1);
+
+    // Setup RHS of potential splitted-step part of derivatives
+    FullPot[0] = inter;
+    for (i = 0; i < M; i++) FullPot[i + 1] = V[i];
+
+
+
+    /* Initialize the norm and energy of initial guess
+     * ------------------------------------------------------------------- */
+    carrAbs2(M, S, abs2);
+    norm = sqrt(Rsimps(M, abs2, dx));
+    E[0] = Functional(M, dx, a2, a1, inter / 2, V, S);
+    /* ------------------------------------------------------------------- */
+
+
+
+    /* setup descriptor (MKL implementation of FFT)
+     * ------------------------------------------------------------------- */
+    DFTI_DESCRIPTOR_HANDLE desc;
+    s = DftiCreateDescriptor(&desc, DFTI_DOUBLE, DFTI_COMPLEX, 1, m);
+    s = DftiSetValue(desc, DFTI_FORWARD_SCALE, 1.0 / sqrt(m));
+    s = DftiSetValue(desc, DFTI_BACKWARD_SCALE, 1.0 / sqrt(m));
+    s = DftiCommitDescriptor(desc);
+    /* ------------------------------------------------------------------- */
+
+
+
+    /* Fourier Frequencies to do the exponential of derivative operator
+     * ------------------------------------------------------------------- */
+    for (i = 0; i < m; i++)
+    {
+        if (i <= (m - 1) / 2) { freq = (2 * PI * i) / (m * dx);       }
+        else                  { freq = (2 * PI * (i - m)) / (m * dx); }
+        // exponential of derivative operators
+        exp_der[i] = cexp(Idt * a1 * freq * I - Idt * a2 * freq * freq);
+    }
+    /* ------------------------------------------------------------------- */
+
+
+
+    /*   Apply Split step and solve separately nonlinear and linear part   */
+    /*   ===============================================================   */
+
+    for (i = 0; i < N; i++)
+    {
+        RK4step(M, dT/2, 0, S, FullPot, argRK4, NonLinearVIDDT);
+        carrCopy(m, argRK4, forward_fft);
+
+        // go to momentum space
+        s = DftiComputeForward(desc, forward_fft);
+        // apply exponential of derivatives
+        carrMultiply(m, exp_der, forward_fft, back_fft);
+        // go back to position space
+        s = DftiComputeBackward(desc, back_fft);
+        carrCopy(m, back_fft, argRK4);
+        argRK4[m] = argRK4[0];
+        
+        RK4step(M, dT/2, 0, argRK4, FullPot, S, NonLinearVIDDT);
+
+        carrAbs2(M, S, abs2);
+
+        // Renormalization
+        NormStep = norm / sqrt(Rsimps(M, abs2, dx));
+        for (j = 0; j < M; j++) S[j] = NormStep * S[j];
+
+        // Energy
+        E[i + 1] = Functional(M, dx, a2, a1, inter / 2, V, S);
+    }
+
+    s = DftiFreeDescriptor(&desc);
+
+    free(exp_der);
+    free(forward_fft);
+    free(back_fft);
+    free(abs2);
+    free(argRK4);
+    free(FullPot);
 }
