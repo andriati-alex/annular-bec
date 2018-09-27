@@ -106,9 +106,11 @@ void TimePrint(double t)
 
     if ( tt / 86400 > 0 )
     { days  = tt / 86400; tt = tt % 86400; }
+
     if ( tt / 3600  > 0 )
     { hours = tt / 3600;  tt = tt % 3600;  }
-    if ( tt / 60 > 0 )
+
+    if ( tt / 60    > 0 )
     { mins  = tt / 60;    tt = tt % 60;    }
 
     printf("%d day(s) %d hour(s) %d minute(s)", days, hours, mins);
@@ -120,7 +122,9 @@ void TimePrint(double t)
 
 int main(int argc, char * argv[])
 {
+
     omp_set_num_threads(omp_get_max_threads() / 2);
+    mkl_set_num_threads(omp_get_max_threads() / 2);
 
 
     if (argc < 6 || argc > 7)
@@ -186,6 +190,16 @@ int main(int argc, char * argv[])
     Cmatrix
         Orbtimetest,
         Orb;    // Orb[k][j] give the value of k-th orbital at position j
+
+    MCTDHBsetup
+        mc;
+
+
+
+
+
+
+
 
 
 
@@ -331,7 +345,6 @@ int main(int argc, char * argv[])
     rarrFill(Mdx + 1, 0, V);
     V[Mdx/2] = lambda / dx;  // Dirac Delta barrier case lambda != 0
 
-    inter =  - sqrt(2.0) * 4.0 / (Npar - 1);
 
 
     /* Setup time-step(dt) and number of time-steps to evolve *
@@ -352,11 +365,14 @@ int main(int argc, char * argv[])
 
     sscanf(argv[2], "%lf", &dt); // First command line argument
     sscanf(argv[3], "%d",  &N);  // Second command line argument
-    
-    
-    
+
+
+
     /* Integrator method *
      * ----------------- */
+
+
+
     if (argc == 7) { sscanf(argv[6], "%d", &method); }
     else           { method = 11;                    }
 
@@ -387,6 +403,12 @@ int main(int argc, char * argv[])
 
 
 
+
+
+
+
+
+
     /* ==================================================================== *
      *                                                                      *
      *                          CALL THE INTEGRATOR                         *
@@ -401,14 +423,17 @@ int main(int argc, char * argv[])
     printf("\t=========================================================\n\n");
 
 
-    MCTDHBsetup mc = AllocMCTDHBdata(Npar, Morb, Mdx + 1, xi, xf,
-                                     a2, inter, V, a1);
+    mc = AllocMCTDHBdata(Npar, Morb, Mdx + 1, xi, xf, a2, inter, V, a1);
 
     to_int = carrDef(Mdx + 1);
+
+    E = carrDef(N + 1); // to store energy
+
 
 
     /* Check if off-diagonal elements are zero *
      * --------------------------------------- */
+
 
 
     check = 0;
@@ -462,6 +487,13 @@ int main(int argc, char * argv[])
 
 
 
+
+
+
+
+
+
+
     /* ==================================================================== *
      *                                                                      *
      *                          CALL THE INTEGRATOR                         *
@@ -475,7 +507,9 @@ int main(int argc, char * argv[])
     printf("\t      Calling integrator. May take several(hours?)       \n\n");
     printf("\t=========================================================\n\n");
 
-    E = carrDef(N); // Store energy
+    // setup filename to store solution
+    strcpy(fname_out, "../mctdhb_data/");
+    strcat(fname_out, argv[5]);
 
     if (timeinfo == 'r' || timeinfo == 'R')
     {   // First estimate time needed based on 1 step
@@ -483,7 +517,8 @@ int main(int argc, char * argv[])
         printf("\n\nDoing real time propagation (SM/RK4) ...\n");
         
         start = omp_get_wtime();
-        MCTDHB_CN_REAL(mc, Orbtimetest, Ctimetest, dt, 1, method, cyclic);
+        MCTDHB_CN_REAL(mc, Orbtimetest, Ctimetest, dt, 1, method, cyclic,
+        fname_out, 10);
         time_used = (double) (omp_get_wtime() - start);
 
         printf("\n\nTime to do 1 step: %.1lf seconds\n", time_used);
@@ -496,7 +531,7 @@ int main(int argc, char * argv[])
         printf("\n\n");
 
         // Start Evolution
-        MCTDHB_CN_REAL(mc, Orb, C, dt, N, method, cyclic);
+        MCTDHB_CN_REAL(mc, Orb, C, dt, N, method, cyclic, fname_out, 10);
     }
     else
     {
@@ -521,6 +556,13 @@ int main(int argc, char * argv[])
 
 
 
+
+
+
+
+
+
+
     /* ==================================================================== *
      *                                                                      *
      *                              Record Data                             *
@@ -528,56 +570,52 @@ int main(int argc, char * argv[])
      * ==================================================================== */
 
 
-    printf("\n\nRecording data ...");
+    printf("\n\nRecording data imaginary time data...");
 
-    // Record Orbital Data
-    // -------------------
+    // Record data in case of imaginary time
+    // ---------------------------------------------
 
-    strcpy(fname_out, "../mctdhb_data/");
-    strcat(fname_out, argv[5]);
-    if (timeinfo == 'r' || timeinfo == 'R')
-    { strcat(fname_out, "_orb_realtime.dat");  }
-    else
-    { strcat(fname_out, "_orb_imagtime.dat"); }
+    if (timeinfo == 'i' || timeinfo == 'I')
+    {
+        // record orbital data
 
-    cmat_txt(fname_out, Morb, 1, Mdx + 1, 1, Orb);
+        strcat(fname_out, "_orb_imagtime.dat");
+        cmat_txt(fname_out, Morb, 1, Mdx + 1, 1, Orb);
 
-    // Record Coeficients Data
-    // -----------------------
+        // Record Coeficients Data
 
-    strcpy(fname_out, "../mctdhb_data/");
-    strcat(fname_out, argv[5]);
-    if (timeinfo == 'r' || timeinfo == 'R')
-    { strcat(fname_out, "_coef_realtime.dat");  }
-    else
-    { strcat(fname_out, "_coef_imagtime.dat"); }
-    carr_txt(fname_out, mc->nc, C);
+        strcpy(fname_out, "../mctdhb_data/");
+        strcat(fname_out, argv[5]);
+        strcat(fname_out, "_coef_imagtime.dat");
 
-    // Record Energy Data
-    // ------------------
+        carr_txt(fname_out, mc->nc, C);
 
-    strcpy(fname_out, "../mctdhb_data/");
-    strcat(fname_out, argv[5]);
-    if (timeinfo == 'r' || timeinfo == 'R')
-    { strcat(fname_out, "_E_realtime.dat");  }
-    else
-    { strcat(fname_out, "_E_imagtime.dat"); }
-    carr_txt(fname_out, N, E);
+        // Record Energy Data in case of imaginary time
+
+        strcpy(fname_out, "../mctdhb_data/");
+        strcat(fname_out, argv[5]);
+        strcat(fname_out, "_E_imagtime.dat");
+
+        carr_txt(fname_out, N + 1, E);
+    }
     
     // Record Parameters Used
-    // ----------------------
 
     strcpy(fname_out, "../mctdhb_data/");
     strcat(fname_out, argv[5]);
+
     if (timeinfo == 'r' || timeinfo == 'R')
-    { strcat(fname_out, "_config_realtime.dat"); }
+    { strcat(fname_out, "_conf_realtime.dat"); }
     else
-    { strcat(fname_out, "_config_imagtime.dat"); }
+    { strcat(fname_out, "_conf_imagtime.dat"); }
 
     out_data = fopen(fname_out, "w");
 
     if (out_data == NULL)  // impossible to open file
-    { printf("ERROR: impossible to open file %s\n", fname_out); return -1; }
+    {
+        printf("\n\nERROR: impossible to open file %s\n", fname_out);
+        return -1;
+    }
 
     fprintf(out_data, "%d %d %d %.15lf %.15lf %.10lf %d",
             Npar, Morb, Mdx, xi, xf, dt, N);

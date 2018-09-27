@@ -5,10 +5,11 @@
     #include <omp.h>
 #endif
 
+#include <string.h>
+
 #include "MCTDHB_datatype.h"
 #include "MCTDHB_observables.h"
 #include "MCTDHB_configurations.h"
-#include "array_memory.h"
 #include "matrix_operations.h"
 #include "tridiagonal_solver.h"
 
@@ -19,6 +20,13 @@
 /*                           FUNCTION PROTOTYPES                            */
 /*                                                                          */
 /* ======================================================================== */
+
+
+
+
+
+void RecordArray(FILE * f, int M, Carray v);
+void RecordMatrix(FILE * f, int M, Cmatrix A);
 
 
 
@@ -176,7 +184,7 @@ void LinearPartLU (int Mpos, int Morb, CCSmat rhs_mat, Carray upper,
 
 
 void MCTDHB_CN_REAL (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
-     int Nsteps, int method, int cyclic);
+     int Nsteps, int method, int cyclic, char fname[], int n);
 
 
 

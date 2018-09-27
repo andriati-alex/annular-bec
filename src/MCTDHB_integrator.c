@@ -4,6 +4,55 @@
 
 
 
+void RecordArray(FILE * f, int M, Carray v)
+{   // Given an open file f write the complex array v in a line
+    int j;
+
+    for (j = 0; j < M; j ++)
+    {   // write in a format suitable to import with numpy
+        if (cimag(v[j]) >= 0)
+        {
+            fprintf(f, "(%.15E+%.15Ej) ", creal(v[j]), cimag(v[j]));
+        }
+        else
+        {
+            fprintf(f, "(%.15E%.15Ej) ", creal(v[j]), cimag(v[j]));
+        }
+    }
+
+    fprintf(f, "\n");
+}
+
+
+
+
+
+void RecordMatrix(FILE * f, int M, Cmatrix A)
+{   // Given an open file f write the matrix in Row-major format in a line
+    int i, j;
+
+    for (i = 0; i < M; i ++)
+    {   // write in a format suitable to import with numpy
+        for (j = 0; j < M; j++)
+        {
+            if (cimag(A[i][j]) >= 0)
+            {
+                fprintf(f, "(%.15E+%.15Ej) ", creal(A[i][j]), cimag(A[i][j]));
+            }
+            else
+            {
+                fprintf(f, "(%.15E%.15Ej) ", creal(A[i][j]), cimag(A[i][j]));
+            }
+        }
+    }
+
+    fprintf(f, "\n");
+}
+
+
+
+
+
 /* ========================================================================
  *
  *                    APPLY THE MANY BODY HAMILTONIAN
@@ -16,8 +65,6 @@
  * matrix elements of the operator that is done below.
  *
  * ======================================================================== */
-
-
 
 
 
@@ -1466,13 +1513,14 @@ void LinearPartLU (int Mpos, int Morb, CCSmat rhs_mat, Carray upper,
 
 
 void MCTDHB_CN_REAL (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
-     int Nsteps, int method, int cyclic)
+     int Nsteps, int method, int cyclic, char fname [], int n)
 {
     int
         i,
         k,
         l,
         s,
+        q,
         Mpos;
 
     Mpos = MC->Mpos;
@@ -1497,6 +1545,42 @@ void MCTDHB_CN_REAL (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
 
     CCSmat
         rhs_mat;
+
+    char
+        fname_orb[120],
+        fname_rho[120];
+
+    FILE
+        * out_orb,
+        * out_rho;
+
+
+
+    strcpy(fname_orb, fname);
+    strcat(fname_orb, "_orb_realtime.dat");
+    strcpy(fname_rho, fname);
+    strcat(fname_rho, "_rho_realtime.dat");
+
+    out_orb = fopen(fname_orb, "w");
+    if (out_orb == NULL)
+    {
+        printf("\n\nError: Impossible to open %s\n", fname_orb);
+        exit(EXIT_FAILURE);
+    }
+
+    out_rho = fopen(fname_rho, "w");
+    if (out_orb == NULL)
+    {
+        printf("\n\nError: Impossible to open %s\n", fname_rho);
+        exit(EXIT_FAILURE);
+    }
+
+
+
+    // Record initial data
+    OBrho(MC->Npar, MC->Morb, MC->NCmat, MC->IF, C, rho);
+    for (k = 0; k < MC->Morb; k++) RecordArray(out_orb, Mpos, Orb[k]);
+    RecordMatrix(out_rho, MC->Morb, rho);
 
 
 
@@ -1541,6 +1625,9 @@ void MCTDHB_CN_REAL (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
     if (cyclic) { lower[Mpos-2] = - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
     else        { lower[Mpos-2] = 0;                                          }
 
+
+
+    q = 0;
     for (i = 0; i < Nsteps; i++)
     {
         /* Half step nonlinear part
@@ -1550,6 +1637,7 @@ void MCTDHB_CN_REAL (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
         else
             RK4step(MC, Orb, C, dt / 2);
         /* -------------------------------------- */
+
 
         /* One step linear part
          * --------------------------------------------------------------- */
@@ -1600,7 +1688,24 @@ void MCTDHB_CN_REAL (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
         }
         printf("\n\n|| C || = %.6lf", carrMod(MC->nc, C));
         /* ---------------------------------------------------------------- */
+
+
+
+        // record data every n steps
+        if (q == n)
+        {
+            q = 0;
+            RecordMatrix(out_rho, MC->Morb, rho);
+            for (k = 0; k < MC->Morb; k++)
+            {
+                RecordArray(out_orb, Mpos, Orb[k]);
+            }
+        }
+        else { q = q + 1; }
     }
+
+    fclose(out_orb);
+    fclose(out_rho);
 
     cmatFree(MC->Morb, rho);
     CCSFree(rhs_mat);
@@ -1640,6 +1745,11 @@ void MCTDHB_CN_IMAG (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
     CCSmat
         rhs_mat;
+    
+    
+
+    // Store the initial guess energy
+    E[0] = Energy(MC, Orb, C);
 
 
 
@@ -1687,14 +1797,23 @@ void MCTDHB_CN_IMAG (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
     for (i = 0; i < Nsteps; i++)
     {
         IRK4step(MC, Orb, C, dt / 2);
+
         LinearPartSM(MC->Mpos, MC->Morb, rhs_mat, upper, lower, mid, Orb);
+
+        // The boundary
+        if (cyclic)
+        { for (k = 0; k < MC->Morb; k++) Orb[k][Mpos-1] = Orb[k][0]; }
+        else
+        { for (k = 0; k < MC->Morb; k++) Orb[k][Mpos-1] = 0;         }
+
         IRK4step(MC, Orb, C, dt / 2);
+
         // Loss of Norm => undefined behavior on orthogonalization
         Ortonormalize(MC->Morb, Mpos, dx, Orb);
         // Renormalize coeficients
         renormalizeVector(MC->nc, C, 1.0);
         // Store energy
-        E[i] = Energy(MC, Orb, C);
+        E[i + 1] = Energy(MC, Orb, C);
 
 
 
@@ -1702,7 +1821,7 @@ void MCTDHB_CN_IMAG (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
          * print to check orthogonality/Energy
         ------------------------------------------------------------------- */
         printf("\n\nAfter %d time steps, Energy = ", i + 1);
-        cPrint(E[i]);
+        cPrint(E[i + 1]);
         printf(". Orthogonality matrix is:\n\n");
         for (k = 0; k < MC->Morb; k++)
         {

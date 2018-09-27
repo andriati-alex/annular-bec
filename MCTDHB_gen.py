@@ -107,9 +107,9 @@ def Coef(Npar, Morb, C):
         IndexToFock(l, Npar, Morb, v);
         prod = 1.0;
         for j in range(Morb):
-            if (j % 2) == 0: k = j - 1;
-            else           : k = j;
-            prod = prod * np.exp( - float(v[j] * k * k) / Npar, dtype=lf);
+            if (j % 2) == 0: k = j;
+            else           : k = j + 1;
+            prod = prod * np.exp( - 2 * float(v[j] * k * k) / Npar, dtype=lf);
         C[l] = phase[l] * prod;
     Norm = 0;
     for l in range(NC(Npar, Morb)): Norm = Norm + abs(C[l]) * abs(C[l]);
@@ -119,21 +119,20 @@ Npar = int(sys.argv[1]); # Number of Particles
 Morb = int(sys.argv[2]); # Number of orbitals
 Mdiv = int(sys.argv[3]); # Number of divisions between -pi to pi
 
-x  = np.linspace(-8, 8, Mdiv + 1, dtype=lf);
-dx = 2 * 8.0 / Mdiv;
+x  = np.linspace(-pi, pi, Mdiv + 1, dtype=lf);
+dx = 2 * pi / Mdiv;
 
 Orb = np.zeros([Morb, x.size], dtype=lc); # orbitals
 C = np.zeros(NC(Npar, Morb), dtype=lc);   # coeficients
 
-C[0] = 1;
-Orb[0] = BrightSoliton(x, 2.0, 3.0);
-# Coef(Npar, Morb, C);
+AngularMom(Morb, x, Orb);
+Coef(Npar, Morb, C);
 
-Id_name = 'BrightSoliton-' + str(Npar) + '-' + str(Morb);
+Id_name = 'AngularMom-' + str(Npar) + '-' + str(Morb);
 
 np.savetxt('setup/MC_' + Id_name + '_orb.dat', Orb.T, fmt='%.15E');
 np.savetxt('setup/MC_' + Id_name + '_coef.dat', C.T, fmt='%.15E');
 
 f = open('setup/MC_' + Id_name + '_config.dat', "w");
-f.write("%d %d %d %.15f %.15f" % (Npar, Morb, Mdiv, -8, 8));
+f.write("%d %d %d %.15f %.15f" % (Npar, Morb, Mdiv, x[0], x[-1]));
 f.close();
