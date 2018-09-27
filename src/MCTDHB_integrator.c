@@ -1458,7 +1458,7 @@ void IRK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
 
 
 void LinearPartSM (int Mpos, int Morb, CCSmat rhs_mat, Carray upper,
-     Carray lower, Carray mid, Cmatrix Orb )
+     Carray lower, Carray mid, Cmatrix Orb)
 {   // Laplacian part. Solve using CN-discretization
     int k, size = Mpos - 1;
 

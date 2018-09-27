@@ -454,6 +454,61 @@ void NonLinearVIDDT(int M, double t, Carray Psi, Carray FullPot, Carray Dpsi)
 }
 
 
+CCSmat conf_linear(int M, double dx, double complex dt, double a2,
+     double complex a1, double inter, Rarray V, int cyclic,
+     Carray upper, Carray lower, Carray mid)
+{
+
+    
+    
+    /*                 ****************************                 */
+    /*                 Setup Right-Hand-Side matrix                 */
+    /*                 ****************************                 */
+
+
+
+    // fill main diagonal (use upper as auxiliar pointer)
+    carrFill(M - 1, - a2 * dt / dx / dx + I, upper);
+    rcarrUpdate(M - 1, upper, dt, V, mid);
+
+    // fill upper diagonal
+    carrFill(M - 1, a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, upper);
+    if (cyclic) { upper[M-2] = a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
+    else        { upper[M-2] = 0;                                        }
+
+    // fill lower diagonal
+    carrFill(M - 1, a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, lower);
+    if (cyclic) { lower[M-2] = a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
+    else        { lower[M-2] = 0;                                        }
+
+    // Store in CCS format
+    CCSmat Mat = CyclicToCCS(M - 1, upper, lower, mid);
+
+
+
+    /*                *******************************                */
+    /*                Setup Cyclic tridiagonal matrix                */
+    /*                *******************************                */
+
+
+
+    // fill main diagonal (use upper as auxiliar pointer)
+    carrFill(M - 1, a2 * dt / dx /dx + I, upper);
+    rcarrUpdate(M - 1, upper, -dt, V, mid);
+
+    // fill upper diagonal
+    carrFill(M - 1, - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, upper);
+    if (cyclic) { upper[M-2] = - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
+    else        { upper[M-2] = 0;                                          }
+
+    // fill lower diagonal
+    carrFill(M - 1, - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, lower);
+    if (cyclic) { lower[M-2] = - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
+    else        { lower[M-2] = 0;                                          }
+
+    return Mat;
+}
+
 
 void IGPCNSMRK4(int M, int N, double dx, double dT, double a2, double complex a1,
      double inter, Rarray V, int cyclic, Carray S, Carray E)
@@ -485,6 +540,10 @@ void IGPCNSMRK4(int M, int N, double dx, double dT, double a2, double complex a1
     Carray lower = carrDef(M - 1);
     Carray mid   = carrDef(M - 1);
     Carray rhs   = carrDef(M - 1);
+
+    CCSmat rhs_mat;
+
+
     
     // Initial Energy and norm
     carrAbs2(M, S, abs2);
@@ -493,50 +552,8 @@ void IGPCNSMRK4(int M, int N, double dx, double dT, double a2, double complex a1
 
 
 
-    /*                 ****************************                 */
-    /*                 Setup Right-Hand-Side matrix                 */
-    /*                 ****************************                 */
-
-
-
-    // fill main diagonal (use upper as auxiliar pointer)
-    carrFill(M - 1, - a2 * dt / dx / dx + I, upper);
-    rcarrUpdate(M - 1, upper, dt, V, mid);
-
-    // fill upper diagonal
-    carrFill(M - 1, a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, upper);
-    if (cyclic) { upper[M-2] = a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
-    else        { upper[M-2] = 0;                                        }
-
-    // fill lower diagonal
-    carrFill(M - 1, a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, lower);
-    if (cyclic) { lower[M-2] = a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
-    else        { lower[M-2] = 0;                                        }
-
-    // Store in CCS format
-    CCSmat rhs_mat = CyclicToCCS(M - 1, upper, lower, mid);
-
-
-
-    /*                *******************************                */
-    /*                Setup Cyclic tridiagonal matrix                */
-    /*                *******************************                */
-
-
-
-    // fill main diagonal (use upper as auxiliar pointer)
-    carrFill(M - 1, a2 * dt / dx /dx + I, upper);
-    rcarrUpdate(M - 1, upper, -dt, V, mid);
-
-    // fill upper diagonal
-    carrFill(M - 1, - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, upper);
-    if (cyclic) { upper[M-2] = - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
-    else        { upper[M-2] = 0;                                          }
-
-    // fill lower diagonal
-    carrFill(M - 1, - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, lower);
-    if (cyclic) { lower[M-2] = - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
-    else        { lower[M-2] = 0;                                          }
+    // Configure the linear system from Crank-Nicolson scheme
+    rhs_mat = conf_linear(M, dx, dt, a2, a1, inter, V, cyclic, upper, lower, mid);
 
 
 
@@ -565,6 +582,15 @@ void IGPCNSMRK4(int M, int N, double dx, double dT, double a2, double complex a1
         
         // Energy
         E[i + 1] = Functional(M, dx, a2, a1, inter / 2, V, S);
+
+        if ((i+1) % 1500 == 0)
+        {
+            dt = dt * (1 + 0.15);
+            dT = dT * (1 + 0.15);
+            CCSFree(rhs_mat); // Erase old matrix to setup new one
+            rhs_mat = conf_linear( M, dx, dt, a2, a1, inter,
+                      V, cyclic, upper, lower, mid);
+        }
     }
 
     free(linpart);
