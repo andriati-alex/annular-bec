@@ -171,10 +171,10 @@ int main(int argc, char * argv[])
 
     /* Check if there is the right number of command line arguments
      * ------------------------------------------------------------ */
-    if (argc < 5 || argc > 6)
+    if (argc < 6 || argc > 7)
     {
         printf("\nInvalid number of command line arguments, ");
-        printf("expected at least 4 and at most 5.\n\n");
+        printf("expected at least 5 and at most 6.\n\n");
         return -1;
     }
     /* ------------------------------------------------------------ */
@@ -226,7 +226,7 @@ int main(int argc, char * argv[])
      * ----------------------------------------------------------------  */
     sscanf(argv[2], "%lf", &dt);
     sscanf(argv[3], "%d",  &N);
-    if (argc == 6) { sscanf(argv[5], "%d", &method); }
+    if (argc == 7) { sscanf(argv[6], "%d", &method); }
     else           { method = 1;                     }
     /* ----------------------------------------------------------------  */
 
@@ -317,7 +317,7 @@ int main(int argc, char * argv[])
             printf("\t           Doing real time integration.          \n\n");
 
         strcpy(fname_out, "../gp_data/");
-        strcat(fname_out, argv[4]);
+        strcat(fname_out, argv[5]);
         strcat(fname_out, "_realtime_state.dat");
         switch (method)
         {
@@ -414,25 +414,25 @@ int main(int argc, char * argv[])
     if (timeinfo == 'i' || timeinfo == 'I')
     {
         strcpy(fname_out, "../gp_data/");
-        strcat(fname_out, argv[4]);
+        strcat(fname_out, argv[5]);
         strcat(fname_out, "_imagtime_state.dat");
 
         carr_txt(fname_out, M + 1, S);
     
         strcpy(fname_out, "../gp_data/");
-        strcat(fname_out, argv[4]);
+        strcat(fname_out, argv[5]);
         strcat(fname_out, "_imagtime_energy.dat");
 
-        carr_txt(fname_out, M + 1, E);
+        carr_txt(fname_out, N + 1, E);
 
         strcpy(fname_out, "../gp_data/");
-        strcat(fname_out, argv[4]);
+        strcat(fname_out, argv[5]);
         strcat(fname_out, "_imagdomain.dat");
     }
     else
     {
         strcpy(fname_out, "../gp_data/");
-        strcat(fname_out, argv[4]);
+        strcat(fname_out, argv[5]);
         strcat(fname_out, "_realdomain.dat");
     }
 

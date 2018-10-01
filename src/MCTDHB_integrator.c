@@ -1730,7 +1730,9 @@ void MCTDHB_CN_IMAG (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
     double
         dx = MC->dx,
-        a2 = MC->a2;
+        a2 = MC->a2,
+        inter = MC->inter,
+        * V = MC->V;
 
     double complex
         a1 = MC->a1,
@@ -1751,54 +1753,16 @@ void MCTDHB_CN_IMAG (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
     // Store the initial guess energy
     E[0] = Energy(MC, Orb, C);
 
+    // Configure the linear system from Crank-Nicolson scheme
+    rhs_mat = conf_linear(Mpos, dx, dt, a2, a1, inter, V, cyclic, upper, lower, mid);
 
 
-    /* ------------------------------------------------------------------- *
-     *         Setup Right-Hand-Side matrix of linear part of PDE          *
-     * ------------------------------------------------------------------- */
-
-    // fill main diagonal (use upper as auxiliar array)
-    carrFill(Mpos - 1, - a2 * dt / dx / dx + I, upper);
-    rcarrUpdate(Mpos - 1, upper, dt, MC->V, mid);
-
-    // fill upper diagonal
-    carrFill(Mpos - 1, a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, upper);
-    if (cyclic) { upper[Mpos-2] = a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
-    else        { upper[Mpos-2] = 0;                                        }
-
-    // fill lower diagonal
-    carrFill(Mpos - 1, a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, lower);
-    if (cyclic) { lower[Mpos-2] = a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
-    else        { lower[Mpos-2] = 0;                                        }
-
-    // Store in CCS format the RHS of discretized system of equations
-    rhs_mat = CyclicToCCS(Mpos - 1, upper, lower, mid);
-
-
-
-    /* ------------------------------------------------------------------- *
-     *                    Setup Cyclic tridiagonal matrix                  *
-     * ------------------------------------------------------------------- */
-
-    // fill main diagonal (use upper as auxiliar array)
-    carrFill(Mpos - 1, a2 * dt / dx / dx + I, upper);
-    rcarrUpdate(Mpos - 1, upper, -dt, MC->V, mid);
-
-    // fill upper diagonal
-    carrFill(Mpos - 1, - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, upper);
-    if (cyclic) { upper[Mpos-2] = - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
-    else        { upper[Mpos-2] = 0;                                          }
-
-    // fill lower diagonal
-    carrFill(Mpos - 1, - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, lower);
-    if (cyclic) { lower[Mpos-2] = - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
-    else        { lower[Mpos-2] = 0;                                          }
 
     for (i = 0; i < Nsteps; i++)
     {
         IRK4step(MC, Orb, C, dt / 2);
 
-        LinearPartSM(MC->Mpos, MC->Morb, rhs_mat, upper, lower, mid, Orb);
+        LinearPartSM(Mpos, MC->Morb, rhs_mat, upper, lower, mid, Orb);
 
         // The boundary
         if (cyclic)
@@ -1814,6 +1778,17 @@ void MCTDHB_CN_IMAG (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
         renormalizeVector(MC->nc, C, 1.0);
         // Store energy
         E[i + 1] = Energy(MC, Orb, C);
+        
+        
+        // Adapt time step
+        if ((i+1) % 2000 == 0)
+        {
+            dt = dt * (1 + 0.2);
+            dT = dT * (1 + 0.2);
+            CCSFree(rhs_mat); // Erase old matrix to setup new one
+            rhs_mat = conf_linear(Mpos, dx, dt, a2, a1, inter,
+                      V, cyclic, upper, lower, mid);
+        }
 
 
 

@@ -122,6 +122,69 @@ void RowMajor(int m, int n, Cmatrix M, Carray v)
     }
 }
 
+CCSmat conf_linear(int M, double dx, double complex dt, double a2,
+     double complex a1, double inter, Rarray V, int cyclic,
+     Carray upper, Carray lower, Carray mid)
+{
+  
+ /* Auxiliar routine to setup matrix elements from Crank-Nicolson
+    discretization scheme applied to linear part of PDE.  Returns
+    a pointer to matrix setted up. */
+
+    
+    
+ /* Setup matrix to multiply initial vector (RHS of the linear system)
+    ------------------------------------------------------------------ */
+    // fill main diagonal (use upper as auxiliar pointer)
+    carrFill(M - 1, - a2 * dt / dx / dx + I, upper);
+    rcarrUpdate(M - 1, upper, dt, V, mid);
+
+    // fill upper diagonal
+    carrFill(M - 1, a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, upper);
+    if (cyclic) { upper[M-2] = a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
+    else        { upper[M-2] = 0;                                        }
+
+    // fill lower diagonal
+    carrFill(M - 1, a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, lower);
+    if (cyclic) { lower[M-2] = a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
+    else        { lower[M-2] = 0;                                        }
+
+    // Store in CCS format
+    CCSmat Mat = CyclicToCCS(M - 1, upper, lower, mid);
+ /* ------------------------------------------------------------------ */
+
+
+
+ /* Setup matrix to multiply initial vector (RHS of the linear system)
+  * ------------------------------------------------------------------ */
+    // fill main diagonal (use upper as auxiliar pointer)
+    carrFill(M - 1, a2 * dt / dx /dx + I, upper);
+    rcarrUpdate(M - 1, upper, -dt, V, mid);
+
+    // fill upper diagonal
+    carrFill(M - 1, - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, upper);
+    if (cyclic) { upper[M-2] = - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
+    else        { upper[M-2] = 0;                                          }
+
+    // fill lower diagonal
+    carrFill(M - 1, - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, lower);
+    if (cyclic) { lower[M-2] = - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
+    else        { lower[M-2] = 0;                                          }
+ /* ------------------------------------------------------------------ */
+
+    return Mat;
+}
+
+
+
+
+
+
+
+
+
+
+
 
 
 /*          **********************************************          *

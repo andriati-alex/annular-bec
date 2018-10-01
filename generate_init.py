@@ -54,15 +54,14 @@ def NBrightSoliton(x, a, c):
     return numerator / denominator / np.sqrt(2 * np.sqrt(2) * a);
 
 def DarkSolitonModes(x, a, b, c, n):
-    S = np.sqrt(a + b * (np.tanh(x / c) ** 2));
-    N = np.sqrt( simps(abs(S)**2, dx=(x[1]-x[0])) );
+    S = 0.5 * np.sqrt(a + b * (np.tanh(x / c) ** 2));
     # periodic frequency modes
     k = np.arange(1, n + 1) * 2 * np.pi / (x[-1] - x[0]);
     t = (np.random.random(int(n)) - 0.5) / 3;
     weights = t * b / ( np.arange(1, int(n) + 1) );
     for i in range(int(n)):
         S = S + weights[i] * np.exp(1.0j * k[i] * x);
-    return S * N / np.sqrt( simps(abs(S)**2, dx=(x[1]-x[0])) );
+    return S / np.sqrt( simps(abs(S)**2, dx=(x[1]-x[0])) );
 
 # Domain discretization parameters
 x1 = lf(sys.argv[1]);
@@ -93,5 +92,5 @@ np.savetxt('setup/' + Id_name + '_init.dat', out, fmt='%.15E');
 
 f = open('setup/' + Id_name + '_domain.dat', "w");
 
-f.write("%.2f %.2f %d" % (x1, x2, M));
+f.write("%.15f %.15f %d" % (x1, x2, M));
 f.close();

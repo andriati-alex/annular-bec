@@ -63,14 +63,6 @@
 
 
 
-CCSmat conf_linear(int M, double dx, double complex dt, double a2,
-       double complex a1, double inter, Rarray V, int cyclic,
-       Carray upper, Carray lower, Carray mid);
-
-
-
-
-
 void IGPCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
       double inter, Rarray V, int cyclic, Carray S, Carray E);
 /* ---------------------------------------------------------
