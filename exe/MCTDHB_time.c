@@ -340,10 +340,36 @@ int main(int argc, char * argv[])
     fclose(eq_setup_file);
 
     a1 = 0 + imag * I;
-    
+
+
+
+    /* Setup Trap potential in discretized positions *
+     * --------------------------------------------- */
+
+
+
     V = rarrDef(Mdx + 1);
-    rarrFill(Mdx + 1, 0, V);
-    V[Mdx/2] = lambda / dx;  // Dirac Delta barrier case lambda != 0
+
+    strcpy(fname_in, "setup/MC_");
+    strcat(fname_in, argv[4]);
+    strcat(fname_in, "_trap.dat");
+
+    printf("\nLooking for %s ", fname_in);
+
+    eq_setup_file = fopen(fname_in, "r");
+
+    if (eq_setup_file == NULL)  // impossible to open file
+    { printf("\nERROR: impossible to open file %s\n", fname_in); return -1; }
+    else
+    { printf(" ... Found !"); }
+
+    for (k = 0; k < Mdx + 1; k++)
+    {
+        l = fscanf(eq_setup_file, " %lf", &real);
+        V[k] = real;
+    }
+
+    fclose(eq_setup_file); // finish the reading of file
 
 
 

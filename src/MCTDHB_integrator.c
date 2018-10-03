@@ -1788,6 +1788,7 @@ void MCTDHB_CN_IMAG (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
             CCSFree(rhs_mat); // Erase old matrix to setup new one
             rhs_mat = conf_linear(Mpos, dx, dt, a2, a1, inter,
                       V, cyclic, upper, lower, mid);
+            printf("\n\n\t TIME STEP ADJUSTED \n\n");
         }
 
 

@@ -5,14 +5,25 @@ import numpy as np;
 import scipy.linalg as la;
 from numba import jit, prange, uint32, int32, float64, complex128;
 
+
+
+
+
 """
+=============================================================================
+
 
     Module devoted to analyze results from MCTDHB method
     ----------------------------------------------------
 
-    The functions contained in this module support the analysis of results 
-    from (imaginary/real)time propagation.
 
+    The functions contained in this module support the analysis of results 
+    from (imaginary/real)time propagation. Some of the functions  are  the
+    same as those used in C language, and use NUMBA compilation to improve
+    performance
+
+
+=============================================================================
 """
 
 
@@ -268,6 +279,6 @@ def NatOrb(RHOeigvecs, Orb):
 
 
 
-def VonNeumannS(RHOeigvals):
-    N = round(RHOeigvals.sum().real);
+def VonNeumannS(N, RHOeigvals):
+    """ (double) = VonNeumannS( # of particles, RHOeigenvalues) """
     return - ( (RHOeigvals.real / N) * np.log(RHOeigvals.real / N) ).sum()

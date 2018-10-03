@@ -143,7 +143,6 @@ int main(int argc, char * argv[])
         dt,         // time step
         a2,         // Coefficient of (d^2 / d x^2)
         inter,      // interaction strength
-        lambda,     // Strength of delta barrier
         real,       // read real data from file
         imag,       // read imaginary data from file
         * V,        // Potential computed at discretized positions
@@ -181,6 +180,8 @@ int main(int argc, char * argv[])
 
 
 
+
+
     timeinfo = argv[1][0]; // character i for imaginary or r for real time
 
     if (timeinfo != 'r' && timeinfo != 'R')
@@ -194,31 +195,39 @@ int main(int argc, char * argv[])
 
 
 
-    /*  ===============================================================  *
-     *
-     *                     SETUP VALUES TO VARIABLES
-     *
-     *  ===============================================================  */
+
+
+    /*  ===============================================================
+     
+                           SETUP VALUES TO VARIABLES
+     
+        ===============================================================  */
+
+
 
 
 
     /* search and read file with values of domain
      * ----------------------------------------------------------------  */
-    strcpy(fname_in, "setup/");
+    strcpy(fname_in, "setup/GP_");
     strcat(fname_in, argv[4]);
     strcat(fname_in, "_domain.dat");
 
-    printf("\nLooking for %s\n", fname_in);
+    printf("\nLooking for %s", fname_in);
 
     eq_setup_file = fopen(fname_in, "r");
 
     if (eq_setup_file == NULL)
-    { printf("ERROR: impossible to open file %s\n", fname_in); return -1; }
+    { printf("\nERROR: impossible to open file %s\n", fname_in); return -1; }
+    else
+    { printf(" ... Found !\n"); }
 
     trash = fscanf(eq_setup_file, "%lf %lf %d", &x1, &x2, &M);
 
     fclose(eq_setup_file);
     /* ----------------------------------------------------------------  */
+
+
 
 
 
@@ -232,6 +241,8 @@ int main(int argc, char * argv[])
 
 
 
+
+
     /* Setup discretized positions and potential
      * ----------------------------------------------------------------  */
     dx = (x2 - x1) / M;
@@ -242,31 +253,62 @@ int main(int argc, char * argv[])
 
 
 
+
+
     /* search and read file with values of equation parameters
      * ----------------------------------------------------------------  */
-    strcpy(fname_in, "setup/");
+    strcpy(fname_in, "setup/GP_");
     strcat(fname_in, argv[4]);
     strcat(fname_in, "_eq.dat");
 
-    printf("\nLooking for %s\n", fname_in);
+    printf("\nLooking for %s", fname_in);
 
     eq_setup_file = fopen(fname_in, "r");
 
     if (eq_setup_file == NULL)  // impossible to open file
-    { printf("ERROR: impossible to open file %s\n", fname_in); return -1; }
+    { printf("\nERROR: impossible to open file %s\n", fname_in); return -1; }
+    else
+    { printf(" ... Found !\n"); }
 
-    trash = fscanf(eq_setup_file, "%lf %lf %lf %lf %d",
-                   &a2, &imag, &inter, &lambda, &cyclic);
+    trash = fscanf(eq_setup_file, "%lf %lf %lf %d",
+                   &a2, &imag, &inter, &cyclic);
 
     fclose(eq_setup_file);
 
     a1 = 0 + imag * I;
+    /* ----------------------------------------------------------------  */
 
-    rarrFill(M + 1, 0, V);
-    V[M/2] = lambda / dx;  // implement with delta barrier case lambda != 0
+
+
+
+
+    /* search and read file with values of trap potential
+     * ----------------------------------------------------------------  */
+    strcpy(fname_in, "setup/GP_");
+    strcat(fname_in, argv[4]);
+    strcat(fname_in, "_trap.dat");
+
+    printf("\nLooking for %s ", fname_in);
+
+    eq_setup_file = fopen(fname_in, "r");
+
+    if (eq_setup_file == NULL)  // impossible to open file
+    { printf("\nERROR: impossible to open file %s\n", fname_in); return -1; }
+    else
+    { printf(" ... Found !\n"); }
+
+    for (i = 0; i < M + 1; i++)
+    {
+        trash = fscanf(eq_setup_file, " %lf", &real);
+        V[i] = real;
+    }
+
+    fclose(eq_setup_file); // finish the reading of file
 
     printf("\nEquation coef. and domain successfully setted up.\n");
     /* ----------------------------------------------------------------  */
+
+
 
 
 
@@ -275,16 +317,18 @@ int main(int argc, char * argv[])
     S = carrDef(M + 1); // Holds time step solution
     E = carrDef(N + 1);
 
-    strcpy(fname_in, "setup/");
+    strcpy(fname_in, "setup/GP_");
     strcat(fname_in, argv[4]);
     strcat(fname_in, "_init.dat");
 
-    printf("\nLooking for %s\n", fname_in);
+    printf("\nLooking for %s", fname_in);
 
     eq_setup_file = fopen(fname_in, "r");
 
     if (eq_setup_file == NULL)  // impossible to open file
-    { printf("ERROR: impossible to open file %s\n", fname_in); return -1; }
+    { printf("\nERROR: impossible to open file %s\n", fname_in); return -1; }
+    else
+    { printf(" ... Found !\n"); }
 
     for (i = 0; i < M + 1; i++)
     {
@@ -301,11 +345,12 @@ int main(int argc, char * argv[])
 
 
 
-    /*  ===============================================================  *
-     *
-     *                        CALL INTEGRATOR ROUTINE
-     *
-     *  ===============================================================  */
+    /*  ===============================================================
+     
+                              CALL INTEGRATOR ROUTINE
+     
+        ===============================================================  */
+
 
 
     start = omp_get_wtime();
@@ -401,11 +446,11 @@ int main(int argc, char * argv[])
 
 
 
-    /*  ===============================================================  *
-     *
-     *                             RECORD DATA
-     *
-     *  ===============================================================  */
+    /*  ===============================================================
+     
+                                   RECORD DATA
+     
+        ===============================================================  */
 
 
 
@@ -436,6 +481,10 @@ int main(int argc, char * argv[])
         strcat(fname_out, "_realdomain.dat");
     }
 
+
+
+
+
     /* write domain of solution
      * -------------------------------------------------------------------- */
     out_data = fopen(fname_out, "w");
@@ -447,6 +496,8 @@ int main(int argc, char * argv[])
 
     fclose(out_data);
     /* -------------------------------------------------------------------- */
+
+
 
 
 
