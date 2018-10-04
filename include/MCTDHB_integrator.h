@@ -115,7 +115,15 @@ void lanczos(MCTDHBsetup MCdata, Cmatrix Ho, Carray Hint,
 
 
 
-void RK4lanczos
+void RK4lanczosBefore
+(   // Evolve nonlinear part of orbitals coupled with coeficients
+    MCTDHBsetup MC,
+    Cmatrix orb, // End up modified by the evolution
+    Carray C,    // End up modified by the evolution
+    double dt
+);
+
+void RK4lanczosAfter
 (   // Evolve nonlinear part of orbitals coupled with coeficients
     MCTDHBsetup MC,
     Cmatrix orb, // End up modified by the evolution
@@ -155,10 +163,10 @@ void LinearPartSM
 (   // Evolve a time-step the linear part of PDE(orbitals)
     int Mpos,
     int Morb,
-    CCSmat rhs_mat, // Matrix from CN approach(discretization)
-    Carray upper,   // Upper diagonal
-    Carray lower,   // Lower diagonal
-    Carray mid,     // Main diagonal of tridiagonal system
+    CCSmat cnmat, // Matrix from CN approach(discretization)
+    Carray upper, // Upper diagonal
+    Carray lower, // Lower diagonal
+    Carray mid,   // Main diagonal of tridiagonal system
     Cmatrix Orb
 );
 
@@ -166,7 +174,7 @@ void LinearPartSM
 
 
 
-void LinearPartLU (int Mpos, int Morb, CCSmat rhs_mat, Carray upper,
+void LinearPartLU (int Mpos, int Morb, CCSmat cnmat, Carray upper,
      Carray lower, Carray mid, Cmatrix Orb);
 
 

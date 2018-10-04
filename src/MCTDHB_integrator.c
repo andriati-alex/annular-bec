@@ -476,7 +476,7 @@ void applyHconf (MCTDHBsetup MC, Carray C, Cmatrix Ho, Carray Hint, Carray out)
 
 
 double complex Proj_Hint (int M, int k, int i, Cmatrix rho_inv, Carray rho2,
-       Carray Hint )
+               Carray Hint)
 {   // k and i enumerate orbitals maintaned fixed
     int j,
         s,
@@ -580,6 +580,8 @@ void OrbDDT (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix newOrb,
 
     OBrho(N, M, NCmat, IF, C, rho);
     TBrho(N, M, NCmat, IF, C, rho2);
+    printf("\n\nValues of rho2\n\n");
+    for (k = 0; k < M * M * M * M; k++) printf("\n%.10lf", creal(rho2[k]));
 
     s = HermitianInv(M, rho, rho_inv);
     if (s != 0)
@@ -612,9 +614,11 @@ void OrbDDT (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix newOrb,
 void OrbConfDDT (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix Ho,
      Carray Hint, Carray dCdt, Cmatrix dOdt )
 {   // Right-Hand-Side of time derivatives both for coefficients and orbitals
+
     int i;
     OrbDDT(MC, C, Orb, dOdt, Ho, Hint);
     applyHconf(MC, C, Ho, Hint, dCdt);
+
     for (i = 0; i < MC->nc; i++) dCdt[i] = - I * dCdt[i];
 }
 
@@ -1210,6 +1214,7 @@ void RK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
             Oarg[k][j] = Orb[k][j] + Orhs[k][j] * 0.5 * dt;
         }
     }
+    printf("\n\n| C | = %.5lf\n\n", carrMod(MC->nc, Carg));
 
 
 
@@ -1234,6 +1239,7 @@ void RK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
             Oarg[k][j] = Orb[k][j] + Orhs[k][j] * 0.5 * dt;
         }
     }
+    printf("\n\n| C | = %.5lf\n\n", carrMod(MC->nc, Carg));
 
 
 
@@ -1258,6 +1264,7 @@ void RK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
             Oarg[k][j] = Orb[k][j] + Orhs[k][j] * dt;
         }
     }
+    printf("\n\n| C | = %.5lf\n\n", carrMod(MC->nc, Carg));
 
 
 
@@ -1457,16 +1464,19 @@ void IRK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
 
 
 
-void LinearPartSM (int Mpos, int Morb, CCSmat rhs_mat, Carray upper,
+void LinearPartSM (int Mpos, int Morb, CCSmat cnmat, Carray upper,
      Carray lower, Carray mid, Cmatrix Orb)
 {   // Laplacian part. Solve using CN-discretization
-    int k, size = Mpos - 1;
+    int
+        k,
+        size = Mpos - 1;
 
-    Carray rhs = carrDef(size);
+    Carray
+        rhs = carrDef(size);
 
     for (k = 0; k < Morb; k++)
     {   // For each orbital k solve a tridiagonal system obtained by CN
-        CCSvec(size, rhs_mat->vec, rhs_mat->col, rhs_mat->m, Orb[k], rhs);
+        CCSvec(size, cnmat->vec, cnmat->col, cnmat->m, Orb[k], rhs);
         triCyclicSM(size, upper, lower, mid, rhs, Orb[k]);
     }
 
@@ -1477,16 +1487,20 @@ void LinearPartSM (int Mpos, int Morb, CCSmat rhs_mat, Carray upper,
 
 
 
-void LinearPartLU (int Mpos, int Morb, CCSmat rhs_mat, Carray upper,
+void LinearPartLU (int Mpos, int Morb, CCSmat cnmat, Carray upper,
      Carray lower, Carray mid, Cmatrix Orb )
 {   // Laplacian part. Solve using CN-discretization
-    int k, size = Mpos - 1;
 
-    Carray rhs = carrDef(size);
+    int
+        k,
+        size = Mpos - 1;
+
+    Carray
+        rhs = carrDef(size);
 
     for (k = 0; k < Morb; k++)
     {   // For each orbital k solve a tridiagonal system obtained by CN
-        CCSvec(size, rhs_mat->vec, rhs_mat->col, rhs_mat->m, Orb[k], rhs);
+        CCSvec(size, cnmat->vec, cnmat->col, cnmat->m, Orb[k], rhs);
         triCyclicLU(size, upper, lower, mid, rhs, Orb[k]);
     }
 
@@ -1515,23 +1529,30 @@ void LinearPartLU (int Mpos, int Morb, CCSmat rhs_mat, Carray upper,
 void MCTDHB_CN_REAL (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
      int Nsteps, int method, int cyclic, char fname [], int n)
 {
+
+
+
     int
         i,
         k,
         l,
         s,
         q,
-        Mpos;
+        Mpos = MC->Mpos;
 
-    Mpos = MC->Mpos;
+
 
     double
         dx = MC->dx,
         a2 = MC->a2;
 
+
+
     double complex
         tr,
         a1 = MC->a1;
+
+
 
     // used to store matrix elements of linear part
     Carray
@@ -1540,15 +1561,23 @@ void MCTDHB_CN_REAL (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
         lower  = carrDef(Mpos - 1),
         mid    = carrDef(Mpos - 1);
 
+
+
     Cmatrix
         rho = cmatDef(MC->Morb, MC->Morb);
 
-    CCSmat
-        rhs_mat;
 
+
+    CCSmat
+        cnmat;
+
+
+    
     char
         fname_orb[120],
         fname_rho[120];
+
+
 
     FILE
         * out_orb,
@@ -1590,7 +1619,7 @@ void MCTDHB_CN_REAL (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
 
     // fill main diagonal (use upper as auxiliar array)
     carrFill(Mpos - 1, - a2 * dt / dx / dx + I, upper);
-    rcarrUpdate(Mpos - 1, upper, dt, MC->V, mid);
+    rcarrUpdate(Mpos - 1, upper, dt / 2, MC->V, mid);
 
     // fill upper diagonal
     carrFill(Mpos - 1, a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, upper);
@@ -1603,7 +1632,7 @@ void MCTDHB_CN_REAL (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
     else        { lower[Mpos-2] = 0;                                        }
 
     // Store in CCS format the RHS of discretized system of equations
-    rhs_mat = CyclicToCCS(Mpos - 1, upper, lower, mid);
+    cnmat = CyclicToCCS(Mpos - 1, upper, lower, mid);
 
 
 
@@ -1613,7 +1642,7 @@ void MCTDHB_CN_REAL (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
 
     // fill main diagonal (use upper as auxiliar array)
     carrFill(Mpos - 1, a2 * dt / dx / dx + I, upper);
-    rcarrUpdate(Mpos - 1, upper, -dt, MC->V, mid);
+    rcarrUpdate(Mpos - 1, upper, -dt / 2, MC->V, mid);
 
     // fill upper diagonal
     carrFill(Mpos - 1, - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, upper);
@@ -1627,7 +1656,8 @@ void MCTDHB_CN_REAL (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
 
 
 
-    q = 0;
+    q = 1;
+    printf("\n\n\tmethod = %d\n\n", method);
     for (i = 0; i < Nsteps; i++)
     {
         /* Half step nonlinear part
@@ -1638,13 +1668,12 @@ void MCTDHB_CN_REAL (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
             RK4step(MC, Orb, C, dt / 2);
         /* -------------------------------------- */
 
-
         /* One step linear part
          * --------------------------------------------------------------- */
         if (method == 21 || method == 22)
-            LinearPartLU(Mpos, MC->Morb, rhs_mat, upper, lower, mid, Orb);
+            LinearPartLU(Mpos, MC->Morb, cnmat, upper, lower, mid, Orb);
         else
-            LinearPartSM(Mpos, MC->Morb, rhs_mat, upper, lower, mid, Orb);
+            LinearPartSM(Mpos, MC->Morb, cnmat, upper, lower, mid, Orb);
         // The boundary
         if (cyclic)
         { for (k = 0; k < MC->Morb; k++) Orb[k][Mpos-1] = Orb[k][0]; }
@@ -1694,10 +1723,10 @@ void MCTDHB_CN_REAL (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
         // record data every n steps
         if (q == n)
         {
-            q = 0;
+            q = 1;
             RecordMatrix(out_rho, MC->Morb, rho);
             for (k = 0; k < MC->Morb; k++)
-            {
+            {   // record orbitals in a sequence of Morb lines
                 RecordArray(out_orb, Mpos, Orb[k]);
             }
         }
@@ -1708,7 +1737,7 @@ void MCTDHB_CN_REAL (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
     fclose(out_rho);
 
     cmatFree(MC->Morb, rho);
-    CCSFree(rhs_mat);
+    CCSFree(cnmat);
     free(to_int);
     free(upper);
     free(lower);
@@ -1722,6 +1751,9 @@ void MCTDHB_CN_REAL (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
 void MCTDHB_CN_IMAG (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
      double dT, int Nsteps, int cyclic)
 {
+
+
+
     int i,
         k,
         l,
@@ -1746,15 +1778,16 @@ void MCTDHB_CN_IMAG (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
         to_int = carrDef(Mpos);
 
     CCSmat
-        rhs_mat;
+        cnmat;
     
     
 
     // Store the initial guess energy
     E[0] = Energy(MC, Orb, C);
+    printf("\n\nInitial Energy = "); cPrint(E[0]);
 
     // Configure the linear system from Crank-Nicolson scheme
-    rhs_mat = conf_linear(Mpos, dx, dt, a2, a1, inter, V, cyclic, upper, lower, mid);
+    cnmat = CNmat(Mpos, dx, dt, a2, a1, inter, V, cyclic, upper, lower, mid);
 
 
 
@@ -1762,7 +1795,7 @@ void MCTDHB_CN_IMAG (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
     {
         IRK4step(MC, Orb, C, dt / 2);
 
-        LinearPartSM(Mpos, MC->Morb, rhs_mat, upper, lower, mid, Orb);
+        LinearPartSM(Mpos, MC->Morb, cnmat, upper, lower, mid, Orb);
 
         // The boundary
         if (cyclic)
@@ -1781,13 +1814,13 @@ void MCTDHB_CN_IMAG (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
         
         
         // Adapt time step
-        if ((i+1) % 2000 == 0)
+        if ((i+1) % 2000 == 0 && i < 10000)
         {
             dt = dt * (1 + 0.2);
             dT = dT * (1 + 0.2);
-            CCSFree(rhs_mat); // Erase old matrix to setup new one
-            rhs_mat = conf_linear(Mpos, dx, dt, a2, a1, inter,
-                      V, cyclic, upper, lower, mid);
+            CCSFree(cnmat); // Erase old matrix to setup new one
+            cnmat = CNmat(Mpos, dx, dt, a2, a1, inter,
+                    V, cyclic, upper, lower, mid);
             printf("\n\n\t TIME STEP ADJUSTED \n\n");
         }
 
@@ -1815,7 +1848,7 @@ void MCTDHB_CN_IMAG (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
         /* ---------------------------------------------------------------- */
     }
 
-    CCSFree(rhs_mat);
+    CCSFree(cnmat);
     free(to_int);
     free(upper);
     free(lower);

@@ -164,7 +164,6 @@ int main(int argc, char * argv[])
         imag,   // imag part of read data from file
         a2,     // Term multiplying d2 / dx2
         inter,  // contact interaction strength
-        lambda, // height of dirac delta barrier
         check,
         * V;   // Potential computed in discretized positions
 
@@ -182,13 +181,13 @@ int main(int argc, char * argv[])
         * out_data;
 
     Carray
-        Ctimetest,
+        Ctest,
         C,      // Coeficients of superposition of Fock states
         to_int, // auxiliar to compute integration
         E;      // Energy at each time step evolved
 
     Cmatrix
-        Orbtimetest,
+        Orbtest,
         Orb;    // Orb[k][j] give the value of k-th orbital at position j
 
     MCTDHBsetup
@@ -234,7 +233,7 @@ int main(int argc, char * argv[])
     if (eq_setup_file == NULL) // impossible to open file
     { printf("\nERROR: impossible to open file %s\n", fname_in); return -1; }
     else
-    { printf(" ... Found !"); }
+    { printf(" ... Found !\n"); }
 
     k = fscanf(eq_setup_file, "%d %d %d %lf %lf",
                &Npar, &Morb, &Mdx, &xi, &xf);
@@ -255,7 +254,7 @@ int main(int argc, char * argv[])
 
 
     Orb = cmatDef(Morb, Mdx + 1);
-    Orbtimetest = cmatDef(Morb, Mdx + 1);
+    Orbtest = cmatDef(Morb, Mdx + 1);
 
     strcpy(fname_in, "setup/MC_");
     strcat(fname_in, argv[4]);
@@ -268,7 +267,7 @@ int main(int argc, char * argv[])
     if (eq_setup_file == NULL)  // impossible to open file
     { printf("\nERROR: impossible to open file %s\n", fname_in); return -1; }
     else
-    { printf(" ... Found !"); }
+    { printf(" ... Found !\n"); }
 
     for (k = 0; k < Mdx + 1; k++)
     {
@@ -276,7 +275,7 @@ int main(int argc, char * argv[])
         {
             l = fscanf(eq_setup_file, " (%lf+%lfj) ", &real, &imag);
             Orb[s][k] = real + I * imag;
-            Orbtimetest[s][k] = real + I * imag;
+            Orbtest[s][k] = real + I * imag;
         }
     }
 
@@ -290,7 +289,7 @@ int main(int argc, char * argv[])
 
 
     C = carrDef(NC(Npar, Morb));
-    Ctimetest = carrDef(NC(Npar, Morb));
+    Ctest = carrDef(NC(Npar, Morb));
     
     strcpy(fname_in, "setup/MC_");
     strcat(fname_in, argv[4]);
@@ -303,13 +302,13 @@ int main(int argc, char * argv[])
     if (eq_setup_file == NULL)  // impossible to open file
     { printf("\nERROR: impossible to open file %s\n", fname_in); return -1; }
     else
-    { printf(" ... Found !"); }
+    { printf(" ... Found !\n"); }
 
     for (k = 0; k < NC(Npar, Morb); k++)
     {
         l = fscanf(eq_setup_file, " (%lf+%lfj)", &real, &imag);
         C[k] = real + I * imag;
-        Ctimetest[k] = real + I * imag;
+        Ctest[k] = real + I * imag;
     }
 
     fclose(eq_setup_file); // finish the reading of file
@@ -332,10 +331,10 @@ int main(int argc, char * argv[])
     if (eq_setup_file == NULL)  // impossible to open file
     { printf("ERROR: impossible to open file %s\n", fname_in); return -1; }
     else
-    { printf(" ... Found !"); }    
+    { printf(" ... Found !\n"); }
 
-    l = fscanf(eq_setup_file, "%lf %lf %lf %lf %d",
-                   &a2, &imag, &inter, &lambda, &cyclic);
+    l = fscanf(eq_setup_file, "%lf %lf %lf %d",
+                   &a2, &imag, &inter, &cyclic);
 
     fclose(eq_setup_file);
 
@@ -361,7 +360,7 @@ int main(int argc, char * argv[])
     if (eq_setup_file == NULL)  // impossible to open file
     { printf("\nERROR: impossible to open file %s\n", fname_in); return -1; }
     else
-    { printf(" ... Found !"); }
+    { printf(" ... Found !\n"); }
 
     for (k = 0; k < Mdx + 1; k++)
     {
@@ -450,6 +449,19 @@ int main(int argc, char * argv[])
 
 
     mc = AllocMCTDHBdata(Npar, Morb, Mdx + 1, xi, xf, a2, inter, V, a1);
+    printf("\n\n NCmatrix: \n");
+    for (k = 0; k < Npar + 1; k++)
+    {
+        printf("\n");
+        for (l = 0; l < Morb + 1; l++) printf(" %4d", mc->NCmat[k][l]);
+    }
+    
+    printf("\n\n Configurations: \n");
+    for (k = 0; k < NC(Npar, Morb); k++)
+    {
+        printf("\n");
+        for (l = 0; l < Morb; l++) printf(" %4d", mc->IF[k][l]);
+    }
 
     to_int = carrDef(Mdx + 1);
 
@@ -543,7 +555,7 @@ int main(int argc, char * argv[])
         printf("\n\nDoing real time propagation (SM/RK4) ...\n");
         
         start = omp_get_wtime();
-        MCTDHB_CN_REAL(mc, Orbtimetest, Ctimetest, dt, 1, method, cyclic,
+        MCTDHB_CN_REAL(mc, Orbtest, Ctest, dt, 1, method, cyclic,
         fname_out, 10);
         time_used = (double) (omp_get_wtime() - start);
 
@@ -551,8 +563,8 @@ int main(int argc, char * argv[])
         printf("\nTotal time estimated: ");
         TimePrint(time_used * N);
         
-        free(Ctimetest);
-        cmatFree(Morb, Orbtimetest);
+        free(Ctest);
+        cmatFree(Morb, Orbtest);
 
         printf("\n\n");
 
@@ -564,15 +576,15 @@ int main(int argc, char * argv[])
         printf("\n\nDoing imaginary time propagation ...\n");
 
         start = omp_get_wtime();
-        MCTDHB_CN_IMAG(mc, Orbtimetest, Ctimetest, E, dt, 1, 1);
+        MCTDHB_CN_IMAG(mc, Orbtest, Ctest, E, dt, 1, 1);
         time_used = (double) (omp_get_wtime() - start);
 
         printf("\n\nTime to do 1 step: %.1lf seconds\n", time_used);
         printf("\nTotal time estimated: ");
         TimePrint(time_used * N);
 
-        free(Ctimetest);
-        cmatFree(Morb, Orbtimetest);
+        free(Ctest);
+        cmatFree(Morb, Orbtest);
 
         printf("\n\n");
 
@@ -643,8 +655,8 @@ int main(int argc, char * argv[])
         return -1;
     }
 
-    fprintf(out_data, "%d %d %d %.15lf %.15lf %.10lf %d",
-            Npar, Morb, Mdx, xi, xf, dt, N);
+    fprintf(out_data, "%d %d %d %.15lf %.15lf %.10lf %d %d",
+            Npar, Morb, Mdx, xi, xf, dt, N, 10);
 
     fclose(out_data);
 

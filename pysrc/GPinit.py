@@ -89,6 +89,7 @@ def NBrightSoliton(x, a, c):
 
 def DarkSolitonModes(x, a, b, c, n):
     # periodic frequency modes
+    n = int(n);
     k = np.arange(1, n + 1) * 2 * np.pi / (x[-1] - x[0]);
     t = (np.random.random(int(n)) - 0.5);
     S = np.sqrt(a + b * (np.tanh(x / c) ** 2)) * np.exp(2 * np.pi * t[0]);
