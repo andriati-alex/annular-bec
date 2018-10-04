@@ -53,12 +53,19 @@ void IGPFFT(int M, int N, double dx, double dT, double a2, double complex a1,
     // Use FFT to compute derivatives on  linear  part  of  PDE
     // hence the boundary is required to be periodic
 
+
+
     int
         i,
         j,
-        m;
+        m = M - 1;
+    
+    
+    
+    MKL_LONG
+        s;
 
-    m = M - 1; // ignore last point that is the boundary
+
 
     double
         freq,       // frequencies in Fourier space
@@ -66,24 +73,25 @@ void IGPFFT(int M, int N, double dx, double dT, double a2, double complex a1,
         NormStep,   // to renormalize on each time-step
         Idt = - dT; // factor to multiply on exponential after split-step
 
+
+
     double complex
-        dt = - I  * dT; // imaginary time-step
+        dt = - I  * dT; // pure imaginary time-step
 
 
 
-    MKL_LONG s; // status of called MKL FFT functions
 
-    Rarray abs2 = rarrDef(M);        // abs square of wave function
+    Rarray
+        abs2 = rarrDef(M), // abs square of wave function
+        out  = rarrDef(M); // hold linear and nonlinear potential
 
-    Rarray out  = rarrDef(M);        // hold linear and nonlinear potential
 
-    Carray exp_der = carrDef(m);     // exponential of derivative operator
 
-    Carray stepexp = carrDef(M);     // Exponential of potential
-
-    Carray back_fft = carrDef(m);    // go back to position space
-
-    Carray forward_fft = carrDef(m); // go to frequency space
+    Carray
+        exp_der = carrDef(m),     // exponential of derivative operator
+        stepexp = carrDef(M),     // Exponential of potential
+        back_fft = carrDef(m),    // go back to position space
+        forward_fft = carrDef(m); // go to frequency space
 
 
 
@@ -170,84 +178,55 @@ void IGPFFT(int M, int N, double dx, double dT, double a2, double complex a1,
 void IGPCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
      double inter, Rarray V, int cyclic, Carray S, Carray E)
 {
+
     unsigned int
         i,
         j;
+
 
     double
         norm,       // initial norm
         NormStep,   // to renormalize at each time-step
         Idt = - dT; // factor that multiplies in split-step exponentials
 
+
     double complex
         dt = - I  * dT; // pure imaginary time-step
 
-    // Used to apply nonlinear part
-    Carray stepexp = carrDef(M);
-    Carray linpart = carrDef(M);
-    Rarray abs2    = rarrDef(M); // abs square of wave function
 
-    // used to store matrix elements of linear part
-    Carray upper = carrDef(M - 1);
-    Carray lower = carrDef(M - 1);
-    Carray mid   = carrDef(M - 1);
-    Carray rhs   = carrDef(M - 1); // RHS of linear system from CN
+    Carray
+        // Exponential of nonlinear part
+        stepexp = carrDef(M),
+        // Hold the solution of linear system
+        linpart = carrDef(M),
+        // (cyclic)tridiagonal system from Crank-Nicolson
+        upper = carrDef(M - 1),
+        lower = carrDef(M - 1),
+        mid   = carrDef(M - 1),
+        // Vector of RHS of linear system
+        rhs   = carrDef(M - 1);
 
+
+    Rarray
+        abs2 = rarrDef(M);
+
+
+    CCSmat
+        cnmat;
+
+
+
+    /* Setup initial norm to be conserved and compute energy
+     * ----------------------------------------------------- */
     carrAbs2(M, S, abs2);
     norm = sqrt(Rsimps(M, abs2, dx));
     E[0] = Functional(M, dx, a2, a1, inter / 2, V, S);
+    /* ----------------------------------------------------- */
 
 
 
-    /*                 ****************************                 */
-    /*                 Setup Right-Hand-Side matrix                 */
-    /*                 ****************************                 */
-
-
-
-    // fill main diagonal (use upper as auxiliar pointer)
-    carrFill(M - 1, - a2 * dt / dx / dx + I, upper);
-    rcarrUpdate(M - 1, upper, dt, V, mid);
-
-    // fill upper diagonal
-    carrFill(M - 1, a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, upper);
-    if (cyclic) { upper[M-2] = a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
-    else        { upper[M-2] = 0;                                        }
-
-    // fill lower diagonal
-    carrFill(M - 1, a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, lower);
-    if (cyclic) { lower[M-2] = a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
-    else        { lower[M-2] = 0;                                        }
-
-    // Store in CCS format
-    CCSmat rhs_mat = CyclicToCCS(M - 1, upper, lower, mid);
-
-
-
-    /*                *******************************                */
-    /*                Setup Cyclic tridiagonal matrix                */
-    /*                *******************************                */
-
-
-
-    // fill main diagonal (use upper as auxiliar pointer)
-    carrFill(M - 1, a2 * dt / dx /dx + I, upper);
-    rcarrUpdate(M - 1, upper, -dt, V, mid);
-
-    // fill upper diagonal
-    carrFill(M - 1, - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, upper);
-    if (cyclic) { upper[M-2] = - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
-    else        { upper[M-2] = 0;                                          }
-
-    // fill lower diagonal
-    carrFill(M - 1, - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, lower);
-    if (cyclic) { lower[M-2] = - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
-    else        { lower[M-2] = 0;                                          }
-
-
-
-    /* Apply Split step and solve separately nonlinear and linear part */
-    /* *************************************************************** */
+    // Configure the linear system from Crank-Nicolson scheme
+    cnmat = CNmat(M, dx, dt, a2, a1, inter, V, cyclic, upper, lower, mid);
 
 
 
@@ -257,7 +236,7 @@ void IGPCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
         carrMultiply(M, stepexp, S, linpart);
 
         // Solve linear part
-        CCSvec(M - 1, rhs_mat->vec, rhs_mat->col, rhs_mat->m, linpart, rhs);
+        CCSvec(M - 1, cnmat->vec, cnmat->col, cnmat->m, linpart, rhs);
         triCyclicSM(M - 1, upper, lower, mid, rhs, linpart);
         if (cyclic) { linpart[M-1] = linpart[0]; } // Cyclic system
         else        { linpart[M-1] = 0;          } // zero boundary
@@ -282,7 +261,7 @@ void IGPCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
     free(lower);
     free(mid);
     free(rhs);
-    CCSFree(rhs_mat);
+    CCSFree(cnmat);
 }
 
 
@@ -309,72 +288,39 @@ void IGPCNLU(int M, int N, double dx, double dT, double a2, double complex a1,
     double complex
         dt = - I  * dT;
 
-    // Used to apply nonlinear part
-    Carray stepexp = carrDef(M);
-    Carray linpart = carrDef(M);
-    Rarray abs2    = rarrDef(M); // abs square of wave function
+    Carray
+        // Exponential of nonlinear part
+        stepexp = carrDef(M),
+        // Hold the solution of linear system
+        linpart = carrDef(M),
+        // (cyclic)tridiagonal system from Crank-Nicolson
+        upper = carrDef(M - 1),
+        lower = carrDef(M - 1),
+        mid   = carrDef(M - 1),
+        // Vector of RHS of linear system
+        rhs   = carrDef(M - 1);
 
-    // used to store matrix elements of linear part
-    Carray upper = carrDef(M - 1);
-    Carray lower = carrDef(M - 1);
-    Carray mid   = carrDef(M - 1);
-    Carray rhs   = carrDef(M - 1);
 
+    Rarray
+        abs2 = rarrDef(M);
+
+
+    CCSmat
+        cnmat;
+
+
+
+    /* Setup initial norm to be conserved and compute energy
+     * ----------------------------------------------------- */
     carrAbs2(M, S, abs2);
     norm = sqrt(Rsimps(M, abs2, dx));
     E[0] = Functional(M, dx, a2, a1, inter / 2, V, S);
+    /* ----------------------------------------------------- */
 
 
 
-    /*                 ****************************                 */
-    /*                 Setup Right-Hand-Side matrix                 */
-    /*                 ****************************                 */
-
-
-
-    // fill main diagonal (use upper as auxiliar pointer)
-    carrFill(M - 1, - a2 * dt / dx / dx + I, upper);
-    rcarrUpdate(M - 1, upper, dt, V, mid);
-
-    // fill upper diagonal
-    carrFill(M - 1, a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, upper);
-    if (cyclic) { upper[M-2] = a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
-    else        { upper[M-2] = 0;                                        }
-
-    // fill lower diagonal
-    carrFill(M - 1, a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, lower);
-    if (cyclic) { lower[M-2] = a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
-    else        { lower[M-2] = 0;                                        }
-
-    // Store in CCS format
-    CCSmat rhs_mat = CyclicToCCS(M - 1, upper, lower, mid);
-
-
-
-    /*                *******************************                */
-    /*                Setup Cyclic tridiagonal matrix                */
-    /*                *******************************                */
-
-
-
-    // fill main diagonal (use upper as auxiliar pointer)
-    carrFill(M - 1, a2 * dt / dx /dx + I, upper);
-    rcarrUpdate(M - 1, upper, -dt, V, mid);
-
-    // fill upper diagonal
-    carrFill(M - 1, - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, upper);
-    if (cyclic) { upper[M-2] = - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
-    else        { upper[M-2] = 0;                                          }
-
-    // fill lower diagonal
-    carrFill(M - 1, - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, lower);
-    if (cyclic) { lower[M-2] = - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
-    else        { lower[M-2] = 0;                                          }
-
-
-
-    /* Apply Split step and solve separately nonlinear and linear part */
-    /* *************************************************************** */
+    // Configure the linear system from Crank-Nicolson scheme
+    cnmat = CNmat(M, dx, dt, a2, a1, inter, V, cyclic, upper, lower, mid);
 
 
 
@@ -384,7 +330,7 @@ void IGPCNLU(int M, int N, double dx, double dT, double a2, double complex a1,
         carrMultiply(M, stepexp, S, linpart);
 
         // Solve linear part
-        CCSvec(M - 1, rhs_mat->vec, rhs_mat->col, rhs_mat->m, linpart, rhs);
+        CCSvec(M - 1, cnmat->vec, cnmat->col, cnmat->m, linpart, rhs);
         triCyclicLU(M - 1, upper, lower, mid, rhs, linpart);
         if (cyclic) { linpart[M-1] = linpart[0]; } // Cyclic system
         else        { linpart[M-1] = 0;          } // zero boundary
@@ -409,7 +355,7 @@ void IGPCNLU(int M, int N, double dx, double dT, double a2, double complex a1,
     free(lower);
     free(mid);
     free(rhs);
-    CCSFree(rhs_mat);
+    CCSFree(cnmat);
 }
 
 
@@ -476,52 +422,58 @@ void NonLinearVIDDT(int M, double t, Carray Psi, Carray FullPot, Carray Dpsi)
 void IGPCNSMRK4(int M, int N, double dx, double dT, double a2, double complex a1,
      double inter, Rarray V, int cyclic, Carray S, Carray E)
 {   // Evolve Gross-Pitaevskii using 4-th order Runge-Kutta
-    // to deal with nonlinear part.
-    
+    // to deal with nonlinear  part.  Solve  Crank-Nicolson
+    // linear system with Sherman-Morrison formula
+
+
     int i,
         j;
 
+
     double
-        norm,
-        NormStep;
+        norm,     // initial norm to be kept constant
+        NormStep; // renorm each time step
+
 
     double complex
         dt,
         interv[1];
 
-    dt = - I * dT; // Set time to pure imaginary
 
-    interv[0] = inter;
+    Rarray
+        abs2 = rarrDef(M); // abs square of wave function
     
-    Rarray abs2 = rarrDef(M); // abs square of wave function
 
-    // Used to apply nonlinear part
-    Carray linpart = carrDef(M);
+    Carray
+        // hold solution of linear part
+        linpart = carrDef(M),
+        // (cyclic)tridiagonal matrix from Crank-Nicolson
+        upper   = carrDef(M - 1),
+        lower   = carrDef(M - 1),
+        mid     = carrDef(M - 1),
+        // RHS of linear system at each time step
+        rhs     = carrDef(M - 1);
 
-    // used to store matrix elements of linear part
-    Carray upper = carrDef(M - 1);
-    Carray lower = carrDef(M - 1);
-    Carray mid   = carrDef(M - 1);
-    Carray rhs   = carrDef(M - 1);
+    CCSmat
+        cnmat;
 
-    CCSmat rhs_mat;
+
+    dt = - I * dT;     // Set time to pure imaginary
+    interv[0] = inter; // setup extra arguments to RK4 derivative
 
 
     
-    // Initial Energy and norm
+    /* Setup initial norm to be conserved and compute energy
+     * ----------------------------------------------------- */
     carrAbs2(M, S, abs2);
     norm = sqrt(Rsimps(M, abs2, dx));
     E[0] = Functional(M, dx, a2, a1, inter / 2, V, S);
+    /* ----------------------------------------------------- */
 
 
 
     // Configure the linear system from Crank-Nicolson scheme
-    rhs_mat = conf_linear(M, dx, dt, a2, a1, inter, V, cyclic, upper, lower, mid);
-
-
-
-    /* Apply Split step and solve separately nonlinear and linear part */
-    /* *************************************************************** */
+    cnmat = CNmat(M, dx, dt, a2, a1, inter, V, cyclic, upper, lower, mid);
 
 
 
@@ -530,7 +482,7 @@ void IGPCNSMRK4(int M, int N, double dx, double dT, double a2, double complex a1
         RK4step(M, dT/2, 0, S, interv, linpart, NonLinearIDDT);
         
         // Solve linear part (nabla ^ 2 part)
-        CCSvec(M - 1, rhs_mat->vec, rhs_mat->col, rhs_mat->m, linpart, rhs);
+        CCSvec(M - 1, cnmat->vec, cnmat->col, cnmat->m, linpart, rhs);
         triCyclicSM(M - 1, upper, lower, mid, rhs, linpart);
         if (cyclic) { linpart[M-1] = linpart[0]; } // Cyclic system
         else        { linpart[M-1] = 0;          } // zero boundary
@@ -546,13 +498,13 @@ void IGPCNSMRK4(int M, int N, double dx, double dT, double a2, double complex a1
         // Energy
         E[i + 1] = Functional(M, dx, a2, a1, inter / 2, V, S);
 
-        if ((i+1) % 2000 == 0)
+        if ((i + 1) % 2000 == 0 && i < 10000)
         {
             dt = dt * (1 + 0.2);
             dT = dT * (1 + 0.2);
-            CCSFree(rhs_mat); // Erase old matrix to setup new one
-            rhs_mat = conf_linear( M, dx, dt, a2, a1, inter,
-                      V, cyclic, upper, lower, mid);
+            CCSFree(cnmat); // Erase old matrix to setup new one
+            cnmat = CNmat( M, dx, dt, a2, a1, inter,
+                    V, cyclic, upper, lower, mid);
         }
     }
 
@@ -562,7 +514,7 @@ void IGPCNSMRK4(int M, int N, double dx, double dT, double a2, double complex a1
     free(abs2);
     free(mid);
     free(rhs);
-    CCSFree(rhs_mat);
+    CCSFree(cnmat);
 }
 
 
@@ -582,12 +534,19 @@ void IGPFFTRK4(int M, int N, double dx, double dT, double a2, double complex a1,
     // hence the boundary is required to be periodic. Nonlinear
     // part is solved by 4th order Runge-Kutta
 
+
+
     int
         i,
         j,
-        m;
+        m = M - 1;
+    
+    
+    
+    MKL_LONG
+        s;
 
-    m = M - 1; // ignore last point that is the boundary
+
 
     double
         freq,       // frequencies in Fourier space
@@ -595,26 +554,26 @@ void IGPFFTRK4(int M, int N, double dx, double dT, double a2, double complex a1,
         NormStep,   // to renormalize on each time-step
         Idt = - dT; // factor to multiply on exponential after split-step
 
+
+
     double complex
-        dt;
-
-    dt = - I  * dT; // imaginary time-step
+        dt = - I * dT;
 
 
 
-    MKL_LONG s; // status of called MKL FFT functions
+    Rarray
+        abs2 = rarrDef(M); // abs square of wave function
 
-    Rarray abs2 = rarrDef(M);        // abs square of wave function
 
-    Carray argRK4  = carrDef(M);     // hold linear and nonlinear potential
 
-    Carray exp_der = carrDef(m);     // exponential of derivative operator
+    Carray
+        argRK4  = carrDef(M),     // hold linear and nonlinear potential
+        exp_der = carrDef(m),     // exponential of derivative operator
+        back_fft = carrDef(m),    // go back to position space
+        forward_fft = carrDef(m), // go to frequency space
+        FullPot = carrDef(M + 1);
 
-    Carray back_fft = carrDef(m);    // go back to position space
 
-    Carray forward_fft = carrDef(m); // go to frequency space
-
-    Carray FullPot = carrDef(M + 1);
 
     // Setup RHS of potential splitted-step part of derivatives
     FullPot[0] = inter;

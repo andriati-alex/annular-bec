@@ -122,14 +122,14 @@ void RowMajor(int m, int n, Cmatrix M, Carray v)
     }
 }
 
-CCSmat conf_linear(int M, double dx, double complex dt, double a2,
+CCSmat CNmat(int M, double dx, double complex dt, double a2,
      double complex a1, double inter, Rarray V, int cyclic,
      Carray upper, Carray lower, Carray mid)
 {
   
  /* Auxiliar routine to setup matrix elements from Crank-Nicolson
     discretization scheme applied to linear part of PDE.  Returns
-    a pointer to matrix setted up. */
+    a pointer to matrix setted up. Imaginary time case         */
 
     
     
@@ -137,7 +137,7 @@ CCSmat conf_linear(int M, double dx, double complex dt, double a2,
     ------------------------------------------------------------------ */
     // fill main diagonal (use upper as auxiliar pointer)
     carrFill(M - 1, - a2 * dt / dx / dx + I, upper);
-    rcarrUpdate(M - 1, upper, dt, V, mid);
+    rcarrUpdate(M - 1, upper, dt / 2, V, mid);
 
     // fill upper diagonal
     carrFill(M - 1, a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, upper);
@@ -159,7 +159,7 @@ CCSmat conf_linear(int M, double dx, double complex dt, double a2,
   * ------------------------------------------------------------------ */
     // fill main diagonal (use upper as auxiliar pointer)
     carrFill(M - 1, a2 * dt / dx /dx + I, upper);
-    rcarrUpdate(M - 1, upper, -dt, V, mid);
+    rcarrUpdate(M - 1, upper, -dt / 2, V, mid);
 
     // fill upper diagonal
     carrFill(M - 1, - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, upper);

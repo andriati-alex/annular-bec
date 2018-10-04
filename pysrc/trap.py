@@ -1,8 +1,13 @@
 
 import numpy as np;
 
-def harmonic(x, omega):
-    return (omega * omega / 2) * x * x;
+def zero(x): return np.zeros(x.size);
+
+
+
+
+
+def harmonic(x, omega): return (omega * omega / 2) * x * x;
 
 
 

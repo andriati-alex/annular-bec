@@ -368,33 +368,33 @@ int main(int argc, char * argv[])
         {
             case 1:
                 GPCNSMRK4(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S,
-                fname_out, 5);
+                fname_out, 10);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(RK4 nonlinear CN-SM linear)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
             case 2:
-                GPFFTRK4(M + 1, N, dx, dt, a2, a1, inter, V, S, fname_out, 5);
+                GPFFTRK4(M + 1, N, dx, dt, a2, a1, inter, V, S, fname_out, 10);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(RK4 nonlinear / FFT linear)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
             case 3:
                 GPCNSM(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S,
-                fname_out, 5);
+                fname_out, 10);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(Crank-Nicolson-SM)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
             case 4:
                 GPCNLU(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S,
-                fname_out, 5);
+                fname_out, 10);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(Crank-Nicolson-LU)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
             case 5:
-                GPFFT(M + 1, N, dx, dt, a2, a1, inter, V, S, fname_out, 5);
+                GPFFT(M + 1, N, dx, dt, a2, a1, inter, V, S, fname_out, 10);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(FFT)");
                 printf(" : %.3f seconds\n", time_used);

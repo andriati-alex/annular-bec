@@ -75,7 +75,7 @@ CCSmat emptyCCS(int n, int max_nonzeros);
 void RowMajor(int m, int n, Cmatrix M, Carray v);
 /* Store Matrix M(m x n) in a vector v using Row Major scheme */
 
-CCSmat conf_linear(int M, double dx, double complex dt, double a2,
+CCSmat CNmat(int M, double dx, double complex dt, double a2,
      double complex a1, double inter, Rarray V, int cyclic,
      Carray upper, Carray lower, Carray mid);
 
