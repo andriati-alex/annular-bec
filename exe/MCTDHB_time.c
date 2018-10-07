@@ -140,7 +140,7 @@ int main(int argc, char * argv[])
      *                                                                      *
      * ==================================================================== */
 
-    int // Counters
+    int
         k,
         l,
         s;
@@ -158,20 +158,20 @@ int main(int argc, char * argv[])
         time_used,
         dx,
         xi,
-        xf,     // Domain of orbitals [xi, xf]
-        dt,     // time step (both for real and imaginary)  
-        real,   // real part of read data from file
-        imag,   // imag part of read data from file
-        a2,     // Term multiplying d2 / dx2
-        inter,  // contact interaction strength
-        check,
+        xf,    // Domain of orbitals [xi, xf]
+        dt,    // time step (both for real and imaginary)  
+        real,  // real part of read data from file
+        imag,  // imag part of read data from file
+        a2,    // Term multiplying d2 / dx2
+        inter, // contact interaction strength
+        check, // to check norm
         * V;   // Potential computed in discretized positions
 
     double complex
         a1,        // Term multiplying d / dx
-        checkDiag; // To check normalization condition
+        checkDiag; // To check norm
 
-    char // file configuration name
+    char
         timeinfo,
         fname_in[120],
         fname_out[120];
@@ -181,12 +181,15 @@ int main(int argc, char * argv[])
         * out_data;
 
     Carray
-        Ctest,
+        dCdt,
+        rho2,   // test time to setup 2-body density matris
+        Ctest,  // estimate time based in on tiime-step
         C,      // Coeficients of superposition of Fock states
         to_int, // auxiliar to compute integration
         E;      // Energy at each time step evolved
 
     Cmatrix
+        rho,    // test time to setup 1-body density matrix
         Orbtest,
         Orb;    // Orb[k][j] give the value of k-th orbital at position j
 
@@ -211,9 +214,9 @@ int main(int argc, char * argv[])
 
 
     printf("\n\n\n");
-    printf("\t=========================================================\n\n");
-    printf("\t    Use MC_%s setup files to configure integrator\n\n", argv[4]);
-    printf("\t=========================================================\n\n");
+    printf("=========================================================\n\n");
+    printf("Use MC_%s setup files to configure integrator\n\n", argv[4]);
+    printf("=========================================================\n\n");
 
 
 
@@ -289,6 +292,7 @@ int main(int argc, char * argv[])
 
 
     C = carrDef(NC(Npar, Morb));
+    dCdt = carrDef(NC(Npar, Morb));
     Ctest = carrDef(NC(Npar, Morb));
     
     strcpy(fname_in, "setup/MC_");
@@ -436,32 +440,19 @@ int main(int argc, char * argv[])
 
     /* ==================================================================== *
      *                                                                      *
-     *                          CALL THE INTEGRATOR                         *
+     *                      CHECK ORTHOGONAL CONDITION                      *
      *                                                                      *
      * ==================================================================== */
 
 
 
     printf("\n\n\n");
-    printf("\t=========================================================\n\n");
-    printf("\t     Configuration done. Checking orthonormalization     \n\n");
-    printf("\t=========================================================\n\n");
+    printf("=========================================================\n\n");
+    printf("     Configuration done. Checking orthonormalization     \n\n");
+    printf("=========================================================\n\n");
 
 
     mc = AllocMCTDHBdata(Npar, Morb, Mdx + 1, xi, xf, a2, inter, V, a1);
-    printf("\n\n NCmatrix: \n");
-    for (k = 0; k < Npar + 1; k++)
-    {
-        printf("\n");
-        for (l = 0; l < Morb + 1; l++) printf(" %4d", mc->NCmat[k][l]);
-    }
-    
-    printf("\n\n Configurations: \n");
-    for (k = 0; k < NC(Npar, Morb); k++)
-    {
-        printf("\n");
-        for (l = 0; l < Morb; l++) printf(" %4d", mc->IF[k][l]);
-    }
 
     to_int = carrDef(Mdx + 1);
 
@@ -508,7 +499,7 @@ int main(int argc, char * argv[])
         checkDiag += Csimps(Mdx + 1, to_int, mc->dx);
     }
 
-    if (abs(creal(checkDiag) - Morb) > 1E-9 || cimag(checkDiag) > 1E-9)
+    if (abs(creal(checkDiag) - Morb) > 1E-6 || cimag(checkDiag) > 1E-6)
     {
         printf("\n\n\tOrbitals are not normalized to 1 !\n"); return -1;
     }
@@ -520,9 +511,52 @@ int main(int argc, char * argv[])
 
     if ( abs(carrMod2(NC(Npar, Morb), C) - 1) > 1E-9 )
     {
-        printf("\n\n\tCoeficients norm is not 1 !\n"); return -1;
+        printf("\n\n\tCoeficients norm is not 1 !\n");
+        return -1;
     }
 
+
+
+
+
+    /* ==================================================================== *
+     *                                                                      *
+     *                           SOME TIME REQUIRED                         *
+     *                                                                      *
+     * ==================================================================== */
+
+    rho2 = carrDef(Morb * Morb * Morb * Morb);
+    rho  = cmatDef(Morb, Morb);
+
+    start = omp_get_wtime();
+    OBrho(Npar, Morb, mc->NCmat, mc->IF, C, rho);
+    time_used = (double) (omp_get_wtime() - start);
+
+    printf("\n\ntime to setup rho = %.3lf\n\n", time_used);
+    
+    start = omp_get_wtime();
+    TBrho(Npar, Morb, mc->NCmat, mc->IF, C, rho2);
+    time_used = (double) (omp_get_wtime() - start);
+
+    printf("\n\ntime to setup rho2 = %.3lf\n\n", time_used);
+
+    start = omp_get_wtime();
+    SetupHo(Morb, Mdx + 1, Orb, mc->dx, a2, a1, V, rho);
+    time_used = (double) (omp_get_wtime() - start);
+    
+    printf("\n\ntime to setup Ho = %.3lf\n\n", time_used);
+
+    start = omp_get_wtime();
+    SetupHint(Morb, Mdx + 1, Orb, mc->dx, inter, rho2);
+    time_used = (double) (omp_get_wtime() - start);
+
+    printf("\n\ntime to setup Hint = %.3lf\n\n", time_used);
+
+    start = omp_get_wtime();
+    applyHconf(mc, C, rho, rho2, dCdt);
+    time_used = (double) (omp_get_wtime() - start);
+
+    printf("\n\ntime to apply Many-Body H = %.3lf\n", time_used);
 
 
 
@@ -541,9 +575,9 @@ int main(int argc, char * argv[])
 
 
     printf("\n\n\n");
-    printf("\t=========================================================\n\n");
-    printf("\t      Calling integrator. May take several(hours?)       \n\n");
-    printf("\t=========================================================\n\n");
+    printf("=========================================================\n\n");
+    printf("    Calling integrator. May take several(hours/days?)    \n\n");
+    printf("=========================================================\n\n");
 
     // setup filename to store solution
     strcpy(fname_out, "../mctdhb_data/");
@@ -556,7 +590,7 @@ int main(int argc, char * argv[])
         
         start = omp_get_wtime();
         MCTDHB_CN_REAL(mc, Orbtest, Ctest, dt, 1, method, cyclic,
-        fname_out, 10);
+        fname_out, 100);
         time_used = (double) (omp_get_wtime() - start);
 
         printf("\n\nTime to do 1 step: %.1lf seconds\n", time_used);
@@ -569,14 +603,14 @@ int main(int argc, char * argv[])
         printf("\n\n");
 
         // Start Evolution
-        MCTDHB_CN_REAL(mc, Orb, C, dt, N, method, cyclic, fname_out, 10);
+        MCTDHB_CN_REAL(mc, Orb, C, dt, N, method, cyclic, fname_out, 100);
     }
     else
     {
         printf("\n\nDoing imaginary time propagation ...\n");
 
         start = omp_get_wtime();
-        MCTDHB_CN_IMAG(mc, Orbtest, Ctest, E, dt, 1, 1);
+        MCTDHB_CN_IMAG(mc, Orbtest, Ctest, E, dt, 1, cyclic);
         time_used = (double) (omp_get_wtime() - start);
 
         printf("\n\nTime to do 1 step: %.1lf seconds\n", time_used);
@@ -607,8 +641,6 @@ int main(int argc, char * argv[])
      *                                                                      *
      * ==================================================================== */
 
-
-    printf("\n\nRecording data imaginary time data...");
 
     // Record data in case of imaginary time
     // ---------------------------------------------
@@ -673,8 +705,11 @@ int main(int argc, char * argv[])
     EraseMCTDHBdata(mc);
     free(C);
     free(E);
+    free(dCdt);
+    free(rho2);
     free(to_int);
     cmatFree(Morb, Orb);
+    cmatFree(Morb, rho);
 
     printf("\n\n");
     return 0;

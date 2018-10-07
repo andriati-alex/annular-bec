@@ -171,7 +171,7 @@ def ThermalCoef(Npar, Morb, beta, C):
 
 
 
-def BECCoef(Npar, Morb, beta, C):
+def BECCoef(Npar, Morb, C):
     """ All particles occupying the orbital 0 """
 
     nc = mc.NC(Npar, Morb);

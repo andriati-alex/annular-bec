@@ -559,20 +559,14 @@ void OrbDDT (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix newOrb,
         ** NCmat = MC->NCmat;
 
     double
+        start,
+        time_used,
         dx = MC->dx;
     
     double complex
         Proj,
         g = MC->inter;
 
-    /* ==================================================================== *
-     *                                                                      *
-     *        Setup single/two particle hamiltonian matrix elements         *
-     *                                                                      *
-     * ==================================================================== */
-
-    SetupHo(M, Mpos, Orb, dx, MC->a2, MC->a1, MC->V, Ho);
-    SetupHint(M, Mpos, Orb, dx, g, Hint);
 
     Cmatrix rho = cmatDef(M, M);
     Cmatrix rho_inv = cmatDef(M, M);
@@ -580,12 +574,13 @@ void OrbDDT (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix newOrb,
 
     OBrho(N, M, NCmat, IF, C, rho);
     TBrho(N, M, NCmat, IF, C, rho2);
-    printf("\n\nValues of rho2\n\n");
-    for (k = 0; k < M * M * M * M; k++) printf("\n%.10lf", creal(rho2[k]));
 
     s = HermitianInv(M, rho, rho_inv);
     if (s != 0)
-    { printf("\n\n\t\tFailed on Lapack inversion routine!\n\n"); }
+    {
+        printf("\n\n\t\tFailed on Lapack inversion routine!\n\n");
+        exit(EXIT_FAILURE);
+    }
 
     for (k = 0; k < M; k++)
     {   // Take k orbital
@@ -601,6 +596,7 @@ void OrbDDT (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix newOrb,
             -I * (g * NonLinear(M, k, j, Orb, rho_inv, rho2) - Proj);
         }
     }
+    time_used = (double) (omp_get_wtime() - start);
 
     free(rho2);
     cmatFree(M, rho);
@@ -615,7 +611,20 @@ void OrbConfDDT (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix Ho,
      Carray Hint, Carray dCdt, Cmatrix dOdt )
 {   // Right-Hand-Side of time derivatives both for coefficients and orbitals
 
-    int i;
+    int
+        i,
+        M = MC->Morb,
+        Mpos = MC->Mpos;
+    
+    /* ==================================================================== *
+     *                                                                      *
+     *        Setup single/two particle hamiltonian matrix elements         *
+     *                                                                      *
+     * ==================================================================== */
+
+    SetupHo(M, Mpos, Orb, MC->dx, MC->a2, MC->a1, MC->V, Ho);
+    SetupHint(M, Mpos, Orb, MC->dx, MC->inter, Hint);
+
     OrbDDT(MC, C, Orb, dOdt, Ho, Hint);
     applyHconf(MC, C, Ho, Hint, dCdt);
 
@@ -779,7 +788,10 @@ void RK4lanczosAfter (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
 
     k = LAPACKE_dstev(LAPACK_ROW_MAJOR, 'V', lm, d, e, eigvec, lm);
     if (k != 0)
-    { printf("\n\n\t\tERROR IN DIAGONALIZATION\n\n"); }
+    {
+        printf("\n\n\t\tERROR IN DIAGONALIZATION\n\n");
+        exit(EXIT_FAILURE);
+    }
     /* -------------------------------------------------------------- */
 
 
@@ -1018,7 +1030,10 @@ void RK4lanczosBefore (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
 
     k = LAPACKE_dstev(LAPACK_ROW_MAJOR, 'V', lm, d, e, eigvec, lm);
     if (k != 0)
-    { printf("\n\n\t\tERROR IN DIAGONALIZATION\n\n"); }
+    {
+        printf("\n\n\t\tERROR IN DIAGONALIZATION\n\n");
+        exit(EXIT_FAILURE);
+    }
     /* -------------------------------------------------------------- */
 
 
@@ -1214,7 +1229,6 @@ void RK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
             Oarg[k][j] = Orb[k][j] + Orhs[k][j] * 0.5 * dt;
         }
     }
-    printf("\n\n| C | = %.5lf\n\n", carrMod(MC->nc, Carg));
 
 
 
@@ -1239,7 +1253,6 @@ void RK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
             Oarg[k][j] = Orb[k][j] + Orhs[k][j] * 0.5 * dt;
         }
     }
-    printf("\n\n| C | = %.5lf\n\n", carrMod(MC->nc, Carg));
 
 
 
@@ -1264,7 +1277,6 @@ void RK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
             Oarg[k][j] = Orb[k][j] + Orhs[k][j] * dt;
         }
     }
-    printf("\n\n| C | = %.5lf\n\n", carrMod(MC->nc, Carg));
 
 
 
@@ -1657,7 +1669,6 @@ void MCTDHB_CN_REAL (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
 
 
     q = 1;
-    printf("\n\n\tmethod = %d\n\n", method);
     for (i = 0; i < Nsteps; i++)
     {
         /* Half step nonlinear part
