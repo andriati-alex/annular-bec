@@ -546,6 +546,71 @@ double complex NonLinear (int M, int k, int n, Cmatrix Omat,
     return ans;
 }
 
+double complex nonlinear (int M, int k, int n, double g, Cmatrix Orb,
+               Cmatrix Rinv, Carray R2, Cmatrix Ho, Carray Hint )
+{   // k enumerate orbital and n a discretized position
+    int a,
+        j,
+        s,
+        q,
+        l,
+        M2,
+        M3,
+        ind;
+
+    double complex
+        G,
+        X;
+
+
+
+    X = 0;
+    M2 = M * M;
+    M3 = M * M * M;
+    for (s = 0; s < M; s++)
+    {
+        // Subtract one-body projection
+        X = X - Ho[s][k] * Orb[s][n];
+
+        for (a = 0; a < M; a++)
+        {
+
+            for (q = 0; q < M; q++)
+            {
+
+                G = Rinv[k][a] * R2[a + M*s + M2*q + M3*q];
+
+                // Sum interacting part contribution
+                X = X + g * G * conj(Orb[s][n]) * Orb[q][n] * Orb[q][n];
+
+                // Subtract interacting projection
+                for (j = 0; j < M; j++)
+                {
+                    ind = j + s * M + q * M2 + q * M3;
+                    X = X - G * Orb[j][n] * Hint[ind];
+                }
+
+                for (l = q + 1; l < M; l++)
+                {
+                    G = 2 * Rinv[k][a] * R2[a + M*s + M2*q + M3*l];
+
+                    // Sum interacting part
+                    X = X + g * G * conj(Orb[s][n]) * Orb[l][n] * Orb[q][n];
+
+                    // Subtract interacting projection
+                    for (j = 0; j < M; j++)
+                    {
+                        ind = j + s * M + l * M2 + q * M3;
+                        X = X - G * Orb[j][n] * Hint[ind];
+                    }
+                }
+            }
+        }
+    }
+
+    return X;
+}
+
 
 
 
@@ -565,8 +630,6 @@ void OrbDDT (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix newOrb,
         ** NCmat = MC->NCmat;
 
     double
-        start,
-        time_used,
         dx = MC->dx;
     
     double complex
@@ -577,8 +640,6 @@ void OrbDDT (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix newOrb,
     Cmatrix rho = cmatDef(M, M);
     Cmatrix rho_inv = cmatDef(M, M);
     Carray rho2 = carrDef(M * M * M * M);
-
-    cmatFill(M, M, 0, rho);
 
     OBrho(N, M, NCmat, IF, C, rho);
     TBrho(N, M, NCmat, IF, C, rho2);
@@ -602,17 +663,9 @@ void OrbDDT (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix newOrb,
     {   // Take k orbital
         for (j = 0; j < Mpos; j++)
         {   // At discretized position j
-            Proj = 0;
-            for (s = 0; s < M; s++)
-            {   // projection over 's' orbitals
-                Proj += Ho[s][k] * Orb[s][j]; 
-                Proj += Proj_Hint(M, k, s, rho_inv, rho2, Hint) * Orb[s][j];
-            }
-            newOrb[k][j] = \
-            -I * (g * NonLinear(M, k, j, Orb, rho_inv, rho2) - Proj);
+            newOrb[k][j] = - I * nonlinear(M, k, j, g, Orb, rho_inv, rho2, Ho, Hint);
         }
     }
-    time_used = (double) (omp_get_wtime() - start);
 
     free(rho2);
     cmatFree(M, rho);
