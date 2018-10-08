@@ -6,6 +6,7 @@ import MCTDHBmodule as mc;
 from scipy.integrate import simps;
 from math import pi;
 from math import sqrt;
+from pathlib import Path;
 
 
 
@@ -171,17 +172,6 @@ def ThermalCoef(Npar, Morb, beta, C):
 
 
 
-def BECCoef(Npar, Morb, C):
-    """ All particles occupying the orbital 0 """
-
-    nc = mc.NC(Npar, Morb);
-    C[0] = 1.0;
-    for i in range(1, nc): C[i] = 0;
-
-
-
-
-
 
 
 
@@ -227,9 +217,11 @@ else :
 
 #################              Record Data              ###################
 
-np.savetxt('../setup/MC_' + Id_name + '_orb.dat', Orb.T, fmt='%.15E');
-np.savetxt('../setup/MC_' + Id_name + '_coef.dat', C.T, fmt='%.15E');
+folder = str(Path.home()) + '/AndriatiLibrary/annular-bec/setup/MC_'; 
 
-f = open('../setup/MC_' + Id_name + '_config.dat', 'w');
+np.savetxt(folder + Id_name + '_orb.dat', Orb.T, fmt='%.15E');
+np.savetxt(folder + Id_name + '_coef.dat', C.T, fmt='%.15E');
+
+f = open(folder + Id_name + '_config.dat', 'w');
 f.write( '%d %d %d %.15f %.15f' % (Npar, Morb, Mdiv, xi, xf) );
 f.close();

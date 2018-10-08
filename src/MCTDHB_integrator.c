@@ -493,11 +493,14 @@ double complex Proj_Hint (int M, int k, int i, Cmatrix rho_inv, Carray rho2,
         {
             for (q = 0; q < M; q++)
             {
-                for (l = 0; l < M; l++)
+                i_rho2 = j + s * M + q * M * M + q * M * M * M;
+                i_Hint = i + s * M + q * M * M + q * M * M * M;
+                ans += rho_inv[k][j] * rho2[i_rho2] * Hint[i_Hint];
+                for (l = q + 1; l < M; l++)
                 {
                     i_rho2 = j + s * M + q * M * M + l * M * M * M;
                     i_Hint = i + s * M + l * M * M + q * M * M * M;
-                    ans += rho_inv[k][j] * rho2[i_rho2] * Hint[i_Hint];
+                    ans += 2 * rho_inv[k][j] * rho2[i_rho2] * Hint[i_Hint];
                 }
             }
         }
@@ -517,7 +520,7 @@ double complex NonLinear (int M, int k, int n, Cmatrix Omat,
         s,
         q,
         l,
-        i_rho2;
+        ind;
 
     double complex ans = 0;
 
@@ -527,10 +530,13 @@ double complex NonLinear (int M, int k, int n, Cmatrix Omat,
         {
             for (q = 0; q < M; q++)
             {
-                for (l = 0; l < M; l++)
+                ind = j + s * M + q * M * M + q * M * M * M;
+                ans += rho_inv[k][j] * rho2[ind] * \
+                       conj(Omat[s][n]) * Omat[q][n] * Omat[q][n];
+                for (l = q + 1; l < M; l++)
                 {
-                    i_rho2 = j + s * M + q * M * M + l * M * M * M;
-                    ans += rho_inv[k][j] * rho2[i_rho2] * \
+                    ind = j + s * M + q * M * M + l * M * M * M;
+                    ans += 2 * rho_inv[k][j] * rho2[ind] * \
                            conj(Omat[s][n]) * Omat[l][n] * Omat[q][n];
                 }
             }
@@ -572,13 +578,23 @@ void OrbDDT (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix newOrb,
     Cmatrix rho_inv = cmatDef(M, M);
     Carray rho2 = carrDef(M * M * M * M);
 
+    cmatFill(M, M, 0, rho);
+
     OBrho(N, M, NCmat, IF, C, rho);
     TBrho(N, M, NCmat, IF, C, rho2);
 
     s = HermitianInv(M, rho, rho_inv);
     if (s != 0)
     {
-        printf("\n\n\t\tFailed on Lapack inversion routine!\n\n");
+        printf("\n\n\n\n\t\tFailed on Lapack inversion routine!\n");
+        printf("\t\t-----------------------------------\n\n");
+
+        printf("\nMatrix given was : \n");
+        cmat_print(M, M, rho);
+
+        if (s > 0) printf("\nSingular decomposition : %d\n\n", s);
+        else       printf("\nInvalid argument given : %d\n\n", s);
+
         exit(EXIT_FAILURE);
     }
 

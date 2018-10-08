@@ -2,6 +2,7 @@
 import sys;
 import numpy as np;
 from scipy.integrate import simps;
+from pathlib import Path;
 
 
 
@@ -143,9 +144,11 @@ else :
 
 
 
-np.savetxt('../setup/GP_' + Id_name + '_init.dat', out, fmt='%.15E');
+folder = str(Path.home()) + '/AndriatiLibrary/annular-bec/setup/GP_';
 
-f = open('../setup/GP_' + Id_name + '_domain.dat', "w");
+np.savetxt(folder + Id_name + '_init.dat', out, fmt='%.15E');
+
+f = open(folder + Id_name + '_domain.dat', "w");
 
 f.write("%.15f %.15f %d" % (x1, x2, M));
 

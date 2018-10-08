@@ -126,6 +126,22 @@ void rarrPrint(int n, Rarray v)
     printf("\n");
 }
 
+void cmat_print(int m, int n, Cmatrix M)
+{
+    int i, j;
+
+    for (i = 0; i < m; i++)
+    {
+        printf("\n");
+        for (j = 0; j < n; j++)
+        {
+            printf(" ");
+            cPrint(M[i][j]);
+        }
+    }
+    printf("\n");
+}
+
 void carr_txt(char fname [], int M, Carray v)
 {
     int j;
