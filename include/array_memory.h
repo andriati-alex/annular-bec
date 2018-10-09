@@ -60,19 +60,49 @@ void RCCSFree(RCCSmat M);
 
 
 
+
+
+// Print in current screen(terminal)
 void cPrint(double complex z);
 
-void carrPrint(int n, Carray v); // as column matrix
+void carrPrint(int n, Carray v);
 
-void rarrPrint(int n, Rarray v); // as column matrix
+void rarrPrint(int n, Rarray v);
 
 void cmat_print(int m, int n, Cmatrix M);
 
-// Print array in a text file suitable to import with python
+
+
+
+
+// Print array in a text  file  suitable  to
+// import with python using the name of file
 void carr_txt(char fname [], int M, Carray v);
-    
+
+
+
+
+
 // Print matrix in a text file suitable to import with python
-void cmat_txt(char fname [],
-              int N, int row_step, int M, int col_step, Cmatrix S);
+// using the name of file. Skip some rows  or/and  columns if
+// row_step or/and col_step is not 1
+void cmat_txt(char fname [], int N, int row_step, int M, int col_step,
+     Cmatrix S);
+
+
+
+
+
+// Record an complex array along a  line  in  a file
+// using its pointer, suitable to import with python
+void RecordArray(FILE * f, int M, Carray v);
+
+
+
+
+
+// Record a complex matrix along a line as a row-major-order
+// in a file using its pointer. Use numpy format
+void RecordMatrixInLine(FILE * f, int M, Cmatrix A);
 
 #endif

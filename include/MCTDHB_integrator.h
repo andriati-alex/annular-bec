@@ -26,7 +26,7 @@
 
 
 void RecordArray(FILE * f, int M, Carray v);
-void RecordMatrix(FILE * f, int M, Cmatrix A);
+void RecordMatrixInLine(FILE * f, int M, Cmatrix A);
 
 
 
@@ -52,25 +52,8 @@ void applyHconf(MCTDHBsetup MC, Carray C, Cmatrix Ho, Carray Hint, Carray out);
 
 
 
-double complex Proj_Hint
-(   // The one that comes from Projective part
-    int M, // Total # of orbitals
-    int k, // A fixed orbital k
-    int i, // A fixed orbital i
-    Cmatrix rho_inv,
-    Carray rho2,
-    Carray Hint
-);
-
-double complex NonLinear
-(   // The one that comes from identity part
-    int M, // Total # of orbitals
-    int k, // A fixed orbital
-    int n, // A given discretized position
-    Cmatrix Omat,
-    Cmatrix rho_inv,
-    Carray rho2
-);
+double complex nonlinear (int M, int k, int n, double g, Cmatrix Orb,
+               Cmatrix Rinv, Carray R2, Cmatrix Ho, Carray Hint );
 
 
 

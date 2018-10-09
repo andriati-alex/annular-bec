@@ -2,23 +2,37 @@
 
 
 
-/* ======================================================================== */
-/* ======================== ALLOCATE MEMORY SECTION ======================= */
-/* ======================================================================== */
+/* ========================================================================
+ 
+                               MEMORY ALLOCATION                            
+
+   ======================================================================== */
 
 
 
 Rarray rarrDef(int n)
 { return (double * restrict) malloc(n * sizeof(double)); }
 
+
+
+
+
 Carray carrDef(int n)
 { return (double complex * restrict) malloc(n * sizeof(double complex)); }
+
+
+
+
 
 CMKLarray CMKLdef(int n)
 { return (MKL_Complex16 *) malloc(n * sizeof(MKL_Complex16)); }
 
+
+
+
+
 Rmatrix rmatDef(int m, int n)
-{   /* Allocate real matrix of m rows by n columns */
+{   // Allocate real matrix of m rows by n columns
     int i;
     Rmatrix M;
     M = (double ** restrict) malloc(m * sizeof(double *));
@@ -26,8 +40,12 @@ Rmatrix rmatDef(int m, int n)
     return M;
 }
 
+
+
+
+
 Cmatrix cmatDef(int m, int n)
-{   /* Allocate complex matrix of m rows by n columns */
+{   // Allocate complex matrix of m rows by n columns
     int i;
     Cmatrix M;
     M = (double complex ** restrict) malloc(m * sizeof(double complex *));
@@ -37,9 +55,13 @@ Cmatrix cmatDef(int m, int n)
 
 
 
+
+
 /* ======================================================================== */
 /* ======================== RELEASE MEMORY SECTION ======================== */
 /* ======================================================================== */
+
+
 
 
 
@@ -47,33 +69,51 @@ void rarrFree(Rarray v) { free(v); }
 
 void carrFree(Carray v) { free(v); }
 
+
+
+
+
 void rmatFree(int m, Rmatrix M)
-{   /* Release allocated Real Matrix of m rows */
+{   // Release allocated Real Matrix of m rows
     int i;
     for (i = 0; i < m; i++) { free(M[i]); }
     free(M);
 }
+
+
+
+
 
 void cmatFree(int m, Cmatrix M)
-{   /* Release allocated Complex Matrix of m rows */
+{   // Release allocated Complex Matrix of m rows
     int i;
     for (i = 0; i < m; i++) { free(M[i]); }
     free(M);
 }
 
+
+
+
+
 void CCSFree(CCSmat M)
-{   /* Release CCS matrix */
+{   // Release CCS matrix
     free(M->col);
     free(M->vec);
     free(M);
 }
 
+
+
+
+
 void RCCSFree(RCCSmat M)
-{   /* Release CCS matrix */
+{   // Release CCS matrix
     free(M->col);
     free(M->vec);
     free(M);
 }
+
+
 
 
 
@@ -83,11 +123,16 @@ void RCCSFree(RCCSmat M)
 
 
 
-void cPrint(double complex z)
-{ printf("(%9.2E,%9.2E )", creal(z), cimag(z)); }
+
+
+void cPrint(double complex z) { printf("(%9.2E,%9.2E )", creal(z), cimag(z)); }
+
+
+
+
 
 void carrPrint(int n, Carray v)
-{   // Print Array as a Column Vector
+{
 
     int i;
 
@@ -105,6 +150,10 @@ void carrPrint(int n, Carray v)
 
     printf("\n");
 }
+
+
+
+
 
 void rarrPrint(int n, Rarray v)
 {   // Print Array as a column vector
@@ -126,8 +175,12 @@ void rarrPrint(int n, Rarray v)
     printf("\n");
 }
 
+
+
+
+
 void cmat_print(int m, int n, Cmatrix M)
-{
+{   // For small matrices
     int i, j;
 
     for (i = 0; i < m; i++)
@@ -142,9 +195,15 @@ void cmat_print(int m, int n, Cmatrix M)
     printf("\n");
 }
 
+
+
+
+
 void carr_txt(char fname [], int M, Carray v)
 {
     int j;
+
+    double real, imag;
 
     FILE * data_file = fopen(fname, "w");
 
@@ -156,53 +215,115 @@ void carr_txt(char fname [], int M, Carray v)
 
     for (j = 0; j < M; j ++)
     {
-        if (cimag(v[j]) > 0)
-        {
-            fprintf(data_file, "(%.15E+%.15Ej) ", creal(v[j]), cimag(v[j]));
-        }
-        else
-        {
-            if (cimag(v[j]) == 0)
-                fprintf(data_file, "(%.15E+%.15Ej) ", creal(v[j]), 0.0);
-            else
-                fprintf(data_file, "(%.15E%.15Ej) ", creal(v[j]), cimag(v[j]));
-        }
+        real = creal(v[j]);
+        imag = cimag(v[j]);
+
+        if (imag >= 0) fprintf(data_file, "(%.15E+%.15Ej) ", real, imag);
+        else           fprintf(data_file, "(%.15E%.15Ej) ", real, imag);
     }
 
     fclose(data_file);
 }
 
-void cmat_txt(char fname [],
-              int N, int row_step, int M, int col_step, Cmatrix S)
+
+
+
+
+void cmat_txt (char fname [], int N, int row_step, int M, int col_step,
+     Cmatrix A)
 {
-    int i, j;
+    int
+        i,
+        j;
 
-    FILE * data_file = fopen(fname, "w");
+    double
+        real,
+        imag;
 
-    if (data_file == NULL)
+    FILE * f = fopen(fname, "w");
+
+    if (f == NULL)
     {   // impossible to open file with the given name
         printf("ERROR: impossible to open file %s\n", fname);
         return;
     }
 
-    for (i = 0; i < N; i += row_step) {
-        for (j = 0; j < M; j += col_step) {
-            if (cimag(S[i][j]) > 0) {
-                fprintf(data_file, "(%.15E+%.15Ej) ",
-                creal(S[i][j]), cimag(S[i][j]));
-            }
-            else {
-                if (cimag(S[i][j]) == 0) {
-                    fprintf(data_file, "(%.15E+%.15Ej) ",
-                    creal(S[i][j]), 0.0);
-                }
-                else {
-                    fprintf(data_file, "(%.15E%.15Ej) ",
-                    creal(S[i][j]), cimag(S[i][j]));
-                }
-            }
+    for (i = 0; i < N; i += row_step)
+    {
+        for (j = 0; j < M; j += col_step)
+        {
+            real = creal(A[i][j]);
+            imag = cimag(A[i][j]);
+
+            if (imag >= 0) fprintf(f, "(%.15E+%.15Ej) ", real, imag);
+            else           fprintf(f, "(%.15E%.15Ej) ", real, imag);
         }
-        fprintf(data_file, "\n");
+
+        fprintf(f, "\n");
     }
-    fclose(data_file);
+
+    fclose(f);
+}
+
+
+
+
+
+void RecordArray(FILE * f, int M, Carray v)
+{
+    // Given an open file f write the complex array
+    // v in a line suitable to import using numpy
+
+
+
+    int j;
+
+    double
+        real,
+        imag;
+
+    for (j = 0; j < M; j ++)
+    {
+        real = creal(v[j]);
+        imag = cimag(v[j]);
+
+        if (imag >= 0) fprintf(f, "(%.15E+%.15Ej) ", real, imag);
+        else           fprintf(f, "(%.15E%.15Ej) ", real, imag);
+    }
+
+    fprintf(f, "\n");
+}
+
+
+
+
+
+void RecordMatrixInLine(FILE * f, int M, Cmatrix A)
+{
+    // Given an open file f write the matrix in Row-major
+    // format in a line suitable to import using numpy
+
+
+
+    int
+        i,
+        j;
+
+    double
+        real,
+        imag;
+
+    for (i = 0; i < M; i ++)
+    {
+        for (j = 0; j < M; j++)
+        {
+            real = creal(A[i][j]);
+            imag = cimag(A[i][j]);
+
+            if (imag >= 0) fprintf(f, "(%.15E+%.15Ej) ", real, imag);
+            else           fprintf(f, "(%.15E%.15Ej) ", real, imag);
+        }
+    }
+
+    fprintf(f, "\n");
 }

@@ -4,50 +4,6 @@
 
 
 
-void RecordArray(FILE * f, int M, Carray v)
-{   // Given an open file f write the complex array v in a line
-    int j;
-
-    for (j = 0; j < M; j ++)
-    {   // write in a format suitable to import with numpy
-        if (cimag(v[j]) >= 0)
-        {
-            fprintf(f, "(%.15E+%.15Ej) ", creal(v[j]), cimag(v[j]));
-        }
-        else
-        {
-            fprintf(f, "(%.15E%.15Ej) ", creal(v[j]), cimag(v[j]));
-        }
-    }
-
-    fprintf(f, "\n");
-}
-
-
-
-
-
-void RecordMatrix(FILE * f, int M, Cmatrix A)
-{   // Given an open file f write the matrix in Row-major format in a line
-    int i, j;
-
-    for (i = 0; i < M; i ++)
-    {   // write in a format suitable to import with numpy
-        for (j = 0; j < M; j++)
-        {
-            if (cimag(A[i][j]) >= 0)
-            {
-                fprintf(f, "(%.15E+%.15Ej) ", creal(A[i][j]), cimag(A[i][j]));
-            }
-            else
-            {
-                fprintf(f, "(%.15E%.15Ej) ", creal(A[i][j]), cimag(A[i][j]));
-            }
-        }
-    }
-
-    fprintf(f, "\n");
-}
 
 
 
@@ -69,12 +25,18 @@ void RecordMatrix(FILE * f, int M, Cmatrix A)
 
 
 void applyHconf (MCTDHBsetup MC, Carray C, Cmatrix Ho, Carray Hint, Carray out)
-{ // Apply Many-Body Hamiltonian on a state in configuration basis
-    
+{
+    // Apply the many-body hamiltonian in a state expressed in
+    // number-occupation basis with coefficients defined by C.
+
+
+
     int // Index of coeficients
         i,
         j,
         nc = MC->nc;
+
+
 
     int // enumerate orbitals
         k,
@@ -88,13 +50,13 @@ void applyHconf (MCTDHBsetup MC, Carray C, Cmatrix Ho, Carray Hint, Carray out)
      *                                                                      *
      * ==================================================================== */
 
-    int  M  = MC->Morb,
-         N  = MC->Npar,
-         M2 = M * M,
-         M3 = M * M * M,
-         ** IF = MC->IF;
-    
-    int ** NCmat = MC->NCmat;
+    int
+        M  = MC->Morb,
+        N  = MC->Npar,
+        M2 = M * M,
+        M3 = M * M * M,
+        ** IF = MC->IF,
+        ** NCmat = MC->NCmat;
 
     int * v;             // Occupation vector on each iteration
 
@@ -102,11 +64,9 @@ void applyHconf (MCTDHBsetup MC, Carray C, Cmatrix Ho, Carray Hint, Carray out)
 
     double complex rhsI; // line step value of right-hand-side for C
 
-    /* ==================================================================== *
-     *                                                                      *
-     *    Apply Hamiltonian in a state expanded in Fock-occupation basis    *
-     *                                                                      *
-     * ==================================================================== */
+
+
+
 
     #pragma omp parallel firstprivate(N, M, M2, M3) \
     private(i, j, k, l, s, q, rhsI, sqrtOf, v)
@@ -475,80 +435,25 @@ void applyHconf (MCTDHBsetup MC, Carray C, Cmatrix Ho, Carray Hint, Carray out)
 
 
 
-double complex Proj_Hint (int M, int k, int i, Cmatrix rho_inv, Carray rho2,
-               Carray Hint)
-{   // k and i enumerate orbitals maintaned fixed
-    int j,
-        s,
-        q,
-        l,
-        i_rho2,
-        i_Hint;
-
-    double complex ans = 0;
-
-    for (j = 0; j < M; j++)
-    {
-        for (s = 0; s < M; s++)
-        {
-            for (q = 0; q < M; q++)
-            {
-                i_rho2 = j + s * M + q * M * M + q * M * M * M;
-                i_Hint = i + s * M + q * M * M + q * M * M * M;
-                ans += rho_inv[k][j] * rho2[i_rho2] * Hint[i_Hint];
-                for (l = q + 1; l < M; l++)
-                {
-                    i_rho2 = j + s * M + q * M * M + l * M * M * M;
-                    i_Hint = i + s * M + l * M * M + q * M * M * M;
-                    ans += 2 * rho_inv[k][j] * rho2[i_rho2] * Hint[i_Hint];
-                }
-            }
-        }
-    }
-
-    return ans;
-}
 
 
 
 
-
-double complex NonLinear (int M, int k, int n, Cmatrix Omat,
-               Cmatrix rho_inv, Carray rho2 )
-{   // k enumerate orbital and n a discretized position
-    int j,
-        s,
-        q,
-        l,
-        ind;
-
-    double complex ans = 0;
-
-    for (j = 0; j < M; j++)
-    {
-        for (s = 0; s < M; s++)
-        {
-            for (q = 0; q < M; q++)
-            {
-                ind = j + s * M + q * M * M + q * M * M * M;
-                ans += rho_inv[k][j] * rho2[ind] * \
-                       conj(Omat[s][n]) * Omat[q][n] * Omat[q][n];
-                for (l = q + 1; l < M; l++)
-                {
-                    ind = j + s * M + q * M * M + l * M * M * M;
-                    ans += 2 * rho_inv[k][j] * rho2[ind] * \
-                           conj(Omat[s][n]) * Omat[l][n] * Omat[q][n];
-                }
-            }
-        }
-    }
-
-    return ans;
-}
 
 double complex nonlinear (int M, int k, int n, double g, Cmatrix Orb,
                Cmatrix Rinv, Carray R2, Cmatrix Ho, Carray Hint )
-{   // k enumerate orbital and n a discretized position
+{
+    // For a orbital 'k' computed at discretized position 'n' calculate
+    // the right-hand-side part of MCTDHB orbital's equation of  motion
+    // that is nonlinear, part because of projections that made the eq.
+    // an integral-differential equation, and other part due to contact
+    // interactions. Assume that Rinv, R2 are  defined  by  the  set of
+    // configuration-state coefficients as the inverse of  one-body and
+    // two-body density matrices respectively. Ho and Hint are  assumed
+    // to be defined accoding to 'Orb' variable as well.
+
+
+
     int a,
         j,
         s,
@@ -557,6 +462,8 @@ double complex nonlinear (int M, int k, int n, double g, Cmatrix Orb,
         M2,
         M3,
         ind;
+
+
 
     double complex
         G,
@@ -567,6 +474,9 @@ double complex nonlinear (int M, int k, int n, double g, Cmatrix Orb,
     X = 0;
     M2 = M * M;
     M3 = M * M * M;
+
+
+
     for (s = 0; s < M; s++)
     {
         // Subtract one-body projection
@@ -577,6 +487,8 @@ double complex nonlinear (int M, int k, int n, double g, Cmatrix Orb,
 
             for (q = 0; q < M; q++)
             {
+                // Particular case with the two last indices equals
+                // to take advantage of the symmetry afterwards
 
                 G = Rinv[k][a] * R2[a + M*s + M2*q + M3*q];
 
@@ -615,9 +527,20 @@ double complex nonlinear (int M, int k, int n, double g, Cmatrix Orb,
 
 
 
-void OrbDDT (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix newOrb,
+
+
+
+
+
+void OrbDDT (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix dOdt,
      Cmatrix Ho, Carray Hint)
-{   // Right-Hand-Side when isolate orbital's time derivative
+{
+    // Right-Hand-Side when isolate orbital's time derivative
+    // of nonlinear part accounting for both projections  and
+    // interactions. Assume Ho and Hint are defined according
+    // to 'Orb' variable before have entered this subroutine.
+
+
 
     int
         k,
@@ -629,22 +552,39 @@ void OrbDDT (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix newOrb,
         ** IF = MC->IF,
         ** NCmat = MC->NCmat;
 
+
+
     double
         dx = MC->dx;
-    
+
+
+
     double complex
         Proj,
         g = MC->inter;
 
 
-    Cmatrix rho = cmatDef(M, M);
-    Cmatrix rho_inv = cmatDef(M, M);
-    Carray rho2 = carrDef(M * M * M * M);
 
+    Carray
+        rho2 = carrDef(M * M * M * M);
+
+
+
+    Cmatrix
+        rho = cmatDef(M, M),
+        rho_inv = cmatDef(M, M);
+
+
+    // Setup one/two-body density matrix
     OBrho(N, M, NCmat, IF, C, rho);
     TBrho(N, M, NCmat, IF, C, rho2);
 
+
+
+    /* Inversion of one-body density matrix
+    ====================================================================== */
     s = HermitianInv(M, rho, rho_inv);
+
     if (s != 0)
     {
         printf("\n\n\n\n\t\tFailed on Lapack inversion routine!\n");
@@ -658,15 +598,22 @@ void OrbDDT (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix newOrb,
 
         exit(EXIT_FAILURE);
     }
+    /* =================================================================== */
 
+
+
+    // Update k-th orbital at discretized position j
+    #pragma omp parallel for private(k, j)
     for (k = 0; k < M; k++)
-    {   // Take k orbital
+    {
         for (j = 0; j < Mpos; j++)
-        {   // At discretized position j
-            newOrb[k][j] = - I * nonlinear(M, k, j, g, Orb, rho_inv, rho2, Ho, Hint);
-        }
+            dOdt[k][j] = - I * \
+            nonlinear(M, k, j, g, Orb, rho_inv, rho2, Ho, Hint);
     }
 
+
+
+    // Release memory
     free(rho2);
     cmatFree(M, rho);
     cmatFree(M, rho_inv);
@@ -676,9 +623,18 @@ void OrbDDT (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix newOrb,
 
 
 
+
+
+
+
+
 void OrbConfDDT (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix Ho,
      Carray Hint, Carray dCdt, Cmatrix dOdt )
-{   // Right-Hand-Side of time derivatives both for coefficients and orbitals
+{
+    // Right-Hand-Side of time derivatives both for coefficients
+    // and orbitals are given in dCdt and dOdt suitably to apply
+    // Runge-Kutta methods. Do not assume the Ho  and  Hint  are
+    // configured previously
 
     int
         i,
@@ -704,39 +660,59 @@ void OrbConfDDT (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix Ho,
 
 
 
+
+
+
+
+
 void lanczos(MCTDHBsetup MCdata, Cmatrix Ho, Carray Hint,
      int lm, Carray diag, Carray offdiag, Cmatrix lvec)
-{   // Improved lanczos iterations  with  reorthogonalization
-    // lanczos vectors are store in lvec and diag and offdiag
-    // hold the values of tridiagonal real matrix
+{
+    // Improved lanczos iterations  with  reorthogonalization. Lanczos
+    // vectors are stored in 'lvec'.  'diag'  and  'offdiag'  hold the 
+    // values of tridiagonal real matrix obtained to be diagonalized
+
+
 
     int i,
         j,
         k,
         nc = MCdata->nc;
 
-    Carray out = carrDef(nc);
-    Carray ortho = carrDef(lm);
+
+
+    Carray
+        out = carrDef(nc),
+        ortho = carrDef(lm);
+
+
 
     applyHconf(MCdata, lvec[0], Ho, Hint, out);
     diag[0] = carrDot(nc, lvec[0], out);
 
     for (j = 0; j < nc; j++) out[j] = out[j] - diag[0] * lvec[0][j];
 
+
+
+    // Core iteration procedure
     for (i = 0; i < lm - 1; i++)
     {
         offdiag[i] = carrMod(nc, out);
         carrScalarMultiply(nc, out, 1.0 / offdiag[i], lvec[i + 1]);
         applyHconf(MCdata, lvec[i + 1], Ho, Hint, out);
+
         for (j = 0; j < nc; j++)
         {
-            out[j] = out[j] - offdiag[i]*lvec[i][j];
+            out[j] = out[j] - offdiag[i] * lvec[i][j];
         }
+
         diag[i + 1] = carrDot(nc, lvec[i + 1], out);
+
         for (j = 0; j < nc; j++)
         {
             out[j] = out[j] - diag[i+1]*lvec[i+1][j];
         }
+
         // Additional re-orthogonalization procedure
         carrFill(lm, 0, ortho);
         for (k = 0; k < i + 2; k++) ortho[k] += carrDot(nc, lvec[k], out);
@@ -754,26 +730,34 @@ void lanczos(MCTDHBsetup MCdata, Cmatrix Ho, Carray Hint,
 
 
 
+
+
+
+
+
 void RK4lanczosAfter (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
-{   // Use C in next time-step only in k4 on RK4 method for orbitals. Note
-    // that lvec[0]  ( initial lanczos vector )  holds current time-step C
+{
+    // Advance first C in time by dt. The advanced C is used  only in  k4
+    // step of RK4 method for orbitals. Note that 'lvec[0]' holds current
+    // unadvanced C by 'dt' time-step, that is used in k1, k2 and k3
+
+
 
     int
         i,
-        k,  // Counter
-        j,  // Counter
-        lm, // Number of lanczos iterations
+        k,
+        j,
+        lm,
         M = MC->Morb,
         Mpos = MC->Mpos,
         Npar = MC->Npar;
 
-    lm = 4; // Follows the order of Runge-Kutta
+    lm = 5; // Follows the order of Runge-Kutta + 1
 
 
 
-    /* -------------------------------------------------------------
-    variables to call lapack diagonalization routine for tridiagonal
-    symmetric matrix
+    /* variables to call lapack diagonalization routine for tridiagonal
+       symmetric matrix
     ---------------------------------------------------------------- */
     double
         * d = malloc(lm * sizeof(double)),
@@ -783,8 +767,7 @@ void RK4lanczosAfter (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
 
 
 
-    /* -----------------------------------------------------
-    variables to store lanczos vectors and matrix iterations
+    /* variables to store lanczos vectors and matrix iterations
     -------------------------------------------------------- */
     // Lanczos Vectors (organize aint rows)
     Cmatrix lvec = cmatDef(lm, MC->nc);
@@ -798,8 +781,7 @@ void RK4lanczosAfter (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
 
 
 
-    /* ----------------------------------------------------
-    Variables to evolve 4-th order Runge-Kutta for Orbitals
+    /* Variables to evolve 4-th order Runge-Kutta for Orbitals
     ------------------------------------------------------- */
     Cmatrix Orhs = cmatDef(M, Mpos);
     Cmatrix Onew = cmatDef(M, Mpos);
@@ -808,11 +790,12 @@ void RK4lanczosAfter (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
 
 
 
-    /* ---------------------------------------
-    One/Two-body Hamiltonian matrices elements
+    /* One/Two-body Hamiltonian matrices elements
     ------------------------------------------ */
     Cmatrix  Ho = cmatDef(M, M);
     Carray Hint = carrDef(M * M * M *M);
+    SetupHo(M, Mpos, Orb, MC->dx, MC->a2, MC->a1, MC->V, Ho);
+    SetupHint(M, Mpos, Orb, MC->dx, MC->inter, Hint);
     /* --------------------------------------- */
     
     
@@ -821,8 +804,6 @@ void RK4lanczosAfter (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
     Setup values needed to solve the equations for C
     ------------------------------------------------ */
     offdiag[lm-1] = 0; // Useless
-    SetupHo(M, Mpos, Orb, MC->dx, MC->a2, MC->a1, MC->V, Ho);
-    SetupHint(M, Mpos, Orb, MC->dx, MC->inter, Hint);
     // Setup initial lanczos vector
     carrCopy(MC->nc, C, lvec[0]);
     /* --------------------------------------------- */
@@ -915,6 +896,8 @@ void RK4lanczosAfter (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
             Oarg[k][j] = Orb[k][j] + Orhs[k][j] * 0.5 * dt;
         }
     }
+    SetupHo(M, Mpos, Oarg, MC->dx, MC->a2, MC->a1, MC->V, Ho);
+    SetupHint(M, Mpos, Oarg, MC->dx, MC->inter, Hint);
 
 
 
@@ -931,6 +914,8 @@ void RK4lanczosAfter (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
             Oarg[k][j] = Orb[k][j] + Orhs[k][j] * 0.5 * dt;
         }
     }
+    SetupHo(M, Mpos, Oarg, MC->dx, MC->a2, MC->a1, MC->V, Ho);
+    SetupHint(M, Mpos, Oarg, MC->dx, MC->inter, Hint);
 
 
 
@@ -947,6 +932,8 @@ void RK4lanczosAfter (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
             Oarg[k][j] = Orb[k][j] + Orhs[k][j] * dt;
         }
     }
+    SetupHo(M, Mpos, Oarg, MC->dx, MC->a2, MC->a1, MC->V, Ho);
+    SetupHint(M, Mpos, Oarg, MC->dx, MC->inter, Hint);
 
 
 
@@ -967,7 +954,7 @@ void RK4lanczosAfter (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
     // Until now Onew  holds the sum K1 + 2 * K2 + 2 * K3 + K4
     // from the Fourth order Runge-Kutta algorithm. Therefore:
     for (k = 0; k < M; k++)
-    {   // Update Orbitals
+    {
         for (j = 0; j < Mpos; j++)
         {
             Orb[k][j] = Orb[k][j] + Onew[k][j] * dt / 6;
@@ -1003,10 +990,18 @@ void RK4lanczosAfter (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
 
 
 
+
+
+
+
+
 void RK4lanczosBefore (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
-{   // Use C in next time-step in k2 k3 and k4 on  RK4  method for orbitals
+{
+    // Use C in next time-step in k2 k3 and k4 on  RK4  method for orbitals
     // Note that lvec[0] (initial lanczos vector) holds current time-step C
-    
+
+
+
     int
         i,
         k,  // Counter
@@ -1016,7 +1011,7 @@ void RK4lanczosBefore (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
         Mpos = MC->Mpos,
         Npar = MC->Npar;
 
-    lm = 4; // Follows the order of Runge-Kutta
+    lm = 5; // Follows the order of Runge-Kutta
 
 
 
@@ -1157,6 +1152,8 @@ void RK4lanczosBefore (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
             Oarg[k][j] = Orb[k][j] + Orhs[k][j] * 0.5 * dt;
         }
     }
+    SetupHo(M, Mpos, Oarg, MC->dx, MC->a2, MC->a1, MC->V, Ho);
+    SetupHint(M, Mpos, Oarg, MC->dx, MC->inter, Hint);
 
 
 
@@ -1173,6 +1170,8 @@ void RK4lanczosBefore (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
             Oarg[k][j] = Orb[k][j] + Orhs[k][j] * 0.5 * dt;
         }
     }
+    SetupHo(M, Mpos, Oarg, MC->dx, MC->a2, MC->a1, MC->V, Ho);
+    SetupHint(M, Mpos, Oarg, MC->dx, MC->inter, Hint);
 
 
 
@@ -1189,6 +1188,8 @@ void RK4lanczosBefore (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
             Oarg[k][j] = Orb[k][j] + Orhs[k][j] * dt;
         }
     }
+    SetupHo(M, Mpos, Oarg, MC->dx, MC->a2, MC->a1, MC->V, Ho);
+    SetupHint(M, Mpos, Oarg, MC->dx, MC->inter, Hint);
 
 
 
@@ -1209,7 +1210,7 @@ void RK4lanczosBefore (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
     // Until now Onew  holds the sum K1 + 2 * K2 + 2 * K3 + K4
     // from the Fourth order Runge-Kutta algorithm. Therefore:
     for (k = 0; k < M; k++)
-    {   // Update Orbitals
+    {
         for (j = 0; j < Mpos; j++)
         {
             Orb[k][j] = Orb[k][j] + Onew[k][j] * dt / 6;
@@ -1240,6 +1241,11 @@ void RK4lanczosBefore (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
     cmatFree(M, Ho);
     free(Hint);
 }
+
+
+
+
+
 
 
 
@@ -1399,6 +1405,11 @@ void RK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
 
 
 
+
+
+
+
+
 void IRK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
 {   // Apply 4-th order Runge-Kutta routine given a (COMPLEX)time step
 
@@ -1545,6 +1556,11 @@ void IRK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
 
 
 
+
+
+
+
+
 void LinearPartSM (int Mpos, int Morb, CCSmat cnmat, Carray upper,
      Carray lower, Carray mid, Cmatrix Orb)
 {   // Laplacian part. Solve using CN-discretization
@@ -1563,6 +1579,11 @@ void LinearPartSM (int Mpos, int Morb, CCSmat cnmat, Carray upper,
 
     free(rhs);
 }
+
+
+
+
+
 
 
 
@@ -1592,16 +1613,19 @@ void LinearPartLU (int Mpos, int Morb, CCSmat cnmat, Carray upper,
 
 
 
-    /* ================================================================== *
-     *                                                                    *
-     *              Give the solution after some time steps               *
-     *                                                                    *
-     * Given the structure MCTDHBsetup whose contains all  relevant       *
-     * parameters, do the time (real or complex) evolution  calling       *
-     * separetely the nonlinear part together with the  coeficients       *
-     * in half of the time step. Then It evolves an entire step the       *
-     * linear part of orbital's equation. Finally evolve  one  more       *
-     * half time step the nonlinear part.                                 */
+    /* =============================================================*
+     *                                                              *
+     *           Give the solution after some time steps            *
+     *           ---------------------------------------            *
+     *                                                              *
+     * Given the structure MCTDHBsetup whose contains all  relevant *
+     * parameters, do the time (real or complex) evolution  calling *
+     * separetely the nonlinear part together with the  coeficients *
+     * in half of the time step. Then It evolves an entire step the *
+     * linear part of orbital's equation. Finally evolve  one  more *
+     * half time step the nonlinear part.                           *
+     *
+     * ============================================================ */
 
 
 
@@ -1690,7 +1714,7 @@ void MCTDHB_CN_REAL (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
     // Record initial data
     OBrho(MC->Npar, MC->Morb, MC->NCmat, MC->IF, C, rho);
     for (k = 0; k < MC->Morb; k++) RecordArray(out_orb, Mpos, Orb[k]);
-    RecordMatrix(out_rho, MC->Morb, rho);
+    RecordMatrixInLine(out_rho, MC->Morb, rho);
 
 
 
@@ -1795,7 +1819,7 @@ void MCTDHB_CN_REAL (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
                 printf(" "); cPrint(Csimps(MC->Mpos, to_int, MC->dx));
             }
         }
-        printf("\n\n|| C || = %.6lf", carrMod(MC->nc, C));
+        printf("\n\n|| C || = %.8lf", carrMod(MC->nc, C));
         /* ---------------------------------------------------------------- */
 
 
@@ -1804,7 +1828,7 @@ void MCTDHB_CN_REAL (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
         if (q == n)
         {
             q = 1;
-            RecordMatrix(out_rho, MC->Morb, rho);
+            RecordMatrixInLine(out_rho, MC->Morb, rho);
             for (k = 0; k < MC->Morb; k++)
             {   // record orbitals in a sequence of Morb lines
                 RecordArray(out_orb, Mpos, Orb[k]);
@@ -1812,6 +1836,8 @@ void MCTDHB_CN_REAL (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
         }
         else { q = q + 1; }
     }
+
+
 
     fclose(out_orb);
     fclose(out_rho);
@@ -1823,6 +1849,11 @@ void MCTDHB_CN_REAL (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
     free(lower);
     free(mid);
 }
+
+
+
+
+
 
 
 
@@ -1924,7 +1955,7 @@ void MCTDHB_CN_IMAG (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
                 printf(" "); cPrint(Csimps(MC->Mpos, to_int, MC->dx));
             }
         }
-        printf("\n\n|| C || = %.6lf", carrMod(MC->nc, C));
+        printf("\n\n|| C || = %.8lf", carrMod(MC->nc, C));
         /* ---------------------------------------------------------------- */
     }
 
