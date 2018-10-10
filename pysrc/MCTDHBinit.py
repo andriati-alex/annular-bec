@@ -2,10 +2,12 @@
 import sys;
 import numpy as np;
 import MCTDHBmodule as mc;
+import scipy.special as ss;
 
 from scipy.integrate import simps;
 from math import pi;
 from math import sqrt;
+from math import factorial as fac;
 from pathlib import Path;
 
 
@@ -73,12 +75,12 @@ def renormalize(f, dx): return f / sqrt( simps(abs(f)**2, dx = dx) );
 
 
 
-def BrightSoliton(x, a, c):
-    """ Normalized bright soliton with sech shape  """
-
-    numerator = a * np.exp(0.5j * c * x * sqrt(2), dtype=lc);
-    denominator = np.cosh(a * x / sqrt(2), dtype=lf);
-    return numerator / denominator / np.sqrt(2 * sqrt(2) * a);
+def Hermite(Morb, x, S, omega):
+    phase = (np.random.random(Morb) - 0.5) * 2 * pi;
+    for n in range(Morb):
+        her = ss.eval_hermite(n, sqrt(omega) * x);
+        div = pow((2 ** n) * fac(n), 0.5) * pow(pi, 0.25);
+        S[n,:] = np.exp(- omega * x * x / 2 + 1.0j * phase[n]) * her / div;
 
 
 
@@ -158,7 +160,7 @@ def ThermalCoef(Npar, Morb, beta, C):
         mc.IndexToFock(l, Npar, Morb, v);
         prod = 1.0;
         for j in range(Morb):
-            decay = - beta * float(v[j] * j * j) / Npar;
+            decay = - beta * float(v[j] * j) / Npar;
             prod  = prod * np.exp( decay , dtype=lf );
         # put the random phase with 'thermal' exponential decay
         C[l] = phase[l] * prod;
@@ -196,19 +198,28 @@ params = tuple(params);
 
 ############### Call subroutines to setup initial condition ################
 
-x  = np.linspace(xi, xf, Mdiv + 1, dtype=lf);
+x  = np.linspace(xi, xf, Mdiv + 1);
 dx = (xf - xi) / Mdiv;
 
 Orb = np.zeros([Morb, x.size], dtype=lc);  # orbitals
 C = np.zeros(mc.NC(Npar, Morb), dtype=lc); # coeficients
 
-if (Id == 1) :
+if   (Id == 1) :
+
     Id_name = 'AngularMom-' + str(Npar) + '-' + str(Morb);
     AngularMom(Morb, x, Orb);
     ThermalCoef(Npar, Morb, params[0], C);
-else :
+
+elif (Id == 2) :
+
     Id_name = 'NoiseAngular-' + str(Npar) + '-' + str(Morb);
     NoiseAngular(Morb, x, Orb, int(params[1]));
+    ThermalCoef(Npar, Morb, params[0], C);
+
+elif (Id == 3) :
+
+    Id_name = 'hermite-' + str(Npar) + '-' + str(Morb);
+    Hermite(Morb, x, Orb, params[1]);
     ThermalCoef(Npar, Morb, params[0], C);
 
 
