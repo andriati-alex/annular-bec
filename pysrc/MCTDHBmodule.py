@@ -3,7 +3,8 @@ import math;
 import cmath;
 import numpy as np;
 import scipy.linalg as la;
-from numba import jit, prange, uint32, int32, float64, complex128;
+
+from numba import jit, prange, int32, uint32, uint64, int64, float64, complex128;
 
 
 
@@ -30,7 +31,7 @@ from numba import jit, prange, uint32, int32, float64, complex128;
 
 
 
-@jit(uint32(uint32), nopython=True, nogil=True)
+@jit([ uint32(uint32) , uint64(uint64) ], nopython=True, nogil=True)
 
 def fac(n):
     """ return n! """
@@ -42,7 +43,7 @@ def fac(n):
 
 
 
-@jit(uint32(uint32, uint32), nopython=True, nogil=True)
+@jit( uint32(uint32, uint32), nopython=True, nogil=True)
 
 def NC(Npar, Morb):
     """ return (Npar + Morb - 1)! / ( (Npar)! x (Morb - 1)! )"""
@@ -58,16 +59,17 @@ def NC(Npar, Morb):
 
 
 
-@jit((int32, int32, int32, int32[:]), nopython=True, nogil=True)
+@jit( [ (int32, int32, int32, int32[:]), (int64, int32, int32, int32[:]) ],
+      nopython=True, nogil=True)
 
 def IndexToFock(k, N, M, v):
     """
     Calling: (void) IndexToFock(k, N, M, v)
-    --------
+    -------
 
     Arguments:
-    ----------
-    k : Index of occupation configuration coeficients
+    ---------
+    k : Index of configuration-state coefficient
     N : # of particles
     M : # of orbitals
     v : End up with occupation vector(Fock state) of length Morb
@@ -89,7 +91,36 @@ def IndexToFock(k, N, M, v):
 
 
 
-@jit((int32, int32, int32[:,:]), nopython=True, nogil=True)
+@jit( int32(int32, int32, int32[:,:], int32[:]) , nopython=True, nogil=True)
+
+def FockToIndex(N, M, NCmat, v):
+    """
+    Calling: (int) = FockToIndex(N, M, NCmat, v)
+    --------
+    k = Index of Fock Configuration Coeficient of v
+
+    arguments:
+    ----------
+    N     : # of particles
+    M     : # of orbitals
+    NCmat : see GetNCmat function
+    """
+    n = 0;
+    k = 0;
+    for i in prange(M - 1, 0, -1):
+        n = v[i]; # Number of particles in the orbital
+        while (n > 0):
+            k = k + NCmat[N][i]; # number of combinations needed
+            N = N - 1;           # decrease the number of particles
+            n = n - 1;
+    return k;
+
+
+
+
+
+@jit( [ (int32, int32, int32[:,:]), (int32, int32, int64[:,:]) ],
+      nopython=True, nogil=True)
 
 def MountNCmat(N, M, NCmat):
     """ Auxiliar of GetNCmat """
@@ -101,7 +132,7 @@ def MountNCmat(N, M, NCmat):
 
 
 
-@jit((int32, int32, int32[:,:]), nopython=True, nogil=True)
+@jit( (int32, int32, int32[:,:]) , nopython=True, nogil=True)
 
 def MountFocks(N, M, IF):
     """ Auxiliar of GetFocks """
@@ -115,7 +146,7 @@ def GetNCmat(N, M):
     """
     Calling: (numpy 2D array of ints) = GetNCmat(N, M)
     --------
-    Returned matrix NC(n,m) = (n + m - 1)! /( (n)! (m - 1)! ).
+    Returned matrix NC(n,m) = (n + m - 1)! / ( n! (m - 1)! ).
 
     arguments:
     ----------
@@ -133,11 +164,11 @@ def GetNCmat(N, M):
 def GetFocks(N, M):
     """
     Calling : (numpy 2D array of ints) = GetFocks(N, M)
-    ---------
+    -------
     Row k has the occupation vector corresponding to C[k].
 
-    arguments:
-    ----------
+    arguments :
+    ---------
     N : # of particles
     M : # of orbitals
     """
@@ -149,51 +180,23 @@ def GetFocks(N, M):
 
 
 
-@jit(int32(int32, int32, int32[:,:], int32[:]), nopython=True, nogil=True)
-
-def FockToIndex(N, M, NCmat, v):
-    """
-    Calling: (int) = FockToIndex(N, M, NCmat, v)
-    --------
-    k = Index of Fock Configuration Coeficient of v
-
-    arguments:
-    ----------
-    N : # of particles
-    M : # of orbitals
-    NCmat : see GetNCmat function
-    """
-    n = 0;
-    k = 0;
-    for i in prange(M - 1, 0, -1):
-        n = v[i]; # Number of particles in the orbital
-        while (n > 0):
-            k = k + NCmat[N][i]; # number of combinations needed
-            N = N - 1;           # decrease the number of particles
-            n = n - 1;
-    return k;
-
-
-
-
-
-@jit((int32, int32, int32[:,:], int32[:,:], complex128[:], complex128[:,:]),
+@jit( (int32, int32, int32[:,:], int32[:,:], complex128[:], complex128[:,:]),
       nopython=True, nogil=True)
 
 def OBrho(N, M, NCmat, IF, C, rho):
     """
-    Calling: (void) OBrho(N, M, NCmat, IF, C, rho)
-    --------
-    Setup the rho argument with one-body densit matrix
+    Calling : (void) OBrho(N, M, NCmat, IF, C, rho)
+    -------
+    Setup rho argument with one-body densit matrix
 
-    arguments:
-    ----------
-    N : # of particles
-    M : # of orbitals
+    arguments :
+    ---------
+    N     : # of particles
+    M     : # of orbitals (also dimension of rho)
     NCmat : see function GetNCmat
-    IF : see function GetFocks
-    C : coeficients of Fock-configuration states
-    rho : Empty M x M matrix. End up configured with values
+    IF    : see function GetFocks
+    C     : coeficients of Fock-configuration states
+    rho   : Empty M x M matrix. End up configured with values
     """
     # Initialize variables
     j = 0;
@@ -228,18 +231,41 @@ def OBrho(N, M, NCmat, IF, C, rho):
 
 
 
-@jit((int32, float64[:], complex128[:,:]), nopython=True, nogil=True)
+def GetOBrho(Npar, Morb, C):
+    """
+    CALLING : ( 2D array [Morb, Morb]) = GetOBrho(Npar, Morb, C)
+    -------
+    return the one-body density matrix
+
+    arguments :
+    ---------
+    Npar : # of particles
+    Morb : # of orbitals (dimension of the matrix returned)
+    C    : coefficients of configuration states basis
+    """
+    rho = np.empty([ Morb , Morb ], dtype=np.complex128);
+    NCmat = GetNCmat(Npar, Morb);
+    IF = GetFocks(Npar, Morb);
+    OBrho(Npar, Morb, NCmat, IF, C, rho);
+    return rho;
+
+
+
+
+
+@jit( (int32, float64[:], complex128[:,:]) , nopython=True, nogil=True)
 
 def EigSort(Nvals, RHOeigvals, RHOeigvecs):
     """
-    Calling: (void) EigSort(Nvals, RHOeigvals, RHOeigvecs)
-    --------
-    Sort the order of eigenvalues to be decreasing
-    and the order of columns of eigenvectors.
+    Calling : (void) EigSort(Nvals, RHOeigvals, RHOeigvecs)
+    -------
+    Sort the order of eigenvalues to be decreasing and the order
+    of columns of eigenvectors accordingly so that the  k column
+    keep being the eigenvector of k-th eigenvalue.
 
-    arguments
+    arguments :
     ---------
-    Nvals : dimension of rho = # of orbitals
+    Nvals      : dimension of rho = # of orbitals
     RHOeigvals : End up with eigenvalues in decreasing order
     RHOeigvecs : Change the order of columns accordingly to eigenvalues
     """
@@ -265,16 +291,63 @@ def EigSort(Nvals, RHOeigvals, RHOeigvecs):
 
 def NatOrb(RHOeigvecs, Orb):
     """
-    CALLING:
-    --------
+    CALLING :
+    -------
     ( 2D numpy array [Morb x Mpos] ) = NatOrb(RHOeigvecs, Orb)
 
-    Arguments:
-    ----------
+    Arguments :
+    ---------
     RHOeigvecs : Matrix with eigenvectors of rho in columns
     Orb : 2D array [Morb x Mpos] given by time propagation
     """
     return np.matmul(RHOeigvecs.conj().T, Orb);
+
+
+
+
+
+def TimeOccupation(Morb, Nsteps, rhotime):
+    """
+    CALLING :
+    -------
+    ( 2D numpy array [Nsteps, Morb] ) = TimeOccupation(Morb, Nsteps, rhotime)
+
+    arguments :
+    ---------
+    Morb    : # of orbitals (# of columns in rhotime)
+    Nsteps  : # number of time steps (# of rows in rhotime)
+    rhotime : each line has row-major matrix representation (a vector)
+              that is the  one-body  densiity matrix at each time-step
+    """
+    eigval = np.empty( [Nsteps, Morb] , dtype=np.complex128 );
+    for i in range(Nsteps):
+        eigval[i], eigvec = la.eig( rhotime[i].reshape(Morb, Morb) );
+        EigSort(Morb, eigval[i].real, eigvec);
+    return eigval;
+
+
+
+
+
+def SpatialOBdensity(M, NOoccu, NO):
+    """
+    CALLING :
+    -------
+    ( 2d array [M,M] ) = SpatialOBdensity(M, occu, NO)
+
+    arguments :
+    ---------
+    M      : # of discrete positions
+    NOoccu : occu[k] has # of particles occupying NO[k,:] orbital
+    NO     : [Morb,M] matrix with each row being a natural orbital
+    """
+    n = np.zeros([M , M], dtype=np.complex128);
+    for i in range(M):
+        for j in range(M):
+            for k in range(occu.size):
+                n[i,j] = n[i,j] + NOoccu[k] * NO[k,j].conjugate() * NO[k,i];
+    return n / (NOoccu.sum());
+
 
 
 
