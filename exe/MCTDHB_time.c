@@ -589,7 +589,7 @@ int main(int argc, char * argv[])
         printf("\n\nDoing real time propagation (SM/RK4) ...\n");
         
         start = omp_get_wtime();
-        MCTDHB_CN_REAL(mc, Orbtest, Ctest, dt, 1, method, cyclic,
+        MCTDHB_CN_REAL_ABM(mc, Orbtest, Ctest, dt, 1, method, cyclic,
         fname_out, 100);
         time_used = (double) (omp_get_wtime() - start);
 
@@ -603,7 +603,7 @@ int main(int argc, char * argv[])
         printf("\n\n");
 
         // Start Evolution
-        MCTDHB_CN_REAL(mc, Orb, C, dt, N, method, cyclic, fname_out, 100);
+        MCTDHB_CN_REAL_ABM(mc, Orb, C, dt, N, method, cyclic, fname_out, 100);
     }
     else
     {

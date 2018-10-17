@@ -25,13 +25,6 @@
 
 
 
-void RecordArray(FILE * f, int M, Carray v);
-void RecordMatrixInLine(FILE * f, int M, Cmatrix A);
-
-
-
-
-
 void applyHconf(MCTDHBsetup MC, Carray C, Cmatrix Ho, Carray Hint, Carray out);
 /* Give the state coefficients of a state (out) after apply the many-body
  * Hamiltonian on a state whose  coeficients  in  the  occupation  number
@@ -93,6 +86,14 @@ void OrbConfDDT
 
 void lanczos(MCTDHBsetup MCdata, Cmatrix Ho, Carray Hint,
      int lm, Carray diag, Carray offdiag, Cmatrix lvec);
+
+
+
+
+
+void RK4orbstep (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt);
+void ABMorb (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt);
+void lanczosCstep (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt);
 
 
 
@@ -173,6 +174,9 @@ void LinearPartLU (int Mpos, int Morb, CCSmat cnmat, Carray upper,
 
 
 
+
+void MCTDHB_CN_REAL_ABM (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
+     int Nsteps, int method, int cyclic, char fname [], int n);
 
 void MCTDHB_CN_REAL (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
      int Nsteps, int method, int cyclic, char fname[], int n);

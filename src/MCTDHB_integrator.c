@@ -450,7 +450,7 @@ double complex nonlinear (int M, int k, int n, double g, Cmatrix Orb,
     // interactions. Assume that Rinv, R2 are  defined  by  the  set of
     // configuration-state coefficients as the inverse of  one-body and
     // two-body density matrices respectively. Ho and Hint are  assumed
-    // to be defined accoding to 'Orb' variable as well.
+    // to be defined accoding to 'Orb' variable.
 
 
 
@@ -724,6 +724,413 @@ void lanczos(MCTDHBsetup MCdata, Cmatrix Ho, Carray Hint,
 
     free(ortho);
     free(out);
+}
+
+
+
+
+
+
+
+
+
+
+void RK4orbstep (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
+{
+
+    int
+        i,
+        k,
+        j,
+        M = MC->Morb,
+        Mpos = MC->Mpos,
+        Npar = MC->Npar;
+
+    /* Variables to evolve 4-th order Runge-Kutta for Orbitals
+    ------------------------------------------------------- */
+    Cmatrix Orhs = cmatDef(M, Mpos);
+    Cmatrix Onew = cmatDef(M, Mpos);
+    Cmatrix Oarg = cmatDef(M, Mpos);
+    /* ---------------------------------------------------- */
+
+
+    /* One/Two-body Hamiltonian matrices elements
+    ------------------------------------------ */
+    Cmatrix  Ho = cmatDef(M, M);
+    Carray Hint = carrDef(M * M * M *M);
+    SetupHo(M, Mpos, Orb, MC->dx, MC->a2, MC->a1, MC->V, Ho);
+    SetupHint(M, Mpos, Orb, MC->dx, MC->inter, Hint);
+    /* --------------------------------------- */
+
+
+
+    /* ================================================================= *
+    
+            COMPUTE AND SUM UP FOUR Ks OF RUNGE-KUTTA for ORBITALS
+
+     * ================================================================= */
+
+
+
+    /* ------------------------------------------------------------------
+    COMPUTE K1 in Orhs
+    --------------------------------------------------------------------- */
+    OrbDDT(MC, C, Orb, Orhs, Ho, Hint);
+    for (k = 0; k < M; k++)
+    {
+        for (j = 0; j < Mpos; j++)
+        {   // Add K1 contribution
+            Onew[k][j] = Orhs[k][j];
+            // Prepare next argument to compute K2
+            Oarg[k][j] = Orb[k][j] + Orhs[k][j] * 0.5 * dt;
+        }
+    }
+    SetupHo(M, Mpos, Oarg, MC->dx, MC->a2, MC->a1, MC->V, Ho);
+    SetupHint(M, Mpos, Oarg, MC->dx, MC->inter, Hint);
+
+
+
+    /* ------------------------------------------------------------------
+    COMPUTE K2 in Orhs
+    --------------------------------------------------------------------- */
+    OrbDDT(MC, C, Oarg, Orhs, Ho, Hint);
+    for (k = 0; k < M; k++)
+    {
+        for (j = 0; j < Mpos; j++)
+        {   // Add K2 contribution
+            Onew[k][j] += 2 * Orhs[k][j];
+            // Prepare next argument to compute K3
+            Oarg[k][j] = Orb[k][j] + Orhs[k][j] * 0.5 * dt;
+        }
+    }
+    SetupHo(M, Mpos, Oarg, MC->dx, MC->a2, MC->a1, MC->V, Ho);
+    SetupHint(M, Mpos, Oarg, MC->dx, MC->inter, Hint);
+
+
+
+    /* ------------------------------------------------------------------
+    COMPUTE K3 in Orhs
+    --------------------------------------------------------------------- */
+    OrbDDT(MC, C, Oarg, Orhs, Ho, Hint);
+    for (k = 0; k < M; k++)
+    {
+        for (j = 0; j < Mpos; j++)
+        {   // Add K3 contribution
+            Onew[k][j] += 2 * Orhs[k][j];
+            // Prepare next argument to compute K4
+            Oarg[k][j] = Orb[k][j] + Orhs[k][j] * dt;
+        }
+    }
+    SetupHo(M, Mpos, Oarg, MC->dx, MC->a2, MC->a1, MC->V, Ho);
+    SetupHint(M, Mpos, Oarg, MC->dx, MC->inter, Hint);
+
+
+
+    /* ------------------------------------------------------------------
+    COMPUTE K4 in Orhs
+    --------------------------------------------------------------------- */
+    OrbDDT(MC, C, Oarg, Orhs, Ho, Hint);
+    for (k = 0; k < M; k++)
+    {   // Add k4 contribution
+        for (j = 0; j < Mpos; j++) Onew[k][j] += Orhs[k][j];
+    }
+
+
+
+    /* ------------------------------------------------------------------
+    Update orbitals in the given time-step
+    --------------------------------------------------------------------- */
+    // Until now Onew  holds the sum K1 + 2 * K2 + 2 * K3 + K4
+    // from the Fourth order Runge-Kutta algorithm. Therefore:
+    for (k = 0; k < M; k++)
+    {
+        for (j = 0; j < Mpos; j++)
+        {
+            Orb[k][j] = Orb[k][j] + Onew[k][j] * dt / 6;
+        }
+    }
+
+
+
+    /* ================================================================= *
+    
+                                RELEASE MEMORY
+
+     * ================================================================= */
+
+    cmatFree(M, Orhs);
+    cmatFree(M, Onew);
+    cmatFree(M, Oarg);
+
+    cmatFree(M, Ho);
+    free(Hint);
+}
+
+
+
+
+
+
+
+
+
+
+void ABMorb (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
+{   // Evolve nonlinear orbital part
+
+    int
+        i,
+        k,
+        j,
+        M = MC->Morb,
+        Mpos = MC->Mpos,
+        Npar = MC->Npar;
+
+
+
+    // Variables to evolve in ABM predictor-corrector
+    // ----------------------------------------------
+    Cmatrix
+        On = cmatDef(M, Mpos),
+        dO_dt = cmatDef(M, Mpos),
+        dO_back_dt = cmatDef(M, Mpos),
+        dO_pred_dt = cmatDef(M, Mpos);
+    // ----------------------------------------------
+
+
+
+    // One/Two-body Hamiltonian matrices elements
+    // ------------------------------------------
+    Cmatrix
+        Ho = cmatDef(M, M);
+    Carray
+        Hint = carrDef(M * M * M *M);
+    // ------------------------------------------
+
+
+
+    SetupHo(M, Mpos, Orb, MC->dx, MC->a2, MC->a1, MC->V, Ho);
+    SetupHint(M, Mpos, Orb, MC->dx, MC->inter, Hint);
+
+    // derivative of back-step
+    OrbDDT(MC, C, Orb, dO_back_dt, Ho, Hint);
+
+    // Evolve to the middle point
+    RK4orbstep(MC, Orb, C, dt / 2);
+
+    for (k = 0; k < M; k++)
+    {
+        for (j = 0; j < Mpos; j++)
+        {
+            On[k][j] = Orb[k][j];
+        }
+    }
+
+    SetupHo(M, Mpos, Orb, MC->dx, MC->a2, MC->a1, MC->V, Ho);
+    SetupHint(M, Mpos, Orb, MC->dx, MC->inter, Hint);
+
+    // Derivative of the middle
+    OrbDDT(MC, C, Orb, dO_dt, Ho, Hint);
+
+    // Evolve to predicted point
+    RK4orbstep(MC, Orb, C, dt / 2);
+
+    SetupHo(M, Mpos, Orb, MC->dx, MC->a2, MC->a1, MC->V, Ho);
+    SetupHint(M, Mpos, Orb, MC->dx, MC->inter, Hint);
+
+    // Derivative of prediction
+    OrbDDT(MC, C, Orb, dO_pred_dt, Ho, Hint);
+
+
+
+    /* ================================================================= *
+    
+              Adams-Bashforth-Moulton integrator for orbitals
+
+     * ================================================================= */
+
+
+
+    for (k = 0; k < M; k++)
+    {
+        for (j = 0; j < Mpos; j++)
+        {
+            Orb[k][j] = On[k][j] + (dt/12) * (5 * dO_pred_dt[k][j] + 8 * dO_dt[k][j] - dO_back_dt[k][j]);
+        }
+    }
+
+
+
+    /* ================================================================= *
+    
+                                RELEASE MEMORY
+
+     * ================================================================= */
+
+
+
+    cmatFree(M, dO_back_dt);
+    cmatFree(M, dO_pred_dt);
+    cmatFree(M, dO_dt);
+    cmatFree(M, On);
+
+    cmatFree(M, Ho);
+    free(Hint);
+}
+
+
+
+
+
+void lanczosCstep (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
+{
+    // Advance first C in time by dt. The advanced C is used  only in  k4
+    // step of RK4 method for orbitals. Note that 'lvec[0]' holds current
+    // unadvanced C by 'dt' time-step, that is used in k1, k2 and k3
+
+
+
+    int
+        i,
+        k,
+        j,
+        lm,
+        M = MC->Morb,
+        Mpos = MC->Mpos,
+        Npar = MC->Npar;
+
+    lm = 4; // Follows the order of Runge-Kutta
+
+
+
+    /* variables to call lapack diagonalization routine for tridiagonal
+       symmetric matrix
+    ---------------------------------------------------------------- */
+    double
+        * d = malloc(lm * sizeof(double)),
+        * e = malloc(lm * sizeof(double)),
+        * eigvec = malloc(lm * lm * sizeof(double));
+    /* ------------------------------------------------------------- */
+
+
+
+    /* variables to store lanczos vectors and matrix iterations
+    -------------------------------------------------------- */
+    // Lanczos Vectors (organize aint rows)
+    Cmatrix lvec = cmatDef(lm, MC->nc);
+    // Elements of tridiagonal lanczos matrix
+    Carray diag = carrDef(lm);
+    Carray offdiag = carrDef(lm);
+    // Solve system of ODEs in lanczos vector space
+    Carray Clanczos = carrDef(lm);
+    Carray aux = carrDef(lm);
+    /* ----------------------------------------------------- */
+
+
+
+    /* One/Two-body Hamiltonian matrices elements
+    ------------------------------------------ */
+    Cmatrix  Ho = cmatDef(M, M);
+    Carray Hint = carrDef(M * M * M *M);
+    SetupHo(M, Mpos, Orb, MC->dx, MC->a2, MC->a1, MC->V, Ho);
+    SetupHint(M, Mpos, Orb, MC->dx, MC->inter, Hint);
+    /* --------------------------------------- */
+    
+    
+    
+    /* ---------------------------------------------
+    Setup values needed to solve the equations for C
+    ------------------------------------------------ */
+    offdiag[lm-1] = 0; // Useless
+    // Setup initial lanczos vector
+    carrCopy(MC->nc, C, lvec[0]);
+    /* --------------------------------------------- */
+
+
+
+    /* ================================================================= *
+    
+            SOLVE ODE FOR COEFFICIENTS USING LANCZOS VECTOR SPACE
+
+     * ================================================================= */
+
+
+
+    /* --------------------------------------------------------------
+    Call Lanczos what setup tridiagonal symmetric and lanczos vectors
+    ----------------------------------------------------------------- */
+    lanczos(MC, Ho, Hint, lm, diag, offdiag, lvec);
+    /* -------------------------------------------------------------- */
+
+
+
+    /* --------------------------------------------------------------
+    Transfer data to use lapack routine
+    ----------------------------------------------------------------- */
+    for (k = 0; k < lm; k++)
+    {
+        d[k] = creal(diag[k]);    // Supposed to be real
+        e[k] = creal(offdiag[k]); // Supposed to be real
+        for (j = 0; j < lm; j++) eigvec[k * lm + j] = 0;
+    }
+
+    k = LAPACKE_dstev(LAPACK_ROW_MAJOR, 'V', lm, d, e, eigvec, lm);
+    if (k != 0)
+    {
+        printf("\n\n\t\tERROR IN DIAGONALIZATION\n\n");
+        exit(EXIT_FAILURE);
+    }
+    /* -------------------------------------------------------------- */
+
+
+
+    /* --------------------------------------------------------------
+    Solve exactly the equation in lanczos vector space using 
+    matrix-eigenvalues to exactly exponentiate
+    ----------------------------------------------------------------- */
+    // Initial condition in Lanczos vector space
+    carrFill(lm, 0, Clanczos); Clanczos[0] = 1.0;
+
+    for (k = 0; k < lm; k++)
+    {   // Solve in diagonal basis and for this apply eigvec trasformation
+        aux[k] = 0;
+        for (j = 0; j < lm; j++) aux[k] += eigvec[j*lm + k] * Clanczos[j];
+        aux[k] = aux[k] * cexp(- I * d[k] * dt);
+    }
+
+    for (k = 0; k < lm; k++)
+    {   // Backward transformation from diagonal matrix
+        Clanczos[k] = 0;
+        for (j = 0; j < lm; j++) Clanczos[k] += eigvec[k*lm + j] * aux[j];
+    }
+
+    for (i = 0; i < MC->nc; i++)
+    {   // Matrix multiplication by lanczos vector give the solution
+        C[i] = 0;
+        for (j = 0; j < lm; j++) C[i] += lvec[j][i] * Clanczos[j];
+    }
+    /* -------------------------------------------------------------- */
+
+
+
+    /* ================================================================= *
+    
+                                RELEASE MEMORY
+
+     * ================================================================= */
+
+    free(d);
+    free(e);
+    free(eigvec);
+    free(diag);
+    free(offdiag);
+    free(Clanczos);
+    free(aux);
+
+    cmatFree(lm, lvec);
+
+    cmatFree(M, Ho);
+    free(Hint);
 }
 
 
@@ -1631,6 +2038,205 @@ void LinearPartLU (int Mpos, int Morb, CCSmat cnmat, Carray upper,
 
 
 
+void MCTDHB_CN_REAL_ABM (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
+     int Nsteps, int method, int cyclic, char fname [], int n)
+{
+
+
+
+    int
+        i,
+        k,
+        l,
+        s,
+        q,
+        Mpos = MC->Mpos;
+
+
+
+    double
+        dx = MC->dx,
+        a2 = MC->a2,
+        inter = MC->inter,
+        * V = MC->V;
+
+
+
+    double complex
+        tr,
+        a1 = MC->a1;
+
+
+
+    // used to store matrix elements of linear part
+    Carray
+        to_int = carrDef(Mpos),
+        upper  = carrDef(Mpos - 1),
+        lower  = carrDef(Mpos - 1),
+        mid    = carrDef(Mpos - 1);
+
+
+
+    Cmatrix
+        rho = cmatDef(MC->Morb, MC->Morb);
+
+
+
+    CCSmat
+        cnmat;
+
+
+    
+    char
+        fname_orb[120],
+        fname_rho[120];
+
+
+
+    FILE
+        * out_orb,
+        * out_rho;
+
+
+
+    strcpy(fname_orb, fname);
+    strcat(fname_orb, "_orb_realtime.dat");
+    strcpy(fname_rho, fname);
+    strcat(fname_rho, "_rho_realtime.dat");
+
+    out_orb = fopen(fname_orb, "w");
+    if (out_orb == NULL)
+    {
+        printf("\n\nError: Impossible to open %s\n", fname_orb);
+        exit(EXIT_FAILURE);
+    }
+
+    out_rho = fopen(fname_rho, "w");
+    if (out_orb == NULL)
+    {
+        printf("\n\nError: Impossible to open %s\n", fname_rho);
+        exit(EXIT_FAILURE);
+    }
+
+
+
+    // Record initial data
+    OBrho(MC->Npar, MC->Morb, MC->NCmat, MC->IF, C, rho);
+    for (k = 0; k < MC->Morb; k++) RecordArray(out_orb, Mpos, Orb[k]);
+    RecordMatrixInLine(out_rho, MC->Morb, rho);
+
+
+
+    // Configure the linear system from Crank-Nicolson scheme
+    cnmat = CNmat(Mpos, dx, dt / 2, a2, a1, inter, V, cyclic, upper, lower, mid);
+
+    q = 1;
+    for (i = 0; i < Nsteps; i++)
+    {
+        // Half step of coefficients
+        lanczosCstep(MC, Orb, C, dt / 2);
+
+
+
+        // One step linear part
+        // ---------------------------------------------------------------
+        if (method == 21 || method == 22)
+            LinearPartLU(Mpos, MC->Morb, cnmat, upper, lower, mid, Orb);
+        else
+            LinearPartSM(Mpos, MC->Morb, cnmat, upper, lower, mid, Orb);
+        // boundary
+        if (cyclic)
+        { for (k = 0; k < MC->Morb; k++) Orb[k][Mpos-1] = Orb[k][0]; }
+        else
+        { for (k = 0; k < MC->Morb; k++) Orb[k][Mpos-1] = 0;         }
+        // ---------------------------------------------------------------
+
+
+
+        // Full step nonlinear part for orbitals + coefficients
+        ABMorb (MC, Orb, C, dt);
+        
+        
+        
+        // One step linear part
+        // ---------------------------------------------------------------
+        if (method == 21 || method == 22)
+            LinearPartLU(Mpos, MC->Morb, cnmat, upper, lower, mid, Orb);
+        else
+            LinearPartSM(Mpos, MC->Morb, cnmat, upper, lower, mid, Orb);
+        // boundary
+        if (cyclic)
+        { for (k = 0; k < MC->Morb; k++) Orb[k][Mpos-1] = Orb[k][0]; }
+        else
+        { for (k = 0; k < MC->Morb; k++) Orb[k][Mpos-1] = 0;         }
+        // ---------------------------------------------------------------
+
+
+
+        // Half step of coefficients
+        lanczosCstep(MC, Orb, C, dt / 2);
+
+
+
+        // Build rho after have evolved one step
+        OBrho(MC->Npar, MC->Morb, MC->NCmat, MC->IF, C, rho);
+        tr = 0;
+        for (k = 0; k < MC->Morb; k++) tr = tr + rho[k][k];
+
+
+
+        /* ----------------------------------------------------------------
+         * print to check orthogonality/Energy
+        ------------------------------------------------------------------- */
+        printf("\n\nAfter %d time steps, Tr(rho) = ", i + 1); cPrint(tr);
+        printf(". Orthogonality matrix is:\n\n");
+        for (k = 0; k < MC->Morb; k++)
+        {
+            printf("\n\t");
+            for (l = 0; l < MC->Morb; l++)
+            {
+                for (s = 0; s < MC->Mpos; s++)
+                {
+                    to_int[s] = conj(Orb[k][s]) * Orb[l][s];
+                }
+                printf(" "); cPrint(Csimps(MC->Mpos, to_int, MC->dx));
+            }
+        }
+        printf("\n\n|| C || = %.8lf", carrMod(MC->nc, C));
+        /* ---------------------------------------------------------------- */
+
+
+
+        // record data every n steps
+        if (q == n)
+        {
+            q = 1;
+            RecordMatrixInLine(out_rho, MC->Morb, rho);
+            for (k = 0; k < MC->Morb; k++)
+            {   // record orbitals in a sequence of Morb lines
+                RecordArray(out_orb, Mpos, Orb[k]);
+            }
+        }
+        else { q = q + 1; }
+    }
+
+
+
+    fclose(out_orb);
+    fclose(out_rho);
+
+    cmatFree(MC->Morb, rho);
+    CCSFree(cnmat);
+    free(to_int);
+    free(upper);
+    free(lower);
+    free(mid);
+}
+
+
+
+
+
 void MCTDHB_CN_REAL (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
      int Nsteps, int method, int cyclic, char fname [], int n)
 {
@@ -1789,7 +2395,7 @@ void MCTDHB_CN_REAL (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
         /* Another Half step nonlinear part
          * -------------------------------------- */
         if (method == 12 || method == 22)
-            RK4lanczosAfter(MC, Orb, C, dt / 2);
+            RK4lanczosBefore(MC, Orb, C, dt / 2);
         else
             RK4step(MC, Orb, C, dt / 2);
         /* -------------------------------------- */
