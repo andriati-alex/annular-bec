@@ -603,7 +603,6 @@ void OrbDDT (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix dOdt,
 
 
     // Update k-th orbital at discretized position j
-    #pragma omp parallel for private(k, j)
     for (k = 0; k < M; k++)
     {
         for (j = 0; j < Mpos; j++)
@@ -1128,7 +1127,8 @@ void coefRK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
 
 
 
-void IorbRK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
+void IorbRK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray Chalf,
+     double complex dt)
 {   // Apply 4-th order Runge-Kutta routine given a (COMPLEX)time step
 
     int
@@ -1186,7 +1186,7 @@ void IorbRK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
     COMPUTE K2 in Orhs
     ------------------------------------------------------------------- */
 
-    OrbDDT(MC, C, Oarg, Orhs, Ho, Hint);
+    OrbDDT(MC, Chalf, Oarg, Orhs, Ho, Hint);
 
     for (k = 0; k < M; k++)
     {
@@ -1207,7 +1207,7 @@ void IorbRK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
     COMPUTE K3 in Orhs
     ------------------------------------------------------------------- */
 
-    OrbDDT(MC, C, Oarg, Orhs, Ho, Hint);
+    OrbDDT(MC, Chalf, Oarg, Orhs, Ho, Hint);
 
     for (k = 0; k < M; k++)
     {
@@ -1228,7 +1228,7 @@ void IorbRK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
     COMPUTE K4 in Orhs
     ------------------------------------------------------------------- */
 
-    OrbDDT(MC, C, Oarg, Orhs, Ho, Hint);
+    OrbDDT(MC, Chalf, Oarg, Orhs, Ho, Hint);
 
     for (k = 0; k < M; k++)
     {   // Add k4 contribution
@@ -1691,6 +1691,7 @@ void MCTDHB_CN_IMAG (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
     // used to store matrix elements of linear part
     Carray
+        Chalf  = carrDef(MC->nc),
         upper  = carrDef(Mpos - 1),
         lower  = carrDef(Mpos - 1),
         mid    = carrDef(Mpos - 1),
@@ -1713,10 +1714,14 @@ void MCTDHB_CN_IMAG (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
 
 
+    carrCopy(MC->nc, C, Chalf);
     for (i = 0; i < Nsteps; i++)
     {
 
-        IcoefRK4step(MC, Orb, C, 0.5 * dt);
+        IcoefRK4step(MC, Orb, Chalf, 0.5 * dt);
+
+        // Renormalize coeficients
+        renormalizeVector(MC->nc, Chalf, 1.0);
 
 
 
@@ -1732,7 +1737,7 @@ void MCTDHB_CN_IMAG (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
 
 
-        IorbRK4step(MC, Orb, C, dt);
+        IorbRK4step(MC, Orb, C, Chalf, dt);
 
 
 
@@ -1748,32 +1753,20 @@ void MCTDHB_CN_IMAG (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
 
 
-        IcoefRK4step(MC, Orb, C, 0.5 * dt);
+        IcoefRK4step(MC, Orb, Chalf, 0.5 * dt);
+
+        // Renormalize coeficients
+        renormalizeVector(MC->nc, Chalf, 1.0);
+        carrCopy(MC->nc, Chalf, C);
 
 
 
         // Loss of Norm => undefined behavior on orthogonality
         Ortonormalize(MC->Morb, Mpos, dx, Orb);
 
-        // Renormalize coeficients
-        renormalizeVector(MC->nc, C, 1.0);
-
         // Store energy
         E[i + 1] = Energy(MC, Orb, C);
-
-
-
-        // Adapt time step if needed
-        if ((i+1) % 10 == 0 && creal(E[i+1]) - creal(E[i-9]) > 0)
-        {
-            dT = dT * 0.8;
-            dt = - I * dT;
-            CCSFree(cnmat); // Erase old matrix to setup new one
-            cnmat = CNmat(Mpos, dx, 0.5 * dt, a2, a1, inter,
-                    V, cyclic, upper, lower, mid);
-            printf("\n\n\t\tTIME STEP ADJUSTED TO : %.9lf\n\n", dT);
-        }
-
+       
 
 
         // print to check orthogonality/Energy
@@ -1793,8 +1786,24 @@ void MCTDHB_CN_IMAG (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
                 printf(" "); cPrint(Csimps(MC->Mpos, to_int, MC->dx));
             }
         }
-        printf("\n\n|| C || = %.8lf", carrMod(MC->nc, C));
+        printf("\n\n|| C || = %.8E", carrMod(MC->nc, C));
         // ----------------------------------------------------------------
+
+
+
+        // Adapt time step if needed
+        if ((i+1) % 10 == 0 && creal(E[i+1]) - creal(E[i-9]) > 0)
+        {
+            dT = dT * 0.8;
+            dt = - I * dT;
+            CCSFree(cnmat); // Erase old matrix to setup new one
+            cnmat = CNmat(Mpos, dx, 0.5 * dt, a2, a1, inter,
+                    V, cyclic, upper, lower, mid);
+            printf("\n\n\t\tTIME STEP ADJUSTED TO : %.9lf\n\n", dT);
+        }
+
+
+
     }
 
     CCSFree(cnmat);
