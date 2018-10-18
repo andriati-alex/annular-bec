@@ -69,21 +69,6 @@ void OrbDDT (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix newOrb,
 
 
 
-void OrbConfDDT
-(   // The Right-Hand-Side(RHS) of a system of Differential equations
-    MCTDHBsetup MC,
-    Carray C,
-    Cmatrix Orb,
-    Cmatrix Ho,
-    Carray Hint,
-    Carray newC,   // Values after the operations have been applied
-    Cmatrix newOrb // Values after the operations have been applied
-);
-
-
-
-
-
 void lanczos(MCTDHBsetup MCdata, Cmatrix Ho, Carray Hint,
      int lm, Carray diag, Carray offdiag, Cmatrix lvec);
 
@@ -91,35 +76,14 @@ void lanczos(MCTDHBsetup MCdata, Cmatrix Ho, Carray Hint,
 
 
 
-void RK4orbstep (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt);
-void ABMorb (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt);
+void orbRK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt);
+
+void coefRK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt);
+
 void lanczosCstep (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt);
 
 
-
-
-
-void RK4lanczosBefore
-(   // Evolve nonlinear part of orbitals coupled with coeficients
-    MCTDHBsetup MC,
-    Cmatrix orb, // End up modified by the evolution
-    Carray C,    // End up modified by the evolution
-    double dt
-);
-
-void RK4lanczosAfter
-(   // Evolve nonlinear part of orbitals coupled with coeficients
-    MCTDHBsetup MC,
-    Cmatrix orb, // End up modified by the evolution
-    Carray C,    // End up modified by the evolution
-    double dt
-);
-
-
-
-
-
-void IRK4step
+void IcoefRK4step
 (   // Evolve nonlinear part with imaginary time
     MCTDHBsetup MC,
     Cmatrix Orb,
@@ -127,17 +91,14 @@ void IRK4step
     double complex dt
 );
 
-
-
-
-
-void RK4step
-(   // Evolve nonlinear part
+void IorbRK4step
+(   // Evolve nonlinear part with imaginary time
     MCTDHBsetup MC,
     Cmatrix Orb,
     Carray C,
-    double dt
+    double complex dt
 );
+
 
 
 
@@ -174,9 +135,6 @@ void LinearPartLU (int Mpos, int Morb, CCSmat cnmat, Carray upper,
 
 
 
-
-void MCTDHB_CN_REAL_ABM (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
-     int Nsteps, int method, int cyclic, char fname [], int n);
 
 void MCTDHB_CN_REAL (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
      int Nsteps, int method, int cyclic, char fname[], int n);
