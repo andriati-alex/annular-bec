@@ -18,10 +18,10 @@ void SetupHo (int Morb, int Mpos, Cmatrix Omat, double dx, double a2,
 
     for (i = 0; i < Morb; i++)
     {
-        dxCyclic(Mpos, Omat[i], dx, ddxi);
+        dxFFT(Mpos, Omat[i], dx, ddxi);
         for (j = 0; j < Morb; j++)
         {
-            dxCyclic(Mpos, Omat[j], dx, ddxj);
+            dxFFT(Mpos, Omat[j], dx, ddxj);
             for (k = 0; k < Mpos; k++)
             {
                 toInt[k] = - a2 * conj(ddxi[k]) * ddxj[k]    \

@@ -11,7 +11,6 @@ double complex Csimps(int n, Carray f, double dx)
     int i, m = n - 1;
     double complex sums = 0;
 
-    #pragma omp parallel for private(i) reduction(+:sums)
     for (i = 0; i < m / 2 - 1; i++)
     {
         sums = sums + 2 * f[2*(i+1)] + 4 * f[2*i+1];
@@ -35,7 +34,6 @@ double Rsimps(int n, Rarray f, double dx)
     int i, m = n - 1;
     double sums = 0;
 
-    #pragma omp parallel for private(i) reduction(+:sums)
     for (i = 0; i < m / 2 - 1; i++) sums += 2 * f[2*(i+1)] + 4 * f[2*i+1];
 
     if (m % 2 == 0) return (sums + f[0] + f[m] + 4 * f[m-1]) * dx / 3;

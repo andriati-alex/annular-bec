@@ -25,6 +25,13 @@
 
 
 
+void RecordArray(FILE * f, int M, Carray v);
+void RecordMatrixInLine(FILE * f, int M, Cmatrix A);
+
+
+
+
+
 void applyHconf(MCTDHBsetup MC, Carray C, Cmatrix Ho, Carray Hint, Carray out);
 /* Give the state coefficients of a state (out) after apply the many-body
  * Hamiltonian on a state whose  coeficients  in  the  occupation  number
@@ -69,6 +76,21 @@ void OrbDDT (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix newOrb,
 
 
 
+void OrbConfDDT
+(   // The Right-Hand-Side(RHS) of a system of Differential equations
+    MCTDHBsetup MC,
+    Carray C,
+    Cmatrix Orb,
+    Cmatrix Ho,
+    Carray Hint,
+    Carray newC,   // Values after the operations have been applied
+    Cmatrix newOrb // Values after the operations have been applied
+);
+
+
+
+
+
 void lanczos(MCTDHBsetup MCdata, Cmatrix Ho, Carray Hint,
      int lm, Carray diag, Carray offdiag, Cmatrix lvec);
 
@@ -76,14 +98,27 @@ void lanczos(MCTDHBsetup MCdata, Cmatrix Ho, Carray Hint,
 
 
 
-void orbRK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt);
+void RK4lanczosBefore
+(   // Evolve nonlinear part of orbitals coupled with coeficients
+    MCTDHBsetup MC,
+    Cmatrix orb, // End up modified by the evolution
+    Carray C,    // End up modified by the evolution
+    double dt
+);
 
-void coefRK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt);
+void RK4lanczosAfter
+(   // Evolve nonlinear part of orbitals coupled with coeficients
+    MCTDHBsetup MC,
+    Cmatrix orb, // End up modified by the evolution
+    Carray C,    // End up modified by the evolution
+    double dt
+);
 
-void lanczosCstep (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt);
 
 
-void IcoefRK4step
+
+
+void IRK4step
 (   // Evolve nonlinear part with imaginary time
     MCTDHBsetup MC,
     Cmatrix Orb,
@@ -91,15 +126,17 @@ void IcoefRK4step
     double complex dt
 );
 
-void IorbRK4step
-(   // Evolve nonlinear part with imaginary time
+
+
+
+
+void RK4step
+(   // Evolve nonlinear part
     MCTDHBsetup MC,
     Cmatrix Orb,
     Carray C,
-    Carray Chalf,
-    double complex dt
+    double dt
 );
-
 
 
 
