@@ -1915,6 +1915,7 @@ void MCTDHB_CN_IMAG (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
     for (i = 0; i < Nsteps; i++)
     {
+
         LinearPartSM(Mpos, MC->Morb, cnmat, upper, lower, mid, Orb);
 
         // The boundary
@@ -1933,16 +1934,18 @@ void MCTDHB_CN_IMAG (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
         else
         { for (k = 0; k < MC->Morb; k++) Orb[k][Mpos-1] = 0;         }
 
-        // IRK4step(MC, Orb, C, dt / 2);
+
 
         // Loss of Norm => undefined behavior on orthogonalization
         Ortonormalize(MC->Morb, Mpos, dx, Orb);
+
         // Renormalize coeficients
         renormalizeVector(MC->nc, C, 1.0);
+
         // Store energy
         E[i + 1] = Energy(MC, Orb, C);
-        
-        
+
+
         // Adapt time step
         if ((i+1) % 2000 == 0 && i < 10000)
         {

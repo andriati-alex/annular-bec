@@ -139,7 +139,6 @@ void JumpMapping(int N, int M, int ** NCmat, int ** IF, int * Map);
 
 
 
-void OneBody(int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix rho);
 void OBrho(int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix rho);
 /* Construct the one-body density matrix given N particles and M orbitals
  * and the coefficients from the state in the occupation number basis **/
@@ -148,7 +147,6 @@ void OBrho(int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix rho);
 
 
 
-void TwoBody(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho);
 void TBrho(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho);
 /* Construct the two-body density matrix given N particles and M orbitals
  * and the coefficients from the state in the  occupation  number  basis.

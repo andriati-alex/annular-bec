@@ -214,9 +214,6 @@ int main(int argc, char * argv[])
 
     Npar = 7;
     Morb = 8;
-    
-    Cmatrix rhonew = cmatDef(Morb, Morb);
-    Carray rho2new = carrDef(Morb * Morb * Morb * Morb);
 
     rho2 = carrDef(Morb * Morb * Morb * Morb);
 
@@ -256,28 +253,15 @@ int main(int argc, char * argv[])
         C[i] = (2 * i - j * I) * cos(PI * ((double) i) / j);
     }
 
+    renormalizeVector(NC(Npar, Morb), C, 1.0);
+
     OBrho(Npar, Morb, NCmat, IF, C, rho);
-    OneBody(Npar, Morb, NCmat, IF, C, rhonew);
 
     TBrho(Npar, Morb, NCmat, IF, C, rho2);
-    TwoBody(Npar, Morb, NCmat, IF, C, rho2new);
 
-    x = 0;
-    for (i = 0; i < Morb; i++)
-    {
-        for (j = 0; j < Morb; j++)
-            x = x + cabs(rho[i][j] - rhonew[i][j]);
-    }
-
-    printf("\n\nx = %.2E", x);
-
-    x = 0;
-    for (i = 0; i < Morb * Morb * Morb * Morb; i++)
-    {
-        x = x + cabs(rho2[i] - rho2new[i]);
-    }
-
-    printf("\n\nx = %.2E", x);
+    carr_txt("test_C.dat", NC(Npar, Morb), C);
+    carr_txt("test_rho2.dat", Morb * Morb * Morb * Morb, rho2);
+    cmat_txt("rho.dat", Morb, 1, Morb, 1, rho);
 
 
 
@@ -292,8 +276,6 @@ int main(int argc, char * argv[])
     for (i = 0; i < NC(Npar,Morb); i++) free(IF[i]);
     free(IF);
     cmatFree(Morb, rho);
-    cmatFree(Morb, rhonew);
-    free(rho2new);
     free(rho2);
     free(C);
 

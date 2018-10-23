@@ -193,6 +193,11 @@ void JumpMapping(int N, int M, int ** NCmat, int ** IF, int * Map)
 
 
 
+
+
+
+
+
 /* ========================================================================
  *
  *                           <   a*_k   a_l   >
@@ -211,7 +216,7 @@ void JumpMapping(int N, int M, int ** NCmat, int ** IF, int * Map)
 
 
 
-void OneBody(int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix rho)
+void OBrho(int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix rho)
 {
 
     int i,
@@ -232,7 +237,12 @@ void OneBody(int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix rho)
 
     for (k = 0; k < M; k++)
     {
+
+        // Diagonal elements
+        // ------------------------------------------------------------------
+
         RHO = 0;
+
         #pragma omp parallel shared(k, nc, C, IF) private(i, mod2) \
         reduction(+:RHO)
         {
@@ -240,18 +250,27 @@ void OneBody(int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix rho)
             for (i = 0; i < nc; i++)
             {
                 mod2 = creal(C[i]) * creal(C[i]) + cimag(C[i]) * cimag(C[i]);
-                RHO += mod2 * IF[i][k];
+                RHO = RHO + mod2 * IF[i][k];
             }
         }
-        rho[k][k] = RHO;
 
+        rho[k][k] = RHO;
+        // ------------------------------------------------------------------
+
+
+
+        // Off-diagonal elements (different terms from operators)
+        // ------------------------------------------------------------------
         for (l = k + 1; l < M; l++)
         {
+
             RHO = 0;
+
             #pragma omp parallel shared(l,k,M,N,nc,C,NCmat,IF) \
             private(i, j, q, v) reduction(+:RHO)
             {
                 v = (int *) malloc(M * sizeof(int));
+
                 #pragma omp for schedule(static)
                 for (i = 0; i < nc; i++)
                 {
@@ -262,13 +281,16 @@ void OneBody(int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix rho)
                     j = FockToIndex(N, M, NCmat, v);
                     v[k] += 1;
                     v[l] -= 1;
-                    RHO  += conj(C[i]) * C[j] * sqrt((v[l] + 1) * v[k]);
+                    RHO = RHO + conj(C[i]) * C[j] * sqrt((v[l] + 1) * v[k]);
                 }
+
                 free(v); // Each thread release its vector
             }
+
             rho[k][l] = RHO;
-            rho[l][k] = conj(RHO);
+            rho[l][k] = conj(RHO); // hermiticity
         }
+        // ------------------------------------------------------------------
     }
 
 }
@@ -277,66 +299,6 @@ void OneBody(int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix rho)
 
 
 
-void OBrho(int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix rho)
-{
-    int i, // int indices to number coeficients
-        j,
-        k,
-        l,
-        q,
-        nc = NCmat[N][M];
-
-    double mod2;
-
-    double complex RHO;
-
-    int * v; // Occupation vector for each thread
-
-    for (k = 0; k < M; k++)
-    {
-        RHO = 0;
-        #pragma omp parallel shared(k, nc, C, IF) private(i, mod2) \
-        reduction(+:RHO)
-        {
-            #pragma omp for schedule(static)
-            for (i = 0; i < nc; i++)
-            {
-                mod2 = creal(C[i]) * creal(C[i]) + cimag(C[i]) * cimag(C[i]);
-                RHO += mod2 * IF[i][k];
-            }
-        }
-        rho[k][k] = RHO;
-
-        for (l = k + 1; l < M; l++)
-        {
-            RHO = 0;
-            #pragma omp parallel shared(l,k,M,N,nc,C,NCmat,IF) \
-            private(i, j, q, v) reduction(+:RHO)
-            {
-                v = (int *) malloc(M * sizeof(int));
-                #pragma omp for schedule(static)
-                for (i = 0; i < nc; i++)
-                {
-                    if (IF[i][k] < 1) continue;
-                    for (q = 0; q < M; q++) v[q] = IF[i][q];
-                    v[k] -= 1;
-                    v[l] += 1;
-                    j = FockToIndex(N, M, NCmat, v);
-                    v[k] += 1;
-                    v[l] -= 1;
-                    RHO  += conj(C[i]) * C[j] * sqrt((v[l] + 1) * v[k]);
-                }
-                free(v); // Each thread release its vector
-            }
-            rho[k][l] = RHO;
-        }
-    }
-
-    for (k = 0; k < M; k++)
-    {   // Use hermiticity to setup lower triangular part
-        for (l = k + 1; l < M; l++) rho[l][k] = conj(rho[k][l]);
-    }
-}
 
 
 
@@ -360,8 +322,9 @@ void OBrho(int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix rho)
 
 
 
-void TwoBody(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
+void TBrho(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
 {
+
     int i, // int indices to number coeficients
         j,
         k,
@@ -398,13 +361,16 @@ void TwoBody(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
     ------------------------------------------------------------------- */
     for (k = 0; k < M; k++)
     {
+
         RHO = 0;
+
         #pragma omp parallel for private(i,mod2) reduction(+:RHO)
         for (i = 0; i < nc; i++)
         {
             mod2 = creal(C[i]) * creal(C[i]) + cimag(C[i]) * cimag(C[i]);
             RHO  = RHO + mod2 * IF[i][k] * (IF[i][k] - 1);
         }
+
         rho[k + M * k + M2 * k + M3 * k] = RHO;
     }
 
@@ -417,13 +383,18 @@ void TwoBody(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
     {
         for (s = k + 1; s < M; s++)
         {
+
             RHO = 0;
+
             #pragma omp parallel for private(i,mod2) reduction(+:RHO)
             for (i = 0; i < nc; i++)
             {
                 mod2 = creal(C[i]) * creal(C[i]) + cimag(C[i]) * cimag(C[i]);
                 RHO += mod2 * IF[i][k] * IF[i][s];
             }
+
+            // commutation of bosonic operators is used
+            // to fill elements by exchange  of indexes
             rho[k + s * M + k * M2 + s * M3] = RHO;
             rho[s + k * M + k * M2 + s * M3] = RHO;
             rho[s + k * M + s * M2 + k * M3] = RHO;
@@ -440,10 +411,13 @@ void TwoBody(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
     {
         for (q = k + 1; q < M; q++)
         {
+
             RHO = 0;
+
             #pragma omp parallel private(i,j,t,sqrtOf,v) reduction(+:RHO)
             {
                 v = (int *) malloc(M * sizeof(int));
+
                 #pragma omp for
                 for (i = 0; i < nc; i++)
                 {
@@ -455,8 +429,11 @@ void TwoBody(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
                     j = FockToIndex(N, M, NCmat, v);
                     RHO += conj(C[i]) * C[j] * sqrtOf;
                 }
+
                 free(v);
             }
+
+            // Use 2-index-'hermiticity'
             rho[k + k * M + q * M2 + q * M3] = RHO;
             rho[q + q * M + k * M2 + k * M3] = conj(RHO);
         }
@@ -471,10 +448,13 @@ void TwoBody(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
     {
         for (l = k + 1; l < M; l++)
         {
+
             RHO = 0;
+
             #pragma omp parallel private(i,j,t,sqrtOf,v) reduction(+:RHO)
             {
                 v = (int *) malloc(M * sizeof(int));
+
                 #pragma omp for
                 for (i = 0; i < nc; i++)
                 {
@@ -486,15 +466,19 @@ void TwoBody(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
                     j = FockToIndex(N, M, NCmat, v);
                     RHO += conj(C[i]) * C[j] * sqrtOf;
                 }
+
                 free(v);
             }
+
             rho[k + k * M + k * M2 + l * M3] = RHO;
             rho[k + k * M + l * M2 + k * M3] = RHO;
             rho[l + k * M + k * M2 + k * M3] = conj(RHO);
             rho[k + l * M + k * M2 + k * M3] = conj(RHO);
         }
     }
-    
+
+
+
     /* ---------------------------------------------
      * Rule 5: Creation on k s / Annihilation on s s
     ------------------------------------------------------------------- */
@@ -502,10 +486,13 @@ void TwoBody(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
     {
         for (s = k + 1; s < M; s++)
         {
+
             RHO = 0;
+
             #pragma omp parallel private(i,j,t,sqrtOf,v) reduction(+:RHO)
             {
                 v = (int *) malloc(M * sizeof(int));
+
                 #pragma omp for
                 for (i = 0; i < nc; i++)
                 {
@@ -517,8 +504,10 @@ void TwoBody(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
                     j = FockToIndex(N, M, NCmat, v);
                     RHO += conj(C[i]) * C[j] * sqrtOf;
                 }
+
                 free(v);
             }
+
             rho[k + s * M + s * M2 + s * M3] = RHO;
             rho[s + k * M + s * M2 + s * M3] = RHO;
             rho[s + s * M + s * M2 + k * M3] = conj(RHO);
@@ -537,10 +526,13 @@ void TwoBody(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
         {
             for (l = q + 1; l < M; l++)
             {
+
                 RHO = 0;
+
                 #pragma omp parallel private(i,j,t,sqrtOf,v) reduction(+:RHO)
                 {
                     v = (int *) malloc(M * sizeof(int));
+
                     #pragma omp for
                     for (i = 0; i < nc; i++)
                     {
@@ -554,8 +546,10 @@ void TwoBody(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
                         j = FockToIndex(N, M, NCmat, v);
                         RHO += conj(C[i]) * C[j] * sqrtOf;
                     }
+
                     free(v);
                 }
+
                 rho[k + k * M + q * M2 + l * M3] = RHO;
                 rho[k + k * M + l * M2 + q * M3] = RHO;
                 rho[l + q * M + k * M2 + k * M3] = conj(RHO);
@@ -575,10 +569,13 @@ void TwoBody(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
         {
             for (l = k + 1; l < M; l++)
             {
+
                 RHO = 0;
+
                 #pragma omp parallel private(i,j,t,sqrtOf,v) reduction(+:RHO)
                 {
                     v = (int *) malloc(M * sizeof(int));
+
                     #pragma omp for
                     for (i = 0; i < nc; i++)
                     {
@@ -592,8 +589,10 @@ void TwoBody(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
                         j = FockToIndex(N, M, NCmat, v);
                         RHO += conj(C[i]) * C[j] * sqrtOf;
                     }
+
                     free(v);
                 }
+
                 rho[k + k * M + q * M2 + l * M3] = RHO;
                 rho[k + k * M + l * M2 + q * M3] = RHO;
                 rho[l + q * M + k * M2 + k * M3] = conj(RHO);
@@ -613,10 +612,13 @@ void TwoBody(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
         {
             for (k = l + 1; k < M; k++)
             {
+
                 RHO = 0;
+
                 #pragma omp parallel private(i,j,t,sqrtOf,v) reduction(+:RHO)
                 {
                     v = (int *) malloc(M * sizeof(int));
+
                     #pragma omp for
                     for (i = 0; i < nc; i++)
                     {
@@ -630,8 +632,10 @@ void TwoBody(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
                         j = FockToIndex(N, M, NCmat, v);
                         RHO += conj(C[i]) * C[j] * sqrtOf;
                     }
+
                     free(v);
                 }
+
                 rho[k + k * M + q * M2 + l * M3] = RHO;
                 rho[k + k * M + l * M2 + q * M3] = RHO;
                 rho[l + q * M + k * M2 + k * M3] = conj(RHO);
@@ -651,10 +655,13 @@ void TwoBody(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
         {
             for (l = k + 1; l < M; l++)
             {
+
                 RHO = 0;
+
                 #pragma omp parallel private(i,j,t,sqrtOf,v) reduction(+:RHO)
                 {
                     v = (int *) malloc(M * sizeof(int));
+
                     #pragma omp for
                     for (i = 0; i < nc; i++)
                     {
@@ -666,8 +673,10 @@ void TwoBody(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
                         j = FockToIndex(N, M, NCmat, v);
                         RHO += conj(C[i]) * C[j] * sqrtOf;
                     }
+
                     free(v);
                 }
+
                 rho[k + s * M + s * M2 + l * M3] = RHO;
                 rho[s + k * M + s * M2 + l * M3] = RHO;
                 rho[s + k * M + l * M2 + s * M3] = RHO;
@@ -692,10 +701,13 @@ void TwoBody(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
         {
             for (l = s + 1; l < M; l++)
             {
+
                 RHO = 0;
+
                 #pragma omp parallel private(i,j,t,sqrtOf,v) reduction(+:RHO)
                 {
                     v = (int *) malloc(M * sizeof(int));
+
                     #pragma omp for
                     for (i = 0; i < nc; i++)
                     {
@@ -707,8 +719,10 @@ void TwoBody(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
                         j = FockToIndex(N, M, NCmat, v);
                         RHO += conj(C[i]) * C[j] * sqrtOf;
                     }
+
                     free(v);
                 }
+
                 rho[k + s * M + s * M2 + l * M3] = RHO;
                 rho[s + k * M + s * M2 + l * M3] = RHO;
                 rho[s + k * M + l * M2 + s * M3] = RHO;
@@ -733,7 +747,9 @@ void TwoBody(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
         {
             for (s = l + 1; s < M; s++)
             {
+
                 RHO = 0;
+
                 #pragma omp parallel private(i,j,t,sqrtOf,v) reduction(+:RHO)
                 {
                     v = (int *) malloc(M * sizeof(int));
@@ -750,6 +766,7 @@ void TwoBody(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
                     }
                     free(v);
                 }
+
                 rho[k + s * M + s * M2 + l * M3] = RHO;
                 rho[s + k * M + s * M2 + l * M3] = RHO;
                 rho[s + k * M + l * M2 + s * M3] = RHO;
@@ -773,13 +790,18 @@ void TwoBody(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
         for (s = 0; s < M; s++)
         {
             if (s == k) continue;
+
             for (q = 0; q < M; q++)
             {
                 if (q == s || q == k) continue;
+
                 for (l = 0; l < M; l ++)
                 {
+
                     RHO = 0;
+
                     if (l == k || l == s || l == q) continue;
+
                     #pragma omp parallel private(i,j,t,sqrtOf,v) \
                     reduction(+:RHO)
                     {
@@ -799,537 +821,13 @@ void TwoBody(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
                         }
                         free(v);
                     }
+
                     rho[k + s * M + q * M2 + l * M3] = RHO;
-                } // Finish l loop
-            } // Finish q loop
-        } // Finish s loop
-    } // Finish k loop
+                }   // Finish l loop
+            }       // Finish q loop
+        }           // Finish s loop
+    }               // Finish k loop
 
 
-
-
-
-    /* END OF ROUTINE */
-}
-
-
-
-
-
-void TBrho(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
-{
-    int i, // int indices to number coeficients
-        j,
-        k,
-        s,
-        q,
-        l,
-        t,
-        nc = NCmat[N][M];
-    
-    // Auxiliar to memory access
-    int M2 = M * M,
-        M3 = M * M * M;
-
-    double mod2,   // |Cj| ^ 2
-           sqrtOf; // Factors from the action of creation/annihilation
-
-    double complex RHO;
-
-    int * v; // occupation number vector in each iteration
-
-
-    /* ---------------------------------------------
-     * Rule 1: Creation on k k / Annihilation on k k
-    ------------------------------------------------------------------- */
-    for (k = 0; k < M; k++)
-    {
-        RHO = 0;
-        #pragma omp parallel for private(i,mod2) reduction(+:RHO)
-        for (i = 0; i < nc; i++)
-        {
-            mod2 = creal(C[i]) * creal(C[i]) + cimag(C[i]) * cimag(C[i]);
-            RHO += mod2 * IF[i][k] * (IF[i][k] - 1);
-        }
-        rho[k + M * k + M2 * k + M3 * k] = RHO;
-    }
-
-    /* ---------------------------------------------
-     * Rule 2: Creation on k s / Annihilation on k s
-    ------------------------------------------------------------------- */
-    for (k = 0; k < M; k++)
-    {
-        for (s = k + 1; s < M; s++)
-        {
-            RHO = 0;
-            #pragma omp parallel for private(i,mod2) reduction(+:RHO)
-            for (i = 0; i < nc; i++)
-            {
-                mod2 = creal(C[i]) * creal(C[i]) + cimag(C[i]) * cimag(C[i]);
-                RHO += mod2 * IF[i][k] * IF[i][s];
-            }
-            rho[k + s * M + k * M2 + s * M3] = RHO;
-            rho[s + k * M + k * M2 + s * M3] = RHO;
-            rho[s + k * M + s * M2 + k * M3] = RHO;
-            rho[k + s * M + s * M2 + k * M3] = RHO;
-        }
-    }
-    
-    /* ---------------------------------------------
-     * Rule 3: Creation on k k / Annihilation on q q
-    ------------------------------------------------------------------- */
-    for (k = 0; k < M; k++)
-    {
-        for (q = k + 1; q < M; q++)
-        {
-            RHO = 0;
-            #pragma omp parallel private(i,j,t,sqrtOf,v) reduction(+:RHO)
-            {
-                v = (int *) malloc(M * sizeof(int));
-                #pragma omp for
-                for (i = 0; i < nc; i++)
-                {
-                    if (IF[i][k] < 2) continue;
-                    for (t = 0; t < M; t++) v[t] = IF[i][t];
-                    sqrtOf = sqrt((v[k] - 1) * v[k] * (v[q] + 1) * (v[q] + 2));
-                    v[k] -= 2;
-                    v[q] += 2;
-                    j = FockToIndex(N, M, NCmat, v);
-                    RHO += conj(C[i]) * C[j] * sqrtOf;
-                }
-                free(v);
-            }
-            rho[k + k * M + q * M2 + q * M3] = RHO;
-        }
-    }
- 
-    /* ---------------------------------------------
-     * Rule 4: Creation on k k / Annihilation on k l
-    ------------------------------------------------------------------- */
-    for (k = 0; k < M; k++)
-    {
-        for (l = k + 1; l < M; l++)
-        {
-            RHO = 0;
-            #pragma omp parallel private(i,j,t,sqrtOf,v) reduction(+:RHO)
-            {
-                v = (int *) malloc(M * sizeof(int));
-                #pragma omp for
-                for (i = 0; i < nc; i++)
-                {
-                    if (IF[i][k] < 2) continue;
-                    for (t = 0; t < M; t++) v[t] = IF[i][t];
-                    sqrtOf = (v[k] - 1) * sqrt(v[k] * (v[l] + 1));
-                    v[k] -= 1;
-                    v[l] += 1;
-                    j = FockToIndex(N, M, NCmat, v);
-                    RHO += conj(C[i]) * C[j] * sqrtOf;
-                }
-                free(v);
-            }
-            rho[k + k * M + k * M2 + l * M3] = RHO;
-        }
-    }
-    
-    /* ---------------------------------------------
-     * Rule 5: Creation on k s / Annihilation on s s
-    ------------------------------------------------------------------- */
-    for (k = 0; k < M; k++)
-    {
-        for (s = k + 1; s < M; s++)
-        {
-            RHO = 0;
-            #pragma omp parallel private(i,j,t,sqrtOf,v) reduction(+:RHO)
-            {
-                v = (int *) malloc(M * sizeof(int));
-                #pragma omp for
-                for (i = 0; i < nc; i++)
-                {
-                    if (IF[i][k] < 1 || IF[i][s] < 1) continue;
-                    for (t = 0; t < M; t++) v[t] = IF[i][t];
-                    sqrtOf = v[s] * sqrt(v[k] * (v[s] + 1));
-                    v[k] -= 1;
-                    v[s] += 1;
-                    j = FockToIndex(N, M, NCmat, v);
-                    RHO += conj(C[i]) * C[j] * sqrtOf;
-                }
-                free(v);
-            }
-            rho[k + s * M + s * M2 + s * M3] = RHO;
-        }
-    }
-
-    /* -----------------------------------------------------------
-     * Rule 6.0: Creation on k k / Annihilation on q l (k < q < l)
-    ------------------------------------------------------------------- */
-    for (k = 0; k < M; k++)
-    {
-        for (q = k + 1; q < M; q++)
-        {
-            for (l = q + 1; l < M; l++)
-            {
-                RHO = 0;
-                #pragma omp parallel private(i,j,t,sqrtOf,v) reduction(+:RHO)
-                {
-                    v = (int *) malloc(M * sizeof(int));
-                    #pragma omp for
-                    for (i = 0; i < nc; i++)
-                    {
-                        if (IF[i][k] < 2) continue;
-                        for (t = 0; t < M; t++) v[t] = IF[i][t];
-                        sqrtOf = sqrt( v[k] * (v[k] - 1) * 
-                                 (v[q] + 1) * (v[l] + 1) );
-                        v[k] -= 2;
-                        v[l] += 1;
-                        v[q] += 1;
-                        j = FockToIndex(N, M, NCmat, v);
-                        RHO += conj(C[i]) * C[j] * sqrtOf;
-                    }
-                    free(v);
-                }
-                rho[k + k*M + q*M2 + l*M3] = RHO;
-            }
-        }
-    }
-
-    /* -----------------------------------------------------------
-     * Rule 6.1: Creation on k k / Annihilation on q l (q < k < l)
-    ------------------------------------------------------------------- */
-    for (q = 0; q < M; q++)
-    {
-        for (k = q + 1; k < M; k++)
-        {
-            for (l = k + 1; l < M; l++)
-            {
-                RHO = 0;
-                #pragma omp parallel private(i,j,t,sqrtOf,v) reduction(+:RHO)
-                {
-                    v = (int *) malloc(M * sizeof(int));
-                    #pragma omp for
-                    for (i = 0; i < nc; i++)
-                    {
-                        if (IF[i][k] < 2) continue;
-                        for (t = 0; t < M; t++) v[t] = IF[i][t];
-                        sqrtOf = sqrt( v[k] * (v[k] - 1) * 
-                                 (v[q] + 1) * (v[l] + 1) );
-                        v[k] -= 2;
-                        v[l] += 1;
-                        v[q] += 1;
-                        j = FockToIndex(N, M, NCmat, v);
-                        RHO += conj(C[i]) * C[j] * sqrtOf;
-                    }
-                    free(v);
-                }
-                rho[k + k*M + q*M2 + l*M3] = RHO;
-            }
-        }
-    }
-    
-    /* -----------------------------------------------------------
-     * Rule 6.2: Creation on k k / Annihilation on q l (q < l < k)
-    ------------------------------------------------------------------- */
-    for (q = 0; q < M; q++)
-    {
-        for (l = q + 1; l < M; l++)
-        {
-            for (k = l + 1; k < M; k++)
-            {
-                RHO = 0;
-                #pragma omp parallel private(i,j,t,sqrtOf,v) reduction(+:RHO)
-                {
-                    v = (int *) malloc(M * sizeof(int));
-                    #pragma omp for
-                    for (i = 0; i < nc; i++)
-                    {
-                        if (IF[i][k] < 2) continue;
-                        for (t = 0; t < M; t++) v[t] = IF[i][t];
-                        sqrtOf = sqrt( v[k] * (v[k] - 1) *
-                                 (v[q] + 1) * (v[l] + 1) );
-                        v[k] -= 2;
-                        v[l] += 1;
-                        v[q] += 1;
-                        j = FockToIndex(N, M, NCmat, v);
-                        RHO += conj(C[i]) * C[j] * sqrtOf;
-                    }
-                    free(v);
-                }
-                rho[k + k*M + q*M2 + l*M3] = RHO;
-            }
-        }
-    }
-
-    /* -----------------------------------------------------------
-     * Rule 7.0: Creation on k s / Annihilation on s l (s < k < l)
-    ------------------------------------------------------------------- */
-    for (s = 0; s < M; s++)
-    {
-        for (k = s + 1; k < M; k++)
-        {
-            for (l = k + 1; l < M; l++)
-            {
-                RHO = 0;
-                #pragma omp parallel private(i,j,t,sqrtOf,v) reduction(+:RHO)
-                {
-                    v = (int *) malloc(M * sizeof(int));
-                    #pragma omp for
-                    for (i = 0; i < nc; i++)
-                    {
-                        if (IF[i][k] < 1) continue;
-                        for (t = 0; t < M; t++) v[t] = IF[i][t];
-                        sqrtOf = v[s] * sqrt(v[k] * (v[l] + 1));
-                        v[k] -= 1;
-                        v[l] += 1;
-                        j = FockToIndex(N, M, NCmat, v);
-                        RHO += conj(C[i]) * C[j] * sqrtOf;
-                    }
-                    free(v);
-                }
-                rho[k + s*M + s*M2 + l*M3] = RHO;
-            }
-        }
-    }
-
-    /* -----------------------------------------------------------
-     * Rule 7.1: Creation on k s / Annihilation on s l (k < s < l)
-    ------------------------------------------------------------------- */
-    for (k = 0; k < M; k++)
-    {
-        for (s = k + 1; s < M; s++)
-        {
-            for (l = s + 1; l < M; l++)
-            {
-                RHO = 0;
-                #pragma omp parallel private(i,j,t,sqrtOf,v) reduction(+:RHO)
-                {
-                    v = (int *) malloc(M * sizeof(int));
-                    #pragma omp for
-                    for (i = 0; i < nc; i++)
-                    {
-                        if (IF[i][k] < 1) continue;
-                        for (t = 0; t < M; t++) v[t] = IF[i][t];
-                        sqrtOf = v[s] * sqrt(v[k] * (v[l] + 1));
-                        v[k] -= 1;
-                        v[l] += 1;
-                        j = FockToIndex(N, M, NCmat, v);
-                        RHO += conj(C[i]) * C[j] * sqrtOf;
-                    }
-                    free(v);
-                }
-                rho[k + s*M + s*M2 + l*M3] = RHO;
-            }
-        }
-    }
-
-    /* -----------------------------------------------------------
-     * Rule 7.2: Creation on k s / Annihilation on s l (k < l < s)
-    ------------------------------------------------------------------- */
-    for (k = 0; k < M; k++)
-    {
-        for (l = k + 1; l < M; l++)
-        {
-            for (s = l + 1; s < M; s++)
-            {
-                RHO = 0;
-                #pragma omp parallel private(i,j,t,sqrtOf,v) reduction(+:RHO)
-                {
-                    v = (int *) malloc(M * sizeof(int));
-                    #pragma omp for
-                    for (i = 0; i < nc; i++)
-                    {
-                        if (IF[i][k] < 1) continue;
-                        for (t = 0; t < M; t++) v[t] = IF[i][t];
-                        sqrtOf = v[s] * sqrt(v[k] * (v[l] + 1));
-                        v[k] -= 1;
-                        v[l] += 1;
-                        j = FockToIndex(N, M, NCmat, v);
-                        RHO += conj(C[i]) * C[j] * sqrtOf;
-                    }
-                    free(v);
-                }
-                rho[k + s*M + s*M2 + l*M3] = RHO;
-            }
-        }
-    }
-        
-    /* ---------------------------------------------
-     * Rule 8: Creation on k s / Annihilation on q l
-    ------------------------------------------------------------------- */
-    for (k = 0; k < M; k++)
-    {
-        for (s = 0; s < M; s++)
-        {
-            if (s == k) continue;
-            for (q = 0; q < M; q++)
-            {
-                if (q == s || q == k) continue;
-                for (l = 0; l < M; l ++)
-                {
-                    RHO = 0;
-                    if (l == k || l == s || l == q) continue;
-                    #pragma omp parallel private(i,j,t,sqrtOf,v) \
-                    reduction(+:RHO)
-                    {
-                        v = (int *) malloc(M * sizeof(int));
-                        #pragma omp for
-                        for (i = 0; i < nc; i++)
-                        {
-                            if (IF[i][k] < 1 || IF[i][s] < 1) continue;
-                            for (t = 0; t < M; t++) v[t] = IF[i][t];
-                            sqrtOf = sqrt(v[k]*v[s]*(v[q] + 1)*(v[l] + 1));
-                            v[k] -= 1;
-                            v[s] -= 1;
-                            v[q] += 1;
-                            v[l] += 1;
-                            j = FockToIndex(N, M, NCmat, v);
-                            RHO += conj(C[i]) * C[j] * sqrtOf;
-                        }
-                        free(v);
-                    }
-                    rho[k + s*M + q*M2 + l*M3] = RHO;
-                } // Finish l loop
-            } // Finish q loop
-        } // Finish s loop
-    } // Finish k loop
-
-
-
-    /* ==================================================================== *
-     
-           TAKE ADVANTAGE OF COMPLEX CONJUGATION AND COMMUTATION RULES
-           to fill the rest of elements without call FockToIndex.
-      
-     * ==================================================================== */
-
-
-
-    /****************************** CC Rule 3 ******************************/
-
-    for (k = 0; k < M; k++)
-    {
-        for (q = k + 1; q < M; q++)
-            rho[q + q*M + k*M2 + k*M3] = conj(rho[k + k*M + q*M2 + q*M3]);
-    }
-    
-    /****************************** CC Rule 4 ******************************/
-
-    for (k = 0; k < M; k++)
-    {
-        for (l = k + 1; l < M; l++)
-        {
-            rho[k + k*M + l*M2 + k*M3] = rho[k + k*M + k*M2 + l*M3];
-            rho[l + k*M + k*M2 + k*M3] = conj(rho[k + k*M + k*M2 + l*M3]);
-            rho[k + l*M + k*M2 + k*M3] = rho[l + k*M + k*M2 + k*M3];
-        }
-    }
-    
-    /****************************** CC Rule 5 ******************************/
-
-    for (k = 0; k < M; k++)
-    {
-        for (s = k + 1; s < M; s++)
-        {
-            rho[s + k*M + s*M2 + s*M3] = rho[k + s*M + s*M2 + s*M3];
-            rho[s + s*M + s*M2 + k*M3] = conj(rho[k + s*M + s*M2 + s*M3]);
-            rho[s + s*M + k*M2 + s*M3] = rho[s + s*M + s*M2 + k*M3];
-        }
-    }
-    
-    /****************************** CC Rule 6 ******************************/
-
-    for (k = 0; k < M; k++)
-    {
-        for (q = k + 1; q < M; q++)
-        {
-            for (l = q + 1; l < M; l++)
-            {
-                rho[k + k*M + l*M2 + q*M3] = rho[k + k*M + q*M2 + l*M3];
-                rho[l + q*M + k*M2 + k*M3] = conj(rho[k + k*M + q*M2 + l*M3]);
-                rho[q + l*M + k*M2 + k*M3] = rho[l + q*M + k*M2 + k*M3];
-            }
-        }
-    }
-
-    for (q = 0; q < M; q++)
-    {
-        for (k = q + 1; k < M; k++)
-        {
-            for (l = k + 1; l < M; l++)
-            {
-                rho[k + k*M + l*M2 + q*M3] = rho[k + k*M + q*M2 + l*M3];
-                rho[l + q*M + k*M2 + k*M3] = conj(rho[k + k*M + q*M2 + l*M3]);
-                rho[q + l*M + k*M2 + k*M3] = rho[l + q*M + k*M2 + k*M3];
-            }
-        }
-    }
-    
-    for (q = 0; q < M; q++)
-    {
-        for (l = q + 1; l < M; l++)
-        {
-            for (k = l + 1; k < M; k++)
-            {
-                rho[k + k*M + l*M2 + q*M3] = rho[k + k*M + q*M2 + l*M3];
-                rho[l + q*M + k*M2 + k*M3] = conj(rho[k + k*M + q*M2 + l*M3]);
-                rho[q + l*M + k*M2 + k*M3] = rho[l + q*M + k*M2 + k*M3];
-            }
-        }
-    }
-    
-    /****************************** CC Rule 7 ******************************/
-        
-    for (s = 0; s < M; s++)
-    {
-        for (k = s + 1; k < M; k++)
-        {
-            for (l = k + 1; l < M; l++)
-            {
-                rho[k + s*M + l*M2 + s*M3] = rho[k + s*M + s*M2 + l*M3];
-                rho[s + k*M + l*M2 + s*M3] = rho[k + s*M + s*M2 + l*M3];
-                rho[s + k*M + s*M2 + l*M3] = rho[k + s*M + s*M2 + l*M3];
-                // First index greater than the last
-                rho[l + s*M + s*M2 + k*M3] = conj(rho[k + s*M + s*M2 + l*M3]);
-                rho[s + l*M + s*M2 + k*M3] = rho[l + s*M + s*M2 + k*M3];
-                rho[s + l*M + k*M2 + s*M3] = rho[l + s*M + s*M2 + k*M3];
-                rho[l + s*M + k*M2 + s*M3] = rho[l + s*M + s*M2 + k*M3];
-            }
-        }
-    }
-    
-    for (k = 0; k < M; k++)
-    {
-        for (s = k + 1; s < M; s++)
-        {
-            for (l = s + 1; l < M; l++)
-            {
-                rho[k + s*M + l*M2 + s*M3] = rho[k + s*M + s*M2 + l*M3];
-                rho[s + k*M + l*M2 + s*M3] = rho[k + s*M + s*M2 + l*M3];
-                rho[s + k*M + s*M2 + l*M3] = rho[k + s*M + s*M2 + l*M3];
-                // First index greater than the last
-                rho[l + s*M + s*M2 + k*M3] = conj(rho[k + s*M + s*M2 + l*M3]);
-                rho[s + l*M + s*M2 + k*M3] = rho[l + s*M + s*M2 + k*M3];
-                rho[s + l*M + k*M2 + s*M3] = rho[l + s*M + s*M2 + k*M3];
-                rho[l + s*M + k*M2 + s*M3] = rho[l + s*M + s*M2 + k*M3];
-            }
-        }
-    }
-    
-    for (k = 0; k < M; k++)
-    {
-        for (l = k + 1; l < M; l++)
-        {
-            for (s = l + 1; s < M; s++)
-            {
-                rho[k + s*M + l*M2 + s*M3] = rho[k + s*M + s*M2 + l*M3];
-                rho[s + k*M + l*M2 + s*M3] = rho[k + s*M + s*M2 + l*M3];
-                rho[s + k*M + s*M2 + l*M3] = rho[k + s*M + s*M2 + l*M3];
-                // First index greater than the last
-                rho[l + s*M + s*M2 + k*M3] = conj(rho[k + s*M + s*M2 + l*M3]);
-                rho[s + l*M + s*M2 + k*M3] = rho[l + s*M + s*M2 + k*M3];
-                rho[s + l*M + k*M2 + s*M3] = rho[l + s*M + s*M2 + k*M3];
-                rho[l + s*M + k*M2 + s*M3] = rho[l + s*M + s*M2 + k*M3];
-            }
-        }
-    }
-
-    /* END OF ROUTINE */
+    /*       ------------------- END OF ROUTINE -------------------       */
 }
