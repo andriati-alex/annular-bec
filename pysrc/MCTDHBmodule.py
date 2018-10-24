@@ -3,7 +3,8 @@ import cmath;
 import numpy as np;
 import scipy.linalg as la;
 
-from math import sqrt;
+from math import sqrt, pi;
+from scipy.integrate import simps;
 from numba import jit, prange, int32, uint32, uint64, int64, float64, complex128;
 
 
@@ -807,6 +808,85 @@ def SpatialOBdensity(M, NOoccu, NO):
             for k in range(occu.size):
                 n[i,j] = n[i,j] + NOoccu[k] * NO[k,j].conjugate() * NO[k,i];
     return n / (NOoccu.sum());
+
+
+
+
+
+def derivative(dx, f):
+    n = f.size;
+    dfdx = np.zeros(n, dtype=np.complex128);
+    dfdx[0] = (f[1] - f[n - 2]) / (2 * dx);
+    dfdx[n - 1] = dfdx[0];
+    for i in range(1, n - 1): dfdx[i] = (f[i + 1] - f[i - 1]) / (2 * dx);
+    return dfdx;
+
+
+
+
+
+def dxFFT(dx, f):
+    n = f.size - 1;
+    k = 2 * pi * np.fft.fftfreq(n, dx);
+    dfdx = np.zeros(f.size, dtype = np.complex128);
+    dfdx[:n] = np.fft.fft(f[:n], norm = 'ortho');
+    dfdx[:n] = np.fft.ifft(1.0j * k * dfdx[:n], norm = 'ortho');
+    dfdx[n] = dfdx[0];
+    return dfdx;
+
+
+
+
+
+def KinE(a2, a1, dx, rho, Orb):
+    Morb = rho.shape[0];
+    sums = 0.0 + 0.0j;
+    for i in range(Morb):
+
+        Ider = dxFFT(dx, Orb[i]);
+
+        for j in range(Morb):
+            Jder = dxFFT(dx, Orb[j]);
+            sums -= a2 * rho[i,j] * simps(np.conj(Ider) * Jder, dx = dx);
+            sums += a1 * rho[i,j] * simps(np.conj(Orb[i]) * Jder, dx = dx);
+
+    return sums;
+
+
+
+
+
+def PotE(V, dx, rho, Orb):
+    Morb = rho.shape[0];
+    sums = 0.0 + 0.0j;
+    for i in range(Morb):
+
+        for j in range(Morb):
+            sums += rho[i,j] * simps(V * np.conj(Orb[i]) * Orb[j], dx = dx);
+
+    return sums;
+
+
+
+
+
+def IntE(g, dx, rho, Orb):
+    Morb = Orb.shape[0];
+    M2 = Morb * Morb;
+    M3 = Morb * Morb * Morb;
+    sums = 0.0 + 0.0j;
+    for k in range(Morb):
+
+        for s in range(Morb):
+
+            for q in range(Morb):
+
+                for l in range(Morb):
+                    to_int = np.conj(Orb[k] * Orb[s]) * Orb[l] * Orb[q];
+                    TwoBody = rho[k + s * Morb + q * M2 + l * M3];
+                    sums = sums + TwoBody * simps(to_int, dx = dx);
+
+    return sums * g / 2;
 
 
 
