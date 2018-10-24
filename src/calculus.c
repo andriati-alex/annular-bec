@@ -56,6 +56,8 @@ void renormalize(int n, Carray f, double dx, double norm)
     carrAbs2(n, f, ToInt);
     renorm = norm * sqrt(1.0 / Rsimps(n, ToInt, dx));
     for (i = 0; i < n; i++) f[i] = f[i] * renorm;
+
+    free(ToInt);
 }
 
 
