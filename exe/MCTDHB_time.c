@@ -610,7 +610,7 @@ int main(int argc, char * argv[])
         printf("\n\nDoing imaginary time propagation ...\n");
 
         start = omp_get_wtime();
-        MCTDHB_FFT_IMAG(mc, Orbtest, Ctest, E, dt, 1);
+        MCTDHB_CN_IMAG(mc, Orbtest, Ctest, E, dt, 1, cyclic);
         time_used = (double) (omp_get_wtime() - start);
 
         printf("\n\nTime to do 1 step: %.1lf seconds\n", time_used);
@@ -623,7 +623,7 @@ int main(int argc, char * argv[])
         printf("\n\n");
 
         // Start Evolution
-        MCTDHB_FFT_IMAG(mc, Orb, C, E, dt, N);
+        MCTDHB_CN_IMAG(mc, Orb, C, E, dt, N, cyclic);
     }
 
 

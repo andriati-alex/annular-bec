@@ -22,7 +22,7 @@ from numba import jit, prange, int32, uint32, uint64, int64, float64, complex128
     The functions contained in this module support the analysis of results 
     from (imaginary/real)time propagation. Some of the functions  are  the
     same as those used in C language, and use NUMBA compilation to improve
-    performance
+    performance (may cause longer time to import module).
 
 
 =============================================================================
@@ -670,11 +670,29 @@ def TBrho(N, M, NCmat, IF, C, rho):
 
 
 
+###########################################################################
+#                                                                         #
+#                                                                         #
+#                      ROUTINES TO COLLECT OBSERVABLES                    #
+#                      ===============================                    #
+#                                                                         #
+#                                                                         #
+###########################################################################
+
+
+
+
+
+
+
+
+
+
 def GetOBrho(Npar, Morb, C):
     """
     CALLING : ( 2D array [Morb, Morb] ) = GetOBrho(Npar, Morb, C)
     -------
-    return the one-body density matrix rho[k,l] = < a*_k a_l >
+    return the one-body density matrix rho[k,l] = < a†ₖ aₗ >
 
     arguments :
     ---------
@@ -694,9 +712,9 @@ def GetOBrho(Npar, Morb, C):
 
 def GetTBrho(Npar, Morb, C):
     """
-    CALLING : ( 1D array [ Morb ^4 ] ) = GetOBrho(Npar, Morb, C)
+    CALLING : ( 1D array [ Morb⁴ ] ) = GetOBrho(Npar, Morb, C)
     -------
-    return rho[k + s*Morb + q*Morb^2 + l*Morb^3] = < a*_k a*_s a_q a_l >
+    return rho[k + s*Morb + n*Morb² + l*Morb³] = < a†ₖ a†ₛ aₙ aₗ >
 
     arguments :
     ---------
@@ -790,22 +808,30 @@ def TimeOccupation(Morb, Nsteps, rhotime):
 
 
 
-def SpatialOBdensity(M, NOoccu, NO):
+def SpatialOBdensity(NOoccu, NO):
     """
-    CALLING :
+    CALLING
     -------
-    ( 2d array [M,M] ) = SpatialOBdensity(M, occu, NO)
+    ( 2d array [M,M] ) = SpatialOBdensity(occu, NO)
 
-    arguments :
+    arguments
     ---------
-    M      : # of discrete positions
     NOoccu : occu[k] has # of particles occupying NO[k,:] orbital
     NO     : [Morb,M] matrix with each row being a natural orbital
+
+    comments
+    --------
+    given two discretized positions Xi and Xj then the entries of
+    the matrix returned (let me call n) represent:
+
+    n[i,j] = <  Ψ†(Xj) Ψ(Xi)  >
     """
+    M = NO.shape[1];
+    Morb = NO.shape[0];
     n = np.zeros([M , M], dtype=np.complex128);
     for i in range(M):
         for j in range(M):
-            for k in range(occu.size):
+            for k in range(Morb):
                 n[i,j] = n[i,j] + NOoccu[k] * NO[k,j].conjugate() * NO[k,i];
     return n / (NOoccu.sum());
 
@@ -814,11 +840,25 @@ def SpatialOBdensity(M, NOoccu, NO):
 
 
 def derivative(dx, f):
+    """
+    CALLING :
+    -------
+    (1D array of size of f) = derivative(dx, f)
+
+    comments :
+    --------
+    Use finite differences to compute derivative with 4-th order error
+    """
     n = f.size;
     dfdx = np.zeros(n, dtype=np.complex128);
-    dfdx[0] = (f[1] - f[n - 2]) / (2 * dx);
-    dfdx[n - 1] = dfdx[0];
-    for i in range(1, n - 1): dfdx[i] = (f[i + 1] - f[i - 1]) / (2 * dx);
+
+    dfdx[0] = ( f[n-3] - f[2] + 8 * (f[1] - f[n-2]) ) / (12 * dx);
+    dfdx[1] = ( f[n-2] - f[3] + 8 * (f[2] - f[0]) ) / (12 * dx);
+    dfdx[n-2] = ( f[n-4] - f[1] + 8 * (f[0] - f[n-3]) ) / (12 * dx);
+    dfdx[n-1] = dfdx[0]; # assume last point as the boundary
+
+    for i in range(2, n - 2):
+        dfdx[i] = ( f[i-2] - f[i+2] + 8 * (f[i+1] - f[i-1]) ) / (12 * dx);
     return dfdx;
 
 
@@ -826,6 +866,15 @@ def derivative(dx, f):
 
 
 def dxFFT(dx, f):
+    """
+    CALLING :
+    -------
+    (1D array of size of f) = derivative(dx, f)
+
+    comments :
+    --------
+    Use Fourier-Transforms to compute derivative
+    """
     n = f.size - 1;
     k = 2 * pi * np.fft.fftfreq(n, dx);
     dfdx = np.zeros(f.size, dtype = np.complex128);
@@ -838,7 +887,20 @@ def dxFFT(dx, f):
 
 
 
-def KinE(a2, a1, dx, rho, Orb):
+def KinectE(a2, a1, dx, rho, Orb):
+    """
+    CALLING :
+    -------
+    (complex) = Kinect(a2, a1, dx, rho, Orb)
+
+    arguments :
+    ---------
+    a2  : coefficient multiplying  (d² / dx²)
+    a1  : coefficient multiplying  (d / dx)
+    dx  : length of spatial step
+    rho : One-Body Density Matrix
+    Orb : [Morb, M] matrix with each row a 'working' orbital
+    """
     Morb = rho.shape[0];
     sums = 0.0 + 0.0j;
     for i in range(Morb):
@@ -846,7 +908,7 @@ def KinE(a2, a1, dx, rho, Orb):
         Ider = dxFFT(dx, Orb[i]);
 
         for j in range(Morb):
-            Jder = dxFFT(dx, Orb[j]);
+            Jder = derivative(dx, Orb[j]);
             sums -= a2 * rho[i,j] * simps(np.conj(Ider) * Jder, dx = dx);
             sums += a1 * rho[i,j] * simps(np.conj(Orb[i]) * Jder, dx = dx);
 
@@ -856,7 +918,19 @@ def KinE(a2, a1, dx, rho, Orb):
 
 
 
-def PotE(V, dx, rho, Orb):
+def PotentialE(V, dx, rho, Orb):
+    """
+    CALLING :
+    -------
+    (complex) = Kinect(a2, a1, dx, rho, Orb)
+
+    arguments :
+    ---------
+    V   : array of length M with values of trap-potential
+    dx  : length of spatial step
+    rho : One-Body Density Matrix of shape [Morb, Morb]
+    Orb : [Morb, M] matrix with each row a 'working' orbital
+    """
     Morb = rho.shape[0];
     sums = 0.0 + 0.0j;
     for i in range(Morb):
@@ -870,7 +944,19 @@ def PotE(V, dx, rho, Orb):
 
 
 
-def IntE(g, dx, rho, Orb):
+def InteractingE(g, dx, rho, Orb):
+    """
+    CALLING :
+    -------
+    (complex) = Kinect(a2, a1, dx, rho, Orb)
+
+    arguments :
+    ---------
+    g   : contact interaction strength
+    dx  : length of spatial step
+    rho : Two-Body Density Matrix of size Morb⁴
+    Orb : [Morb, M] matrix with each row a 'working' orbital
+    """
     Morb = Orb.shape[0];
     M2 = Morb * Morb;
     M3 = Morb * Morb * Morb;
@@ -892,6 +978,7 @@ def IntE(g, dx, rho, Orb):
 
 
 
-def VonNeumannS(N, RHOeigvals):
-    """ (double) = VonNeumannS( # of particles, RHOeigenvalues) """
-    return - ( (RHOeigvals.real / N) * np.log(RHOeigvals.real / N) ).sum()
+def VonNeumannS(occ):
+    """ (double) = VonNeumannS(occupation_vector of size # of Orbitals) """
+    N = occ.sum();
+    return - ( (occ / N) * np.log(occ / N) ).sum();

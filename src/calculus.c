@@ -131,12 +131,14 @@ void dxFFT(int n, Carray f, double dx, Carray dfdx)
 void dxCyclic(int n, Carray f, double dx, Carray dfdx)
 {
     int i;
-    double r = 1.0 / (2 * dx);
+    double r = 1.0 / (12 * dx);
 
-    dfdx[0]   = (f[1] - f[n-2]) * r;
-    dfdx[n-2] = (f[0] - f[n-3]) * r;
-    dfdx[n-1] = dfdx[0];
-    for (i = 1; i < n - 1; i++) dfdx[i] = (f[i+1] - f[i-1]) * r;
+    dfdx[0]   = ( f[n-3] - f[2] + 8 * (f[1] - f[n-2]) ) * r;
+    dfdx[1]   = ( f[n-2] - f[3] + 8 * (f[2] - f[0]) )   * r;
+    dfdx[n-2] = ( f[n-4] - f[1] + 8 * (f[0] - f[n-3]) ) * r;
+    dfdx[n-1] = dfdx[0]; // assume last point as the boundary
+    for (i = 2; i < n - 2; i++)
+        dfdx[i] = ( f[i-2] - f[i+2] + 8 * (f[i+1] - f[i-1]) ) * r;
 }
 
 
