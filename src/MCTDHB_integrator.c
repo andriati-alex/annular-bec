@@ -543,6 +543,99 @@ double complex nonlinear (int M, int k, int n, double g, Cmatrix Orb,
 
 
 
+void FFTOrbDDT (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix dOdt,
+     Cmatrix Ho, Carray Hint)
+{
+    // Right-Hand-Side when isolate orbital's time derivative
+    // of nonlinear part accounting for both projections  and
+    // interactions. Assume Ho and Hint are defined according
+    // to 'Orb' variable before have entered this subroutine.
+
+
+
+    int
+        k,
+        s,
+        j,
+        M  = MC->Morb,
+        N  = MC->Npar,
+        Mpos  = MC->Mpos,
+        ** IF = MC->IF,
+        ** NCmat = MC->NCmat;
+
+
+
+    double
+        dx = MC->dx,
+        * V = MC->V;
+
+
+
+    double complex
+        Proj,
+        g = MC->inter;
+
+
+
+    Carray
+        rho2 = carrDef(M * M * M * M);
+
+
+
+    Cmatrix
+        rho = cmatDef(M, M),
+        rho_inv = cmatDef(M, M);
+
+
+
+    // Setup one/two-body density matrix
+    OBrho(N, M, NCmat, IF, C, rho);
+    TBrho(N, M, NCmat, IF, C, rho2);
+
+
+
+    /* Inversion of one-body density matrix
+    ====================================================================== */
+    s = HermitianInv(M, rho, rho_inv);
+
+    if (s != 0)
+    {
+        printf("\n\n\n\n\t\tFailed on Lapack inversion routine!\n");
+        printf("\t\t-----------------------------------\n\n");
+
+        printf("\nMatrix given was : \n");
+        cmat_print(M, M, rho);
+
+        if (s > 0) printf("\nSingular decomposition : %d\n\n", s);
+        else       printf("\nInvalid argument given : %d\n\n", s);
+
+        exit(EXIT_FAILURE);
+    }
+    /* =================================================================== */
+
+
+
+    // Update k-th orbital at discretized position j
+    #pragma omp parallel for private(k, j) schedule(static)
+    for (k = 0; k < M; k++)
+    {
+        for (j = 0; j < Mpos; j++)
+            dOdt[k][j] = - I * ( V[j] * Orb[k][j] + \
+            nonlinear(M, k, j, g, Orb, rho_inv, rho2, Ho, Hint) );
+    }
+
+
+
+    // Release memory
+    free(rho2);
+    cmatFree(M, rho);
+    cmatFree(M, rho_inv);
+}
+
+
+
+
+
 void OrbDDT (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix dOdt,
      Cmatrix Ho, Carray Hint)
 {
@@ -1421,6 +1514,171 @@ void RK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
 
 
 
+void FFTIRK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
+{   // Apply 4-th order Runge-Kutta routine given a (COMPLEX)time step
+
+    int
+        i,
+        k, // Orbital counter
+        j, // discretized position counter
+        M = MC->Morb,
+        Mpos = MC->Mpos,
+        Npar = MC->Npar;
+
+    Carray Crhs = carrDef(MC->nc);
+    Carray Cnew = carrDef(MC->nc);
+    Carray Carg = carrDef(MC->nc);
+
+    Cmatrix Orhs = cmatDef(M, Mpos);
+    Cmatrix Onew = cmatDef(M, Mpos);
+    Cmatrix Oarg = cmatDef(M, Mpos);
+
+    Cmatrix  Ho = cmatDef(M, M);
+    Carray Hint = carrDef(M * M * M *M);
+
+
+
+    SetupHo(M, Mpos, Orb, MC->dx, MC->a2, MC->a1, MC->V, Ho);
+    SetupHint(M, Mpos, Orb, MC->dx, MC->inter, Hint);
+    /* ------------------------------------------------------------------
+    COMPUTE K1 in ?rhs variables
+    --------------------------------------------------------------------- */
+    FFTOrbDDT(MC, C, Orb, Orhs, Ho, Hint);
+    applyHconf(MC, C, Ho, Hint, Crhs);
+    for (i = 0; i < MC->nc; i++) Crhs[i] = - I * Crhs[i];
+
+    for (i = 0; i < MC->nc; i++)
+    {   // Add K1 contribution
+        Cnew[i] = Crhs[i];
+        // Prepare next argument to compute K2
+        Carg[i] = C[i] + Crhs[i] * 0.5 * dt;
+    }
+
+    for (k = 0; k < M; k++)
+    {
+        for (j = 0; j < Mpos; j++)
+        {   // Add K1 contribution
+            Onew[k][j] = Orhs[k][j];
+            // Prepare next argument to compute K2
+            Oarg[k][j] = Orb[k][j] + Orhs[k][j] * 0.5 * dt;
+        }
+    }
+
+
+
+    SetupHo(M, Mpos, Oarg, MC->dx, MC->a2, MC->a1, MC->V, Ho);
+    SetupHint(M, Mpos, Oarg, MC->dx, MC->inter, Hint);
+    /* ------------------------------------------------------------------
+    COMPUTE K2 in ?rhs variables
+    --------------------------------------------------------------------- */
+    FFTOrbDDT(MC, Carg, Oarg, Orhs, Ho, Hint);
+    applyHconf(MC, Carg, Ho, Hint, Crhs);
+    for (i = 0; i < MC->nc; i++) Crhs[i] = - I * Crhs[i];
+
+    for (i = 0; i < MC->nc; i++)
+    {   // Add K2 contribution
+        Cnew[i] += 2 * Crhs[i];
+        // Prepare next argument to compute K3
+        Carg[i] = C[i] + Crhs[i] * 0.5 * dt;
+    }
+
+    for (k = 0; k < M; k++)
+    {
+        for (j = 0; j < Mpos; j++)
+        {   // Add K2 contribution
+            Onew[k][j] += 2 * Orhs[k][j];
+            // Prepare next argument to compute K3
+            Oarg[k][j] = Orb[k][j] + Orhs[k][j] * 0.5 * dt;
+        }
+    }
+
+
+
+    SetupHo(M, Mpos, Oarg, MC->dx, MC->a2, MC->a1, MC->V, Ho);
+    SetupHint(M, Mpos, Oarg, MC->dx, MC->inter, Hint);
+    /* ------------------------------------------------------------------
+    COMPUTE K3 in ?rhs variables
+    --------------------------------------------------------------------- */
+    FFTOrbDDT(MC, Carg, Oarg, Orhs, Ho, Hint);
+    applyHconf(MC, Carg, Ho, Hint, Crhs);
+    for (i = 0; i < MC->nc; i++) Crhs[i] = - I * Crhs[i];
+
+    for (i = 0; i < MC->nc; i++)
+    {   // Add K3 contribution
+        Cnew[i] += 2 * Crhs[i];
+        // Prepare next argument to compute K4
+        Carg[i] = C[i] + Crhs[i] * dt;
+    }
+
+    for (k = 0; k < M; k++)
+    {
+        for (j = 0; j < Mpos; j++)
+        {   // Add K3 contribution
+            Onew[k][j] += 2 * Orhs[k][j];
+            // Prepare next argument to compute K4
+            Oarg[k][j] = Orb[k][j] + Orhs[k][j] * dt;
+        }
+    }
+
+
+
+    SetupHo(M, Mpos, Oarg, MC->dx, MC->a2, MC->a1, MC->V, Ho);
+    SetupHint(M, Mpos, Oarg, MC->dx, MC->inter, Hint);
+    /* ------------------------------------------------------------------
+    COMPUTE K4 in ?rhs variables
+    --------------------------------------------------------------------- */
+    FFTOrbDDT(MC, Carg, Oarg, Orhs, Ho, Hint);
+    applyHconf(MC, Carg, Ho, Hint, Crhs);
+    for (i = 0; i < MC->nc; i++) Crhs[i] = - I * Crhs[i];
+
+    for (i = 0; i < MC->nc; i++)
+    {   // Add K4 contribution
+        Cnew[i] += Crhs[i];
+    }
+
+    for (k = 0; k < M; k++)
+    {
+        for (j = 0; j < Mpos; j++)
+        {   // Add K4 contribution
+            Onew[k][j] += Orhs[k][j];
+        }
+    }
+
+    // Until now ?new  holds the sum K1 + 2 * K2 + 2 * K3 + K4
+    // from the Fourth order Runge-Kutta algorithm. Therefore:
+
+    for (i = 0; i < MC->nc; i++)
+    {   // Update Coeficients
+        C[i] = C[i] + Cnew[i] * dt / 6;
+    }
+
+    for (k = 0; k < M; k++)
+    {   // Update Orbitals
+        for (j = 0; j < Mpos; j++)
+        {
+            Orb[k][j] = Orb[k][j] + Onew[k][j] * dt / 6;
+        }
+    }
+
+    free(Cnew);
+    free(Crhs);
+    free(Carg);
+    
+    cmatFree(M, Orhs);
+    cmatFree(M, Onew);
+    cmatFree(M, Oarg);
+
+    cmatFree(M, Ho);
+    free(Hint);
+}
+
+
+
+
+
+
+
+
 void IRK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
 {   // Apply 4-th order Runge-Kutta routine given a (COMPLEX)time step
 
@@ -1618,6 +1876,41 @@ void LinearPartLU (int Mpos, int Morb, CCSmat cnmat, Carray upper,
     }
 
     free(rhs);
+}
+
+
+
+
+
+void LinearPartFFT (int Mpos, int Morb, DFTI_DESCRIPTOR_HANDLE * desc,
+     Carray exp_der, Cmatrix Orb)
+{
+
+    int
+        k;
+
+    MKL_LONG
+        s;
+
+    Carray
+        forward_fft = carrDef(Mpos - 1),
+        back_fft = carrDef(Mpos - 1);
+
+    for (k = 0; k < Morb; k++)
+    {
+        carrCopy(Mpos - 1, Orb[k], forward_fft);
+        s = DftiComputeForward( (*desc), forward_fft );
+        // Apply Exp. derivative operator in momentum space
+        carrMultiply(Mpos - 1, exp_der, forward_fft, back_fft);
+        // Go back to position space
+        s = DftiComputeBackward( (*desc), back_fft );
+        carrCopy(Mpos - 1, back_fft, Orb[k]);
+        // last point assumed as cyclic boundary
+        Orb[k][Mpos-1] = Orb[k][0];
+    }
+
+    free(forward_fft);
+    free(back_fft);
 }
 
 
@@ -1859,6 +2152,151 @@ void MCTDHB_CN_REAL (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
     free(upper);
     free(lower);
     free(mid);
+}
+
+
+
+
+
+
+
+
+
+
+void MCTDHB_FFT_IMAG (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
+     double dT, int Nsteps)
+{
+
+
+
+    int i,
+        k,
+        l,
+        s,
+        m,
+        Mpos = MC->Mpos;
+
+    MKL_LONG
+        p;
+
+    double
+        freq,
+        Idt = - dT,
+        dx = MC->dx,
+        a2 = MC->a2,
+        inter = MC->inter,
+        * V = MC->V;
+
+    double complex
+        a1 = MC->a1,
+        dt = - I * dT;
+
+    // used to store matrix elements of linear part
+    Carray
+        exp_der = carrDef(Mpos - 1),
+        to_int = carrDef(Mpos);
+
+
+
+
+
+    m = Mpos - 1;
+
+    /* setup descriptor (MKL implementation of FFT)
+     * ------------------------------------------------------------------- */
+    DFTI_DESCRIPTOR_HANDLE desc;
+    p = DftiCreateDescriptor(&desc, DFTI_DOUBLE, DFTI_COMPLEX, 1, m);
+    p = DftiSetValue(desc, DFTI_FORWARD_SCALE, 1.0 / sqrt(m));
+    p = DftiSetValue(desc, DFTI_BACKWARD_SCALE, 1.0 / sqrt(m));
+    p = DftiCommitDescriptor(desc);
+    /* ------------------------------------------------------------------- */
+
+
+
+    /* Fourier Frequencies to do the exponential of derivative operator
+     * ------------------------------------------------------------------- */
+    for (i = 0; i < m; i++)
+    {
+        if (i <= (m - 1) / 2) { freq = (2 * PI * i) / (m * dx);       }
+        else                  { freq = (2 * PI * (i - m)) / (m * dx); }
+        // exponential of derivative operators in half time-step
+        exp_der[i] = cexp( -0.5 * dT * (I * a1 * freq - a2 * freq * freq) );
+    }
+    /* ------------------------------------------------------------------- */
+
+
+
+    // Store the initial guess energy
+    E[0] = Energy(MC, Orb, C);
+    printf("\n\nInitial Energy = "); cPrint(E[0]);
+
+
+
+    for (i = 0; i < Nsteps; i++)
+    {
+
+        LinearPartFFT(Mpos, MC->Morb, &desc, exp_der, Orb);
+
+        FFTIRK4step(MC, Orb, C, dt);
+
+        LinearPartFFT(Mpos, MC->Morb, &desc, exp_der, Orb);
+
+
+
+        // Loss of Norm => undefined behavior on orthogonalization
+        Ortonormalize(MC->Morb, Mpos, dx, Orb);
+
+        // Renormalize coeficients
+        renormalizeVector(MC->nc, C, 1.0);
+
+        // Store energy
+        E[i + 1] = Energy(MC, Orb, C);
+
+
+        // Adapt time step
+        if ( (i + 1) % 2000 == 0 && i < 10000)
+        {
+            dt = dt * (1 + 0.2);
+            dT = dT * (1 + 0.2);
+            printf("\n\n\t TIME STEP ADJUSTED TO : %.9lf\n\n", dT);
+            // Fourier Frequencies to do the exponential of derivative operator
+            for (k = 0; k < m; k++)
+            {
+                if (k <= (m - 1) / 2) { freq = (2 * PI * k) / (m * dx);       }
+                else                  { freq = (2 * PI * (k - m)) / (m * dx); }
+                // exponential of derivative operators in half time-step
+                exp_der[k] = cexp( -0.5*dT * (I*a1*freq - a2*freq*freq) );
+            }
+        }
+
+
+
+        /* ----------------------------------------------------------------
+         * print to check orthogonality/Energy
+        ------------------------------------------------------------------- */
+        printf("\n\nAfter %d time steps, Energy = ", i + 1);
+        cPrint(E[i + 1]);
+        printf(". Orthogonality matrix is:\n\n");
+        for (k = 0; k < MC->Morb; k++)
+        {
+            printf("\n\t");
+            for (l = 0; l < MC->Morb; l++)
+            {
+                for (s = 0; s < MC->Mpos; s++)
+                {
+                    to_int[s] = conj(Orb[k][s]) * Orb[l][s];
+                }
+                printf(" "); cPrint(Csimps(MC->Mpos, to_int, MC->dx));
+            }
+        }
+        printf("\n\n|| C || = %.8lf", carrMod(MC->nc, C));
+        /* ---------------------------------------------------------------- */
+    }
+    
+    p = DftiFreeDescriptor(&desc);
+
+    free(to_int);
+    free(exp_der);
 }
 
 

@@ -25,13 +25,6 @@
 
 
 
-void RecordArray(FILE * f, int M, Carray v);
-void RecordMatrixInLine(FILE * f, int M, Cmatrix A);
-
-
-
-
-
 void applyHconf(MCTDHBsetup MC, Carray C, Cmatrix Ho, Carray Hint, Carray out);
 /* Give the state coefficients of a state (out) after apply the many-body
  * Hamiltonian on a state whose  coeficients  in  the  occupation  number
@@ -71,6 +64,9 @@ double complex nonlinear (int M, int k, int n, double g, Cmatrix Orb,
 
 void OrbDDT (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix newOrb,
      Cmatrix ho, Carray Hint);
+
+void FFTOrbDDT (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix dOdt,
+     Cmatrix Ho, Carray Hint);
 
 
 
@@ -118,6 +114,7 @@ void RK4lanczosAfter
 
 
 
+void FFTIRK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt);
 void IRK4step
 (   // Evolve nonlinear part with imaginary time
     MCTDHBsetup MC,
@@ -181,6 +178,8 @@ void MCTDHB_CN_REAL (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
 
 
 
+void MCTDHB_FFT_IMAG (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
+     double dT, int Nsteps);
 void MCTDHB_CN_IMAG (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
      double dT, int Nsteps, int cyclic);
 
