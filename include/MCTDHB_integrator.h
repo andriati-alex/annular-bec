@@ -94,20 +94,12 @@ void lanczos(MCTDHBsetup MCdata, Cmatrix Ho, Carray Hint,
 
 
 
-void RK4lanczosBefore
+void LanczosIntegrator
 (   // Evolve nonlinear part of orbitals coupled with coeficients
     MCTDHBsetup MC,
     Cmatrix orb, // End up modified by the evolution
     Carray C,    // End up modified by the evolution
-    double dt
-);
-
-void RK4lanczosAfter
-(   // Evolve nonlinear part of orbitals coupled with coeficients
-    MCTDHBsetup MC,
-    Cmatrix orb, // End up modified by the evolution
-    Carray C,    // End up modified by the evolution
-    double dt
+    double complex dt
 );
 
 
@@ -122,6 +114,7 @@ void IRK4step
     Carray C,
     double complex dt
 );
+void IRK4_Orb (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt);
 
 
 

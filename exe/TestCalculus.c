@@ -26,7 +26,7 @@ int main() {
     mkl_set_num_threads(4);
     omp_set_num_threads(4);
 
-    int n = 40000;
+    int n = 256;
     int i;
 
     double dx = (2 * PI) / (n - 1);
@@ -95,9 +95,9 @@ int main() {
     printf("\n\n\tDerivative by differences took %.6f ms", time_used * 1000);
 
     for (i = 0; i < n; i ++)
-        cints[i] = conj(f[i]) * dfdx[i];
+        cints[i] = conj(f[i]) * dfdxdiff[i];
 
-    printf("\n\n\tFFT - DIFF: %.14lf\n", creal(Csimps(n, cints, dx)) / 2);
+    printf("\n\n\tFFT - DIFF: %.14lf\n", cimag(Csimps(n, cints, dx)) / 2);
 
 
 
@@ -105,99 +105,6 @@ int main() {
     /*                          RECORD DATA                          */
     /*                          ***********                          */
 
-
-
-    FILE * file = fopen("test_out/calculus_out.dat", "w");
-
-    if (file == NULL)  // impossible to open file
-    {
-        printf("ERROR: impossible to open file\n");
-        return - 1;
-    }
-
-    for (i = 0; i < n; i ++) {
-        if (cimag(f[i]) > 0)
-        {
-            fprintf(file, "(%.15E+%.15Ej) ", creal(f[i]), cimag(f[i]));
-        }
-        else
-        {
-            if (cimag(f[i]) == 0)
-            {
-                fprintf(file, "(%.15E+%.15Ej) ", creal(f[i]), 0.0);
-            }
-            else
-            {
-                fprintf(file, "(%.15E%.15Ej) ", creal(f[i]), cimag(f[i]));
-            }
-        }
-    }
-    
-    fprintf(file, "\n");
- 
-    for (i = 0; i < n; i ++) {
-        if (cimag(dfdx[i]) > 0)
-        {
-            fprintf(file, "(%.15E+%.15Ej) ", creal(dfdx[i]), cimag(dfdx[i]));
-        }
-        else
-        {
-            if (cimag(dfdx[i]) == 0)
-            {
-                fprintf(file, "(%.15E+%.15Ej) ", creal(dfdx[i]), 0.0);
-            }
-            else
-            {
-                fprintf(file, "(%.15E%.15Ej) ", creal(dfdx[i]), cimag(dfdx[i]));
-            }
-        }
-    }
-    
-    fprintf(file, "\n");
-    
-    for (i = 0; i < n; i ++) {
-        if (cimag(dfdxdiff[i]) > 0)
-        {
-            fprintf(file, "(%.15E+%.15Ej) ",
-                    creal(dfdxdiff[i]), cimag(dfdxdiff[i]));
-        }
-        else
-        {
-            if (cimag(dfdxdiff[i]) == 0)
-            {
-                fprintf(file, "(%.15E+%.15Ej) ",
-                        creal(dfdxdiff[i]), 0.0);
-            }
-            else
-            {
-                fprintf(file, "(%.15E%.15Ej) ",
-                        creal(dfdxdiff[i]), cimag(dfdxdiff[i]));
-            }
-        }
-    }
-    
-    fprintf(file, "\n");
-    
-    for (i = 0; i < n; i ++) {
-        if (cimag(cints[i]) > 0)
-        {
-            fprintf(file, "(%.15E+%.15Ej) ", creal(cints[i]), cimag(cints[i]));
-        }
-        else
-        {
-            if (cimag(cints[i]) == 0)
-            {
-                fprintf(file, "(%.15E+%.15Ej) ", creal(cints[i]), 0.0);
-            }
-            else
-            {
-                fprintf(file, "(%.15E%.15Ej) ",
-                        creal(cints[i]), cimag(cints[i]));
-            }
-        }
-    }
-
-    fclose(file);
 
     free(x);
     free(f);
