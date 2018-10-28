@@ -7,7 +7,6 @@
 
 #include "array_memory.h"
 #include "array_operations.h"
-#include "MCTDHB_datatype.h"
 
 
 
@@ -21,38 +20,37 @@
 
 
 
-int fac(int n); /* Return the factorial of a given integer n */
+int fac(int n);
 
 
 
 
 
 int NC(int N, int M);
-/* **********************************
- * Number of possible combinations of
+/* ************************************
+ * Number of possible configurations of
  *
  * N identical particles
  * in M distinct orbital
  *
  * (N + M - 1)! / (N! * (M - 1)!)
  *
- * **********************************/
+ * ************************************/
 
 
 
 
 
 int ** MountNCmat(int N, int M);
-/* **************************************************
+/* ******************************************************
  *
- * Construct the matrix with all possible combination
- * problems of NC up to N particles and M orbitals. A
- * row index is the number of particles and the column
- * index is the number of orbitals.  The  Matrix  has
- * size of N(rows) x M(columns)  and  its  values are
- * NCmat[i, j] = NC( i , j )
+ * Construct the matrix with  all possible configurations
+ * up to N particles and M orbitals. A row index  is  the
+ * number of particles and the column index is the number
+ * of orbitals. The Matrix has of (N+1) x (M+1) dimension
+ * and its values are NCmat[i, j] = NC( i , j )
  *
- * **************************************************/
+ * ******************************************************/
 
 
 
@@ -62,8 +60,7 @@ int ** MountFocks(int N, int M, int ** NCmat);
 /* *************************************************************
  *
  * Give a matrix whose the row i contains the occupation numbers
- * That is, uses IndexToFock for each row and store  the  vector
- * with occupation numbers over the columns.
+ * of a possible configuration
  *
  * *************************************************************/
 
@@ -152,6 +149,17 @@ void TBrho(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho);
  * and the coefficients from the state in the  occupation  number  basis.
  * The storage in memory follow a linearization as follows:
  * rho[k, l, s, q] = rho[k + l * M + s * M^2 + q * M^3]               **/
+
+
+
+
+
+void applyHconf (int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix Ho,
+     Carray Hint, Carray out);
+/* Give the state coefficients of a state (out) after apply the many-body
+ * Hamiltonian on a state whose  coeficients  in  the  occupation  number
+ * basis are C[i]. Ho contains the matrix elements of  one-body  operator
+ * and Hint contains the matrix elements of two-body operator.        **/
 
 
 

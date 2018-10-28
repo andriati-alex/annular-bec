@@ -422,10 +422,10 @@ int main(int argc, char * argv[])
             printf("Crank-Nicolson SM and partial RK4 with lanczos \n");
             break;
         case 21:
-            printf("Crank-Nicolson LU and full RK4 \n");
+            printf("FFT and full RK4 \n");
             break;
         case 22:
-            printf("Crank-Nicolson LU and partial RK4 with lanczos \n");
+            printf("FFT and partial RK4 with lanczos \n");
             break;
     }
 
@@ -553,7 +553,7 @@ int main(int argc, char * argv[])
     printf("\n\ntime to setup Hint = %.3lf\n\n", time_used);
 
     start = omp_get_wtime();
-    applyHconf(mc, C, rho, rho2, dCdt);
+    applyHconf(mc->Npar, mc->Morb, mc->NCmat, mc->IF, C, rho, rho2, dCdt);
     time_used = (double) (omp_get_wtime() - start);
 
     printf("\n\ntime to apply Many-Body H = %.3lf\n", time_used);
@@ -583,47 +583,90 @@ int main(int argc, char * argv[])
     strcpy(fname_out, "../mctdhb_data/");
     strcat(fname_out, argv[5]);
 
-    if (timeinfo == 'r' || timeinfo == 'R')
-    {   // First estimate time needed based on 1 step
-        
-        printf("\n\nDoing real time propagation (SM/RK4) ...\n");
-        
-        start = omp_get_wtime();
-        MCTDHB_CN_REAL(mc, Orbtest, Ctest, dt, 1, method, cyclic,
-        fname_out, 100);
-        time_used = (double) (omp_get_wtime() - start);
+    printf("\n\nDoing imaginary time propagation ...\n");
 
-        printf("\n\nTime to do 1 step: %.1lf seconds\n", time_used);
-        printf("\nTotal time estimated: ");
-        TimePrint(time_used * N);
-        
-        free(Ctest);
-        cmatFree(Morb, Orbtest);
-
-        printf("\n\n");
-
-        // Start Evolution
-        MCTDHB_CN_REAL(mc, Orb, C, dt, N, method, cyclic, fname_out, 100);
-    }
-    else
+    switch (method)
     {
-        printf("\n\nDoing imaginary time propagation ...\n");
 
-        start = omp_get_wtime();
-        MCTDHB_CN_IMAG(mc, Orbtest, Ctest, E, dt, 1, cyclic);
-        time_used = (double) (omp_get_wtime() - start);
+        case 11:
 
-        printf("\n\nTime to do 1 step: %.1lf seconds\n", time_used);
-        printf("\nTotal time estimated: ");
-        TimePrint(time_used * N);
+            start = omp_get_wtime();
+            MC_IMAG_RK4_CNSMRK4(mc, Orbtest, Ctest, E, dt, 1, cyclic);
+            time_used = (double) (omp_get_wtime() - start);
 
-        free(Ctest);
-        cmatFree(Morb, Orbtest);
+            printf("\n\nTime to do 1 step: %.2lf seconds\n", time_used);
+            printf("\nTotal time estimated: ");
+            TimePrint(time_used * N);
 
-        printf("\n\n");
+            free(Ctest);
+            cmatFree(Morb, Orbtest);
 
-        // Start Evolution
-        MCTDHB_CN_IMAG(mc, Orb, C, E, dt, N, cyclic);
+            printf("\n\n");
+
+            // Start Evolution
+            MC_IMAG_RK4_CNSMRK4(mc, Orb, C, E, dt, N, cyclic);
+
+            break;
+
+        case 12:
+
+            start = omp_get_wtime();
+            MC_IMAG_LAN_CNSMRK4(mc, Orbtest, Ctest, E, dt, 1, cyclic);
+            time_used = (double) (omp_get_wtime() - start);
+
+            printf("\n\nTime to do 1 step: %.2lf seconds\n", time_used);
+            printf("\nTotal time estimated: ");
+            TimePrint(time_used * N);
+
+            free(Ctest);
+            cmatFree(Morb, Orbtest);
+
+            printf("\n\n");
+
+            // Start Evolution
+            MC_IMAG_LAN_CNSMRK4(mc, Orb, C, E, dt, N, cyclic);
+
+            break;
+
+        case 21:
+
+            start = omp_get_wtime();
+            MC_IMAG_RK4_FFTRK4(mc, Orbtest, Ctest, E, dt, 1);
+            time_used = (double) (omp_get_wtime() - start);
+
+            printf("\n\nTime to do 1 step: %.2lf seconds\n", time_used);
+            printf("\nTotal time estimated: ");
+            TimePrint(time_used * N);
+
+            free(Ctest);
+            cmatFree(Morb, Orbtest);
+
+            printf("\n\n");
+
+            // Start Evolution
+            MC_IMAG_RK4_FFTRK4(mc, Orb, C, E, dt, N);
+
+            break;
+
+        case 22:
+
+            start = omp_get_wtime();
+            MC_IMAG_RK4_FFTRK4(mc, Orbtest, Ctest, E, dt, 1);
+            time_used = (double) (omp_get_wtime() - start);
+
+            printf("\n\nTime to do 1 step: %.2lf seconds\n", time_used);
+            printf("\nTotal time estimated: ");
+            TimePrint(time_used * N);
+
+            free(Ctest);
+            cmatFree(Morb, Orbtest);
+
+            printf("\n\n");
+
+            // Start Evolution
+            MC_IMAG_RK4_FFTRK4(mc, Orb, C, E, dt, N);
+
+            break;
     }
 
 
@@ -687,8 +730,8 @@ int main(int argc, char * argv[])
         return -1;
     }
 
-    fprintf(out_data, "%d %d %d %.15lf %.15lf %.10lf %d %d",
-            Npar, Morb, Mdx, xi, xf, dt, N, 10);
+    fprintf(out_data, "%d %d %d %.15lf %.15lf %.10lf %d",
+            Npar, Morb, Mdx, xi, xf, dt, N);
 
     fclose(out_data);
 

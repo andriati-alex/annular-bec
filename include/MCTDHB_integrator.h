@@ -25,16 +25,6 @@
 
 
 
-void applyHconf(MCTDHBsetup MC, Carray C, Cmatrix Ho, Carray Hint, Carray out);
-/* Give the state coefficients of a state (out) after apply the many-body
- * Hamiltonian on a state whose  coeficients  in  the  occupation  number
- * basis are C[i]. Ho contains the matrix elements of  one-body  operator
- * and Hint contains the matrix elements of two-body operator.        **/
-
-
-
-
-
 /* ==========================================================================
  *                                                                   *
  *          Function to apply nonlinear part of obitals PDE          *
@@ -47,6 +37,14 @@ void applyHconf(MCTDHBsetup MC, Carray C, Cmatrix Ho, Carray Hint, Carray out);
 
 double complex nonlinear (int M, int k, int n, double g, Cmatrix Orb,
                Cmatrix Rinv, Carray R2, Cmatrix Ho, Carray Hint );
+/* For a orbital 'k' computed at discretized position 'n' calculate
+   the right-hand-side part of MCTDHB orbital's equation of  motion
+   that is nonlinear, part because of projections that made the eq.
+   an integral-differential equation, and other part due to contact
+   interactions. Assume that Rinv, R2 are  defined  by  the  set of
+   configuration-state coefficients as the inverse of  one-body and
+   two-body density matrices respectively. Ho and Hint are  assumed
+   to be defined accoding to 'Orb' variable as well.            **/
 
 
 
@@ -62,25 +60,27 @@ double complex nonlinear (int M, int k, int n, double g, Cmatrix Orb,
 
 
 
-void OrbDDT (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix newOrb,
-     Cmatrix ho, Carray Hint);
-
-void FFTOrbDDT (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix dOdt,
+void MCNLTRAP_dOdt (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix dOdt,
      Cmatrix Ho, Carray Hint);
 
 
 
 
 
-void OrbConfDDT
-(   // The Right-Hand-Side(RHS) of a system of Differential equations
+void MCNL_dOdt (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix dOdt,
+     Cmatrix Ho, Carray Hint);
+
+
+
+
+
+void MC_dCdt
+(   // Compute time derivative of coefficient
     MCTDHBsetup MC,
     Carray C,
-    Cmatrix Orb,
     Cmatrix Ho,
     Carray Hint,
-    Carray newC,   // Values after the operations have been applied
-    Cmatrix newOrb // Values after the operations have been applied
+    Carray dCdt
 );
 
 
@@ -106,33 +106,31 @@ void LanczosIntegrator
 
 
 
-void FFTIRK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt);
-void IRK4step
+void MC_NLTRAPC_IRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt);
+
+
+
+
+
+void MC_NL_IRK4
 (   // Evolve nonlinear part with imaginary time
     MCTDHBsetup MC,
     Cmatrix Orb,
     Carray C,
     double complex dt
 );
-void IRK4_Orb (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt);
 
 
 
 
 
-void RK4step
-(   // Evolve nonlinear part
-    MCTDHBsetup MC,
-    Cmatrix Orb,
-    Carray C,
-    double dt
-);
+void MC_NLC_IRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt);
 
 
 
 
 
-void LinearPartSM
+void MCLP_CNSM
 (   // Evolve a time-step the linear part of PDE(orbitals)
     int Mpos,
     int Morb,
@@ -147,8 +145,15 @@ void LinearPartSM
 
 
 
-void LinearPartLU (int Mpos, int Morb, CCSmat cnmat, Carray upper,
+void MCLP_CNLU (int Mpos, int Morb, CCSmat cnmat, Carray upper,
      Carray lower, Carray mid, Cmatrix Orb);
+
+
+
+
+
+void MCLP_FFT (int Mpos, int Morb, DFTI_DESCRIPTOR_HANDLE * desc,
+     Carray exp_der, Cmatrix Orb);
 
 
 
@@ -164,16 +169,21 @@ void LinearPartLU (int Mpos, int Morb, CCSmat cnmat, Carray upper,
 
 
 
-void MCTDHB_CN_REAL (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
-     int Nsteps, int method, int cyclic, char fname[], int n);
-
-
-
-
-
-void MCTDHB_FFT_IMAG (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
+void MC_IMAG_RK4_FFTRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
      double dT, int Nsteps);
-void MCTDHB_CN_IMAG (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
+
+
+
+
+
+void MC_IMAG_RK4_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
+     double dT, int Nsteps, int cyclic);
+
+
+
+
+
+void MC_IMAG_LAN_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
      double dT, int Nsteps, int cyclic);
 
 

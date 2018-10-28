@@ -9,448 +9,6 @@
 
 
 
-/* ========================================================================
- *
- *                    APPLY THE MANY BODY HAMILTONIAN
- *                    -------------------------------
- *
- * Once defined a set of Single-Particle Wave Functions (SPWF) a many
- * body state  can be expanded  in  a  Occupation Number Basis  (ONB)
- * whose vector are also named Fock states.Then to apply an  operator
- * on a state we need  its  coefficients in this basis  (Cj)  and the 
- * matrix elements of the operator that is done below.
- *
- * ======================================================================== */
-
-
-
-void applyHconf (MCTDHBsetup MC, Carray C, Cmatrix Ho, Carray Hint, Carray out)
-{
-    // Apply the many-body hamiltonian in a state expressed in
-    // number-occupation basis with coefficients defined by C.
-
-
-
-    int // Index of coeficients
-        i,
-        j,
-        nc = MC->nc;
-
-
-
-    int // enumerate orbitals
-        k,
-        l,
-        s,
-        q;
-
-    /* ==================================================================== *
-     *                                                                      *
-     *                         Auxiliary variables                          *
-     *                                                                      *
-     * ==================================================================== */
-
-    int
-        M  = MC->Morb,
-        N  = MC->Npar,
-        M2 = M * M,
-        M3 = M * M * M,
-        ** IF = MC->IF,
-        ** NCmat = MC->NCmat;
-
-
-    int * v;             // Occupation vector on each iteration
-
-    double sqrtOf;       // Factor from creation/annihilation operator
-
-    double complex
-        z,
-        w;
-
-
-
-
-
-    #pragma omp parallel firstprivate(N, M, M2, M3) \
-    private(i, j, k, l, s, q, z, w, sqrtOf, v)
-    {
-
-    v = (int * ) malloc(M * sizeof(int));
-
-    #pragma omp for schedule(static)
-    for (i = 0; i < nc; i++)
-    {
-        w = 0;
-        z = 0;
-
-        for (k = 0; k < M; k++) v[k] = IF[i][k];
-    
-        /* ================================================================ *
-         *                                                                  *
-         *                       One-body contribution                      *
-         *                                                                  *
-         * ================================================================ */
-
-        for (k = 0; k < M; k++)
-        {
-            if (v[k] < 1) continue;
-
-            w = w + Ho[k][k] * v[k] * C[i];
-
-            for (l = 0; l < M; l++)
-            {
-                if (l == k) continue;
-                sqrtOf = sqrt(v[k] * (v[l] + 1));
-                v[k] -= 1;
-                v[l] += 1;
-                j = FockToIndex(N, M, NCmat, v);
-                w = w + Ho[k][l] * sqrtOf * C[j];
-                v[k] += 1;
-                v[l] -= 1;
-            }
-        }
-
-
-        /* ================================================================ *
-         *                                                                  *
-         *                       Two-body contribution                      *
-         *                                                                  *
-         * ================================================================ */
-
-
-        /* ---------------------------------------------
-         * Rule 1: Creation on k k / Annihilation on k k
-        ------------------------------------------------------------------- */
-        for (k = 0; k < M; k++)
-        {
-            sqrtOf = v[k] * (v[k] - 1);
-            z += Hint[k + M * k + M2 * k + M3 * k] * C[i] * sqrtOf;
-        }
-        /* ---------------------------------------------------------------- */
-
-
-        /* ---------------------------------------------
-         * Rule 2: Creation on k s / Annihilation on k s
-        ------------------------------------------------------------------- */
-        for (k = 0; k < M; k++)
-        {
-            if (v[k] < 1) continue;
-            for (s = k + 1; s < M; s++)
-            {
-                sqrtOf = v[k] * v[s];
-                z += 4 * Hint[k + s*M + k*M2 + s*M3] * sqrtOf * C[i];
-                /*
-                z += Hint[s + k*M + k*M2 + s*M3] * sqrtOf * C[i];
-                z += Hint[s + k*M + s*M2 + k*M3] * sqrtOf * C[i];
-                z += Hint[k + s*M + s*M2 + k*M3] * sqrtOf * C[i];
-                */
-            }
-        }
-        /* ---------------------------------------------------------------- */
-
-
-        /* ---------------------------------------------
-         * Rule 3: Creation on k k / Annihilation on q q
-        ------------------------------------------------------------------- */
-        for (k = 0; k < M; k++)
-        {
-            if (v[k] < 2) continue;
-            for (q = 0; q < M; q++)
-            {
-                if (q == k) continue;
-                sqrtOf = sqrt((v[k] - 1) * v[k] * (v[q] + 1) * (v[q] + 2));
-                v[k] -= 2;
-                v[q] += 2;
-                j = FockToIndex(N, M, NCmat, v);
-                z += Hint[k + k * M + q * M2 + q * M3] * C[j] * sqrtOf;
-                v[k] += 2;
-                v[q] -= 2;
-            }
-        }
-        /* ---------------------------------------------------------------- */
-
-
-        /* ---------------------------------------------
-         * Rule 4: Creation on k k / Annihilation on k l
-        ------------------------------------------------------------------- */
-        for (k = 0; k < M; k++)
-        {
-            if (v[k] < 2) continue;
-            for (l = 0; l < M; l++)
-            {
-                if (l == k) continue;
-                sqrtOf = (v[k] - 1) * sqrt(v[k] * (v[l] + 1));
-                v[k] -= 1;
-                v[l] += 1;
-                j = FockToIndex(N, M, NCmat, v);
-                z += 2 * Hint[k + k * M + k * M2 + l * M3] * C[j] * sqrtOf;
-                // z += Hint[k + k * M + l * M2 + k * M3] * C[j] * sqrtOf;
-                v[k] += 1;
-                v[l] -= 1;
-            }
-        }
-        /* ---------------------------------------------------------------- */
-
-
-        /* ---------------------------------------------
-         * Rule 5: Creation on k s / Annihilation on s s
-        ------------------------------------------------------------------- */
-        for (k = 0; k < M; k++)
-        {
-            if (v[k] < 1) continue;
-            for (s = 0; s < M; s++)
-            {
-                if (s == k) continue;
-                sqrtOf = v[s] * sqrt(v[k] * (v[s] + 1));
-                v[k] -= 1;
-                v[s] += 1;
-                j = FockToIndex(N, M, NCmat, v);
-                z += 2 * Hint[k + s * M + s * M2 + s * M3] * C[j] * sqrtOf;
-                // z += Hint[s + k * M + s * M2 + s * M3] * C[j] * sqrtOf;
-                v[k] += 1;
-                v[s] -= 1;
-            }
-        }
-        /* ---------------------------------------------------------------- */
-
-
-        /* -----------------------------------------------------------
-         * Rule 6.0: Creation on k k / Annihilation on q l (k < q < l)
-        ------------------------------------------------------------------- */
-        for (k = 0; k < M; k++)
-        {
-            if (v[k] < 2) continue;
-            for (q = k + 1; q < M; q++)
-            {
-                for (l = q + 1; l < M; l++)
-                {
-                    sqrtOf = sqrt(v[k] * (v[k] - 1) * (v[q] + 1) * (v[l] + 1));
-                    v[k] -= 2;
-                    v[l] += 1;
-                    v[q] += 1;
-                    j = FockToIndex(N, M, NCmat, v);
-                    z += 2 * Hint[k + k*M + q*M2 + l*M3] * C[j] * sqrtOf;
-                    // z += Hint[k + k*M + l*M2 + q*M3] * C[j] * sqrtOf;
-                    v[k] += 2;
-                    v[l] -= 1;
-                    v[q] -= 1;
-                }
-            }
-        }
-        /* ---------------------------------------------------------------- */
-
-
-        /* -----------------------------------------------------------
-         * Rule 6.1: Creation on k k / Annihilation on q l (q < k < l)
-        ------------------------------------------------------------------- */
-        for (q = 0; q < M; q++)
-        {
-            for (k = q + 1; k < M; k++)
-            {
-                if (v[k] < 2) continue;
-                for (l = k + 1; l < M; l++)
-                {
-                    sqrtOf = sqrt(v[k] * (v[k] - 1) * (v[q] + 1) * (v[l] + 1));
-                    v[k] -= 2;
-                    v[l] += 1;
-                    v[q] += 1;
-                    j = FockToIndex(N, M, NCmat, v);
-                    z += 2 * Hint[k + k*M + q*M2 + l*M3] * C[j] * sqrtOf;
-                    // z += Hint[k + k*M + l*M2 + q*M3] * C[j] * sqrtOf;
-                    v[k] += 2;
-                    v[l] -= 1;
-                    v[q] -= 1;
-                }
-            }
-        }
-        /* ---------------------------------------------------------------- */
-
-
-        /* -----------------------------------------------------------
-         * Rule 6.2: Creation on k k / Annihilation on q l (q < l < k)
-        ------------------------------------------------------------------- */
-        for (q = 0; q < M; q++)
-        {
-            for (l = q + 1; l < M; l++)
-            {
-                for (k = l + 1; k < M; k++)
-                {
-                    if (v[k] < 2) continue;
-                    sqrtOf = sqrt(v[k] * (v[k] - 1) * (v[q] + 1) * (v[l] + 1));
-                    v[k] -= 2;
-                    v[l] += 1;
-                    v[q] += 1;
-                    j = FockToIndex(N, M, NCmat, v);
-                    z += 2 * Hint[k + k*M + q*M2 + l*M3] * C[j] * sqrtOf;
-                    // z += Hint[k + k*M + l*M2 + q*M3] * C[j] * sqrtOf;
-                    v[k] += 2;
-                    v[l] -= 1;
-                    v[q] -= 1;
-                }
-            }
-        }
-        /* ---------------------------------------------------------------- */
-
-
-        /* -----------------------------------------------------------
-         * Rule 7.0: Creation on k s / Annihilation on q q (q > k > s)
-        ------------------------------------------------------------------- */
-        for (q = 0; q < M; q++)
-        {
-            for (k = q + 1; k < M; k++)
-            {
-                if (v[k] < 1) continue;
-                for (s = k + 1; s < M; s++)
-                {
-                    if (v[s] < 1) continue;
-                    sqrtOf = sqrt(v[k] * v[s] * (v[q] + 1) * (v[q] + 2));
-                    v[k] -= 1;
-                    v[s] -= 1;
-                    v[q] += 2;
-                    j = FockToIndex(N, M, NCmat, v);
-                    z += 2 * Hint[k + s*M + q*M2 + q*M3] * C[j] * sqrtOf;
-                    // z += Hint[s + k*M + q*M2 + q*M3] * C[j] * sqrtOf;
-                    v[k] += 1;
-                    v[s] += 1;
-                    v[q] -= 2;
-                }
-            }
-        }
-        /* ---------------------------------------------------------------- */
-
-
-        /* -----------------------------------------------------------
-         * Rule 7.1: Creation on k s / Annihilation on q q (k > q > s)
-        ------------------------------------------------------------------- */
-        for (k = 0; k < M; k++)
-        {
-            if (v[k] < 1) continue;
-            for (q = k + 1; q < M; q++)
-            {
-                for (s = q + 1; s < M; s++)
-                {
-                    if (v[s] < 1) continue;
-                    sqrtOf = sqrt(v[k] * v[s] * (v[q] + 1) * (v[q] + 2));
-                    v[k] -= 1;
-                    v[s] -= 1;
-                    v[q] += 2;
-                    j = FockToIndex(N, M, NCmat, v);
-                    z += 2 * Hint[k + s*M + q*M2 + q*M3] * C[j] * sqrtOf;
-                    // z += Hint[s + k*M + q*M2 + q*M3] * C[j] * sqrtOf;
-                    v[k] += 1;
-                    v[s] += 1;
-                    v[q] -= 2;
-                }
-            }
-        }
-        /* ---------------------------------------------------------------- */
-
-
-        /* -----------------------------------------------------------
-         * Rule 7.2: Creation on k s / Annihilation on q q (k > s > q)
-        ------------------------------------------------------------------- */
-        for (k = 0; k < M; k++)
-        {
-            if (v[k] < 1) continue;
-            for (s = k + 1; s < M; s++)
-            {
-                if (v[s] < 1) continue;
-                for (q = s + 1; q < M; q++)
-                {
-                    sqrtOf = sqrt(v[k] * v[s] * (v[q] + 1) * (v[q] + 2));
-                    v[k] -= 1;
-                    v[s] -= 1;
-                    v[q] += 2;
-                    j = FockToIndex(N, M, NCmat, v);
-                    z += 2 * Hint[k + s*M + q*M2 + q*M3] * C[j] * sqrtOf;
-                    // z += Hint[s + k*M + q*M2 + q*M3] * C[j] * sqrtOf;
-                    v[k] += 1;
-                    v[s] += 1;
-                    v[q] -= 2;
-                }
-            }
-        }
-        /* ---------------------------------------------------------------- */
-
-
-        /* ---------------------------------------------
-         * Rule 8: Creation on k s / Annihilation on s l
-        ------------------------------------------------------------------- */
-        for (s = 0; s < M; s++)
-        {
-            if (v[s] < 1) continue; // may improve performance
-            for (k = 0; k < M; k++)
-            {
-                if (v[k] < 1 || k == s) continue;
-                for (l = 0; l < M; l++)
-                {
-                    if (l == k || l == s) continue;
-                    sqrtOf = v[s] * sqrt(v[k] * (v[l] + 1));
-                    v[k] -= 1;
-                    v[l] += 1;
-                    j = FockToIndex(N, M, NCmat, v);
-                    z += 4 * Hint[k + s*M + s*M2 + l*M3] * C[j] * sqrtOf;
-                    /*
-                    z += Hint[s + k*M + s*M2 + l*M3] * C[j] * sqrtOf;
-                    z += Hint[s + k*M + l*M2 + s*M3] * C[j] * sqrtOf;
-                    z += Hint[k + s*M + l*M2 + s*M3] * C[j] * sqrtOf;
-                    */
-                    v[k] += 1;
-                    v[l] -= 1;
-                }
-            }
-        }
-
-
-        /* ---------------------------------------------
-         * Rule 9: Creation on k s / Annihilation on q l
-        ------------------------------------------------------------------- */
-        for (k = 0; k < M; k++)
-        {
-            if (v[k] < 1) continue;
-            for (s = 0; s < M; s++)
-            {
-                if (v[s] < 1 || s == k) continue;
-                for (q = 0; q < M; q++)
-                {
-                    if (q == s || q == k) continue;
-                    for (l = 0; l < M; l ++)
-                    {
-                        if (l == k || l == s || l == q) continue;
-                        sqrtOf = sqrt(v[k] * v[s] * (v[q] + 1) * (v[l] + 1));
-                        v[k] -= 1;
-                        v[s] -= 1;
-                        v[q] += 1;
-                        v[l] += 1;
-                        j = FockToIndex(N, M, NCmat, v);
-                        z += Hint[k + s*M + q*M2 + l*M3] * C[j] * sqrtOf;
-                        v[k] += 1;
-                        v[s] += 1;
-                        v[q] -= 1;
-                        v[l] -= 1;
-                    }   // Finish l
-                }       // Finish q
-            }           // Finish s
-        }               // Finish k
-
-        out[i] = w + 0.5 * z;
-    }
-
-    free(v);
-
-    } // End of parallel region
-
-}
-
-
-
-
-
-
-
-
-
-
 double complex nonlinear (int M, int k, int n, double g, Cmatrix Orb,
                Cmatrix Rinv, Carray R2, Cmatrix Ho, Carray Hint )
 {
@@ -543,7 +101,7 @@ double complex nonlinear (int M, int k, int n, double g, Cmatrix Orb,
 
 
 
-void FFTOrbDDT (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix dOdt,
+void MCNLTRAP_dOdt(MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix dOdt,
      Cmatrix Ho, Carray Hint)
 {
     // Right-Hand-Side when isolate orbital's time derivative
@@ -636,7 +194,12 @@ void FFTOrbDDT (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix dOdt,
 
 
 
-void OrbDDT (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix dOdt,
+
+
+
+
+
+void MCNL_dOdt (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix dOdt,
      Cmatrix Ho, Carray Hint)
 {
     // Right-Hand-Side when isolate orbital's time derivative
@@ -650,8 +213,8 @@ void OrbDDT (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix dOdt,
         k,
         s,
         j,
-        M  = MC->Morb,
-        N  = MC->Npar,
+        M = MC->Morb,
+        N = MC->Npar,
         Mpos  = MC->Mpos,
         ** IF = MC->IF,
         ** NCmat = MC->NCmat;
@@ -732,30 +295,16 @@ void OrbDDT (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix dOdt,
 
 
 
-void OrbConfDDT (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix Ho,
-     Carray Hint, Carray dCdt, Cmatrix dOdt )
+void MC_dCdt (MCTDHBsetup MC, Carray C, Cmatrix Ho, Carray Hint, Carray dCdt)
 {
-    // Right-Hand-Side of time derivatives both for coefficients
-    // and orbitals are given in dCdt and dOdt suitably to apply
-    // Runge-Kutta methods. Do not assume the Ho  and  Hint  are
-    // configured previously
 
-    int
-        i,
-        M = MC->Morb,
-        Mpos = MC->Mpos;
-    
-    /* ==================================================================== *
-     *                                                                      *
-     *        Setup single/two particle hamiltonian matrix elements         *
-     *                                                                      *
-     * ==================================================================== */
+/** Time derivative of coefficients from the expansion in configuration
+    basis. Assume elements of Ho and Hint previuosly setted up with the
+    Single Particle Wave function whose the configurations refers to */
 
-    SetupHo(M, Mpos, Orb, MC->dx, MC->a2, MC->a1, MC->V, Ho);
-    SetupHint(M, Mpos, Orb, MC->dx, MC->inter, Hint);
+    int i;
 
-    OrbDDT(MC, C, Orb, dOdt, Ho, Hint);
-    applyHconf(MC, C, Ho, Hint, dCdt);
+    applyHconf(MC->Npar, MC->Morb, MC->NCmat, MC->IF, C, Ho, Hint, dCdt);
 
     for (i = 0; i < MC->nc; i++) dCdt[i] = - I * dCdt[i];
 }
@@ -781,7 +330,11 @@ void lanczos(MCTDHBsetup MCdata, Cmatrix Ho, Carray Hint,
     int i,
         j,
         k,
-        nc = MCdata->nc;
+        nc = MCdata->nc,
+        Npar = MCdata->Npar,
+        Morb = MCdata->Morb,
+        ** IF = MCdata->IF,
+        ** NCmat = MCdata->NCmat;
 
 
 
@@ -791,7 +344,7 @@ void lanczos(MCTDHBsetup MCdata, Cmatrix Ho, Carray Hint,
 
 
 
-    applyHconf(MCdata, lvec[0], Ho, Hint, out);
+    applyHconf(Npar, Morb, NCmat, IF, lvec[0], Ho, Hint, out);
     diag[0] = carrDot(nc, lvec[0], out);
 
     for (j = 0; j < nc; j++) out[j] = out[j] - diag[0] * lvec[0][j];
@@ -803,7 +356,7 @@ void lanczos(MCTDHBsetup MCdata, Cmatrix Ho, Carray Hint,
     {
         offdiag[i] = carrMod(nc, out);
         carrScalarMultiply(nc, out, 1.0 / offdiag[i], lvec[i + 1]);
-        applyHconf(MCdata, lvec[i + 1], Ho, Hint, out);
+        applyHconf(Npar, Morb, NCmat, IF, lvec[i + 1], Ho, Hint, out);
 
         for (j = 0; j < nc; j++)
         {
@@ -841,10 +394,8 @@ void lanczos(MCTDHBsetup MCdata, Cmatrix Ho, Carray Hint,
 
 void LanczosIntegrator (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
 {
-    // Advance first C in time by dt. The advanced C is used  only in  k4
-    // step of RK4 method for orbitals. Note that 'lvec[0]' holds current
-    // unadvanced C by 'dt' time-step, that is used in k1, k2 and k3
 
+    /* Integrate Coefficients in a imaginary time-step dt using Lanczos */
 
 
     int
@@ -999,182 +550,29 @@ void LanczosIntegrator (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt
 
 
 
-void RK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt)
-{   // Apply 4-th order Runge-Kutta routine given a (COMPLEX)time step
+void MC_NLTRAPC_IRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
+{
 
-    int i; // Coeficient Index Counter
-
-    int  k, // Orbital counter
-         j, // discretized position counter
-         M = MC->Morb,
-         Mpos = MC->Mpos,
-         Npar = MC->Npar;
-
-    Carray Crhs = carrDef(MC->nc);
-    Carray Cnew = carrDef(MC->nc);
-    Carray Carg = carrDef(MC->nc);
-
-    Cmatrix Orhs = cmatDef(M, Mpos);
-    Cmatrix Onew = cmatDef(M, Mpos);
-    Cmatrix Oarg = cmatDef(M, Mpos);
-
-    Cmatrix  Ho = cmatDef(M, M);
-    Carray Hint = carrDef(M * M * M *M);
+    /* (M)ulti-(C)onfiguration (N)on (L)inear part + (TRAP) potential
+       and  (C)oefficients  solver  for  (I)maginary  time-step  with
+       (R)unge-(K)utta method of 4-th order : MC_NLTRAPC_IRK4      */
 
 
-
-    /* ================================================================= *
-    
-                  COMPUTE AND SUM UP FOUR Ks OF RUNGE-KUTTA
-
-     * ================================================================= */
-
-
-
-    /* ------------------------------------------------------------------
-    COMPUTE K1 in ?rhs variables
-    --------------------------------------------------------------------- */
-    OrbConfDDT(MC, C, Orb, Ho, Hint, Crhs, Orhs);
-
-    for (i = 0; i < MC->nc; i++)
-    {   // Add K1 contribution
-        Cnew[i] = Crhs[i];
-        // Prepare next argument to compute K2
-        Carg[i] = C[i] + Crhs[i] * 0.5 * dt;
-    }
-
-    for (k = 0; k < M; k++)
-    {
-        for (j = 0; j < Mpos; j++)
-        {   // Add K1 contribution
-            Onew[k][j] = Orhs[k][j];
-            // Prepare next argument to compute K2
-            Oarg[k][j] = Orb[k][j] + Orhs[k][j] * 0.5 * dt;
-        }
-    }
-
-
-
-    /* ------------------------------------------------------------------
-    COMPUTE K2 in ?rhs variables
-    --------------------------------------------------------------------- */
-    OrbConfDDT(MC, Carg, Oarg, Ho, Hint, Crhs, Orhs);
-
-    for (i = 0; i < MC->nc; i++)
-    {   // Add K2 contribution
-        Cnew[i] += 2 * Crhs[i];
-        // Prepare next argument to compute K3
-        Carg[i] = C[i] + Crhs[i] * 0.5 * dt;
-    }
-
-    for (k = 0; k < M; k++)
-    {
-        for (j = 0; j < Mpos; j++)
-        {   // Add K2 contribution
-            Onew[k][j] += 2 * Orhs[k][j];
-            // Prepare next argument to compute K3
-            Oarg[k][j] = Orb[k][j] + Orhs[k][j] * 0.5 * dt;
-        }
-    }
-
-
-
-    /* ------------------------------------------------------------------
-    COMPUTE K3 in ?rhs variables
-    --------------------------------------------------------------------- */
-    OrbConfDDT(MC, Carg, Oarg, Ho, Hint, Crhs, Orhs);
-
-    for (i = 0; i < MC->nc; i++)
-    {   // Add K3 contribution
-        Cnew[i] += 2 * Crhs[i];
-        // Prepare next argument to compute K4
-        Carg[i] = C[i] + Crhs[i] * dt;
-    }
-
-    for (k = 0; k < M; k++)
-    {
-        for (j = 0; j < Mpos; j++)
-        {   // Add K3 contribution
-            Onew[k][j] += 2 * Orhs[k][j];
-            // Prepare next argument to compute K4
-            Oarg[k][j] = Orb[k][j] + Orhs[k][j] * dt;
-        }
-    }
-
-
-
-    /* ------------------------------------------------------------------
-    COMPUTE K4 in ?rhs variables
-    --------------------------------------------------------------------- */
-    OrbConfDDT(MC, Carg, Oarg, Ho, Hint, Crhs, Orhs);
-
-    for (i = 0; i < MC->nc; i++)
-    {   // Add K4 contribution
-        Cnew[i] += Crhs[i];
-    }
-
-    for (k = 0; k < M; k++)
-    {
-        for (j = 0; j < Mpos; j++)
-        {   // Add K4 contribution
-            Onew[k][j] += Orhs[k][j];
-        }
-    }
-
-    // Until now ?new  holds the sum K1 + 2 * K2 + 2 * K3 + K4
-    // from the Fourth order Runge-Kutta algorithm. Therefore:
-
-    for (i = 0; i < MC->nc; i++)
-    {   // Update Coeficients
-        C[i] = C[i] + Cnew[i] * dt / 6;
-    }
-
-    for (k = 0; k < M; k++)
-    {   // Update Orbitals
-        for (j = 0; j < Mpos; j++)
-        {
-            Orb[k][j] = Orb[k][j] + Onew[k][j] * dt / 6;
-        }
-    }
-
-    free(Cnew);
-    free(Crhs);
-    free(Carg);
-    
-    cmatFree(M, Orhs);
-    cmatFree(M, Onew);
-    cmatFree(M, Oarg);
-
-    cmatFree(M, Ho);
-    free(Hint);
-}
-
-
-
-
-
-
-
-
-
-
-void FFTIRK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
-{   // Apply 4-th order Runge-Kutta routine given a (COMPLEX)time step
 
     int
         i,
-        k, // Orbital counter
-        j, // discretized position counter
+        k,
+        j,
+        nc = MC->nc,
         M = MC->Morb,
-        Mpos = MC->Mpos,
-        Npar = MC->Npar;
+        Mpos = MC->Mpos;
 
-    Carray Crhs = carrDef(MC->nc);
-    Carray Cnew = carrDef(MC->nc);
+    Carray dCdt = carrDef(MC->nc);
+    Carray Ck = carrDef(MC->nc);
     Carray Carg = carrDef(MC->nc);
 
-    Cmatrix Orhs = cmatDef(M, Mpos);
-    Cmatrix Onew = cmatDef(M, Mpos);
+    Cmatrix dOdt = cmatDef(M, Mpos);
+    Cmatrix Ok = cmatDef(M, Mpos);
     Cmatrix Oarg = cmatDef(M, Mpos);
 
     Cmatrix  Ho = cmatDef(M, M);
@@ -1184,27 +582,28 @@ void FFTIRK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
 
     SetupHo(M, Mpos, Orb, MC->dx, MC->a2, MC->a1, MC->V, Ho);
     SetupHint(M, Mpos, Orb, MC->dx, MC->inter, Hint);
-    /* ------------------------------------------------------------------
-    COMPUTE K1 in ?rhs variables
-    --------------------------------------------------------------------- */
-    FFTOrbDDT(MC, C, Orb, Orhs, Ho, Hint);
-    applyHconf(MC, C, Ho, Hint, Crhs);
-    for (i = 0; i < MC->nc; i++) Crhs[i] = - I * Crhs[i];
 
-    for (i = 0; i < MC->nc; i++)
+    // ------------------------------------------------------------------
+    // COMPUTE K1
+    // ------------------------------------------------------------------
+
+    MCNLTRAP_dOdt(MC, C, Orb, dOdt, Ho, Hint);
+    MC_dCdt(MC, C, Ho, Hint, dCdt);
+
+    for (i = 0; i < nc; i++)
     {   // Add K1 contribution
-        Cnew[i] = Crhs[i];
+        Ck[i] = dCdt[i];
         // Prepare next argument to compute K2
-        Carg[i] = C[i] + Crhs[i] * 0.5 * dt;
+        Carg[i] = C[i] + dCdt[i] * 0.5 * dt;
     }
 
     for (k = 0; k < M; k++)
     {
         for (j = 0; j < Mpos; j++)
         {   // Add K1 contribution
-            Onew[k][j] = Orhs[k][j];
+            Ok[k][j] = dOdt[k][j];
             // Prepare next argument to compute K2
-            Oarg[k][j] = Orb[k][j] + Orhs[k][j] * 0.5 * dt;
+            Oarg[k][j] = Orb[k][j] + dOdt[k][j] * 0.5 * dt;
         }
     }
 
@@ -1212,27 +611,28 @@ void FFTIRK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
 
     SetupHo(M, Mpos, Oarg, MC->dx, MC->a2, MC->a1, MC->V, Ho);
     SetupHint(M, Mpos, Oarg, MC->dx, MC->inter, Hint);
-    /* ------------------------------------------------------------------
-    COMPUTE K2 in ?rhs variables
-    --------------------------------------------------------------------- */
-    FFTOrbDDT(MC, Carg, Oarg, Orhs, Ho, Hint);
-    applyHconf(MC, Carg, Ho, Hint, Crhs);
-    for (i = 0; i < MC->nc; i++) Crhs[i] = - I * Crhs[i];
 
-    for (i = 0; i < MC->nc; i++)
+    // ------------------------------------------------------------------
+    // COMPUTE K2
+    // ------------------------------------------------------------------
+
+    MCNLTRAP_dOdt(MC, Carg, Oarg, dOdt, Ho, Hint);
+    MC_dCdt(MC, Carg, Ho, Hint, dCdt);
+
+    for (i = 0; i < nc; i++)
     {   // Add K2 contribution
-        Cnew[i] += 2 * Crhs[i];
+        Ck[i] += 2 * dCdt[i];
         // Prepare next argument to compute K3
-        Carg[i] = C[i] + Crhs[i] * 0.5 * dt;
+        Carg[i] = C[i] + dCdt[i] * 0.5 * dt;
     }
 
     for (k = 0; k < M; k++)
     {
         for (j = 0; j < Mpos; j++)
         {   // Add K2 contribution
-            Onew[k][j] += 2 * Orhs[k][j];
+            Ok[k][j] += 2 * dOdt[k][j];
             // Prepare next argument to compute K3
-            Oarg[k][j] = Orb[k][j] + Orhs[k][j] * 0.5 * dt;
+            Oarg[k][j] = Orb[k][j] + dOdt[k][j] * 0.5 * dt;
         }
     }
 
@@ -1240,27 +640,28 @@ void FFTIRK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
 
     SetupHo(M, Mpos, Oarg, MC->dx, MC->a2, MC->a1, MC->V, Ho);
     SetupHint(M, Mpos, Oarg, MC->dx, MC->inter, Hint);
-    /* ------------------------------------------------------------------
-    COMPUTE K3 in ?rhs variables
-    --------------------------------------------------------------------- */
-    FFTOrbDDT(MC, Carg, Oarg, Orhs, Ho, Hint);
-    applyHconf(MC, Carg, Ho, Hint, Crhs);
-    for (i = 0; i < MC->nc; i++) Crhs[i] = - I * Crhs[i];
+
+    // ------------------------------------------------------------------
+    // COMPUTE K3
+    // ------------------------------------------------------------------
+
+    MCNLTRAP_dOdt(MC, Carg, Oarg, dOdt, Ho, Hint);
+    MC_dCdt(MC, Carg, Ho, Hint, dCdt);
 
     for (i = 0; i < MC->nc; i++)
     {   // Add K3 contribution
-        Cnew[i] += 2 * Crhs[i];
+        Ck[i] += 2 * dCdt[i];
         // Prepare next argument to compute K4
-        Carg[i] = C[i] + Crhs[i] * dt;
+        Carg[i] = C[i] + dCdt[i] * dt;
     }
 
     for (k = 0; k < M; k++)
     {
         for (j = 0; j < Mpos; j++)
         {   // Add K3 contribution
-            Onew[k][j] += 2 * Orhs[k][j];
+            Ok[k][j] += 2 * dOdt[k][j];
             // Prepare next argument to compute K4
-            Oarg[k][j] = Orb[k][j] + Orhs[k][j] * dt;
+            Oarg[k][j] = Orb[k][j] + dOdt[k][j] * dt;
         }
     }
 
@@ -1268,48 +669,49 @@ void FFTIRK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
 
     SetupHo(M, Mpos, Oarg, MC->dx, MC->a2, MC->a1, MC->V, Ho);
     SetupHint(M, Mpos, Oarg, MC->dx, MC->inter, Hint);
-    /* ------------------------------------------------------------------
-    COMPUTE K4 in ?rhs variables
-    --------------------------------------------------------------------- */
-    FFTOrbDDT(MC, Carg, Oarg, Orhs, Ho, Hint);
-    applyHconf(MC, Carg, Ho, Hint, Crhs);
-    for (i = 0; i < MC->nc; i++) Crhs[i] = - I * Crhs[i];
+
+    // ------------------------------------------------------------------
+    // COMPUTE K4
+    // ------------------------------------------------------------------
+
+    MCNLTRAP_dOdt(MC, Carg, Oarg, dOdt, Ho, Hint);
+    MC_dCdt(MC, Carg, Ho, Hint, dCdt);
 
     for (i = 0; i < MC->nc; i++)
     {   // Add K4 contribution
-        Cnew[i] += Crhs[i];
+        Ck[i] += dCdt[i];
     }
 
     for (k = 0; k < M; k++)
     {
         for (j = 0; j < Mpos; j++)
         {   // Add K4 contribution
-            Onew[k][j] += Orhs[k][j];
+            Ok[k][j] += dOdt[k][j];
         }
     }
 
-    // Until now ?new  holds the sum K1 + 2 * K2 + 2 * K3 + K4
-    // from the Fourth order Runge-Kutta algorithm. Therefore:
+    // Until now Ck and Ok holds the sum K1 + 2 * K2 + 2 * K3 + K4
+    // from the Fourth order Runge-Kutta algorithm.  Then update :
 
     for (i = 0; i < MC->nc; i++)
     {   // Update Coeficients
-        C[i] = C[i] + Cnew[i] * dt / 6;
+        C[i] = C[i] + Ck[i] * dt / 6;
     }
 
     for (k = 0; k < M; k++)
     {   // Update Orbitals
         for (j = 0; j < Mpos; j++)
         {
-            Orb[k][j] = Orb[k][j] + Onew[k][j] * dt / 6;
+            Orb[k][j] = Orb[k][j] + Ok[k][j] * dt / 6;
         }
     }
 
-    free(Cnew);
-    free(Crhs);
+    free(Ck);
+    free(dCdt);
     free(Carg);
     
-    cmatFree(M, Orhs);
-    cmatFree(M, Onew);
+    cmatFree(M, dOdt);
+    cmatFree(M, Ok);
     cmatFree(M, Oarg);
 
     cmatFree(M, Ho);
@@ -1323,21 +725,25 @@ void FFTIRK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
 
 
 
-void IRK4_Orb (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
-{   // Apply 4-th order Runge-Kutta routine given a (COMPLEX)time step
+
+
+void MC_NL_IRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
+{
+
+    /* (M)ulti-(C)onfiguration (N)on-(L)inear part solver for  (I)maginary
+       time-step with (R)unge-(K)utta method of 4-th order : MC_NL_IRK4 */
+
+
 
     int
         i,
-        k, // Orbital counter
-        j, // discretized position counter
+        k,
+        j,
         M = MC->Morb,
-        Mpos = MC->Mpos,
-        Npar = MC->Npar;
+        Mpos = MC->Mpos;
 
-    Carray Crhs = carrDef(MC->nc);
-
-    Cmatrix Orhs = cmatDef(M, Mpos);
-    Cmatrix Onew = cmatDef(M, Mpos);
+    Cmatrix dOdt = cmatDef(M, Mpos);
+    Cmatrix Ok = cmatDef(M, Mpos);
     Cmatrix Oarg = cmatDef(M, Mpos);
 
     Cmatrix  Ho = cmatDef(M, M);
@@ -1345,101 +751,134 @@ void IRK4_Orb (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
 
 
 
-    /* ------------------------------------------------------------------
-    COMPUTE K1 in ?rhs variables
-    --------------------------------------------------------------------- */
-    OrbConfDDT(MC, C, Orb, Ho, Hint, Crhs, Orhs);
+    SetupHo(M, Mpos, Orb, MC->dx, MC->a2, MC->a1, MC->V, Ho);
+    SetupHint(M, Mpos, Orb, MC->dx, MC->inter, Hint);
+
+    // ------------------------------------------------------------------
+    // COMPUTE K1
+    // ------------------------------------------------------------------
+
+    MCNL_dOdt(MC, C, Orb, dOdt, Ho, Hint);
     for (k = 0; k < M; k++)
     {
         for (j = 0; j < Mpos; j++)
         {   // Add K1 contribution
-            Onew[k][j] = Orhs[k][j];
+            Ok[k][j] = dOdt[k][j];
             // Prepare next argument to compute K2
-            Oarg[k][j] = Orb[k][j] + Orhs[k][j] * 0.5 * dt;
+            Oarg[k][j] = Orb[k][j] + dOdt[k][j] * 0.5 * dt;
         }
     }
 
 
 
-    /* ------------------------------------------------------------------
-    COMPUTE K2 in ?rhs variables
-    --------------------------------------------------------------------- */
-    OrbConfDDT(MC, C, Oarg, Ho, Hint, Crhs, Orhs);
+    SetupHo(M, Mpos, Oarg, MC->dx, MC->a2, MC->a1, MC->V, Ho);
+    SetupHint(M, Mpos, Oarg, MC->dx, MC->inter, Hint);
+
+    // ------------------------------------------------------------------
+    // COMPUTE K2
+    // ------------------------------------------------------------------
+
+    MCNL_dOdt(MC, C, Oarg, dOdt, Ho, Hint);
     for (k = 0; k < M; k++)
     {
         for (j = 0; j < Mpos; j++)
         {   // Add K2 contribution
-            Onew[k][j] += 2 * Orhs[k][j];
+            Ok[k][j] += 2 * dOdt[k][j];
             // Prepare next argument to compute K3
-            Oarg[k][j] = Orb[k][j] + Orhs[k][j] * 0.5 * dt;
+            Oarg[k][j] = Orb[k][j] + dOdt[k][j] * 0.5 * dt;
         }
     }
 
 
 
-    /* ------------------------------------------------------------------
-    COMPUTE K3 in ?rhs variables
-    --------------------------------------------------------------------- */
-    OrbConfDDT(MC, C, Oarg, Ho, Hint, Crhs, Orhs);
+    SetupHo(M, Mpos, Oarg, MC->dx, MC->a2, MC->a1, MC->V, Ho);
+    SetupHint(M, Mpos, Oarg, MC->dx, MC->inter, Hint);
+
+    // ------------------------------------------------------------------
+    // COMPUTE K3
+    // ------------------------------------------------------------------
+
+    MCNL_dOdt(MC, C, Oarg, dOdt, Ho, Hint);
     for (k = 0; k < M; k++)
     {
         for (j = 0; j < Mpos; j++)
         {   // Add K3 contribution
-            Onew[k][j] += 2 * Orhs[k][j];
+            Ok[k][j] += 2 * dOdt[k][j];
             // Prepare next argument to compute K4
-            Oarg[k][j] = Orb[k][j] + Orhs[k][j] * dt;
+            Oarg[k][j] = Orb[k][j] + dOdt[k][j] * dt;
         }
     }
 
 
 
-    /* ------------------------------------------------------------------
-    COMPUTE K4 in ?rhs variables
-    --------------------------------------------------------------------- */
-    OrbConfDDT(MC, C, Oarg, Ho, Hint, Crhs, Orhs);
+    SetupHo(M, Mpos, Oarg, MC->dx, MC->a2, MC->a1, MC->V, Ho);
+    SetupHint(M, Mpos, Oarg, MC->dx, MC->inter, Hint);
+
+    // ------------------------------------------------------------------
+    // COMPUTE K4
+    // ------------------------------------------------------------------
+
+    MCNL_dOdt(MC, C, Oarg, dOdt, Ho, Hint);
     for (k = 0; k < M; k++)
     {
         for (j = 0; j < Mpos; j++)
         {   // Add K4 contribution
-            Onew[k][j] += Orhs[k][j];
+            Ok[k][j] += dOdt[k][j];
         }
     }
 
-    // Until now ?new  holds the sum K1 + 2 * K2 + 2 * K3 + K4
-    // from the Fourth order Runge-Kutta algorithm. Therefore:
+
+
+    // Until now Ok holds the sum K1 + 2 * K2 + 2 * K3 + K4
+    // from the Fourth order Runge-Kutta algorithm.  Then :
     for (k = 0; k < M; k++)
     {   // Update Orbitals
         for (j = 0; j < Mpos; j++)
         {
-            Orb[k][j] = Orb[k][j] + Onew[k][j] * dt / 6;
+            Orb[k][j] = Orb[k][j] + Ok[k][j] * dt / 6;
         }
     }
 
-    free(Crhs);
-    cmatFree(M, Orhs);
-    cmatFree(M, Onew);
+    cmatFree(M, dOdt);
+    cmatFree(M, Ok);
     cmatFree(M, Oarg);
 
     cmatFree(M, Ho);
     free(Hint);
 }
-void IRK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
-{   // Apply 4-th order Runge-Kutta routine given a (COMPLEX)time step
+
+
+
+
+
+
+
+
+
+
+void MC_NLC_IRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
+{
+
+    /* (M)ulti-(C)onfiguration (N)on (L)inear part and  (C)oefficients
+       solver for (I)maginary time-step with (R)unge-(K)utta method of
+       4-th order : MC_NLC_IRK4                                     */
+
+
 
     int
         i,
-        k, // Orbital counter
-        j, // discretized position counter
+        k,
+        j,
         M = MC->Morb,
         Mpos = MC->Mpos,
         Npar = MC->Npar;
 
-    Carray Crhs = carrDef(MC->nc);
-    Carray Cnew = carrDef(MC->nc);
+    Carray dCdt = carrDef(MC->nc);
+    Carray Ck = carrDef(MC->nc);
     Carray Carg = carrDef(MC->nc);
 
-    Cmatrix Orhs = cmatDef(M, Mpos);
-    Cmatrix Onew = cmatDef(M, Mpos);
+    Cmatrix dOdt = cmatDef(M, Mpos);
+    Cmatrix Ok = cmatDef(M, Mpos);
     Cmatrix Oarg = cmatDef(M, Mpos);
 
     Cmatrix  Ho = cmatDef(M, M);
@@ -1447,118 +886,140 @@ void IRK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
 
 
 
-    /* ------------------------------------------------------------------
-    COMPUTE K1 in ?rhs variables
-    --------------------------------------------------------------------- */
-    OrbConfDDT(MC, C, Orb, Ho, Hint, Crhs, Orhs);
+    SetupHo(M, Mpos, Orb, MC->dx, MC->a2, MC->a1, MC->V, Ho);
+    SetupHint(M, Mpos, Orb, MC->dx, MC->inter, Hint);
+
+    // ------------------------------------------------------------------
+    // COMPUTE K1
+    // ------------------------------------------------------------------
+
+    MCNL_dOdt(MC, C, Orb, dOdt, Ho, Hint);
+    MC_dCdt(MC, C, Ho, Hint, dCdt);
 
     for (i = 0; i < MC->nc; i++)
     {   // Add K1 contribution
-        Cnew[i] = Crhs[i];
+        Ck[i] = dCdt[i];
         // Prepare next argument to compute K2
-        Carg[i] = C[i] + Crhs[i] * 0.5 * dt;
+        Carg[i] = C[i] + dCdt[i] * 0.5 * dt;
     }
 
     for (k = 0; k < M; k++)
     {
         for (j = 0; j < Mpos; j++)
         {   // Add K1 contribution
-            Onew[k][j] = Orhs[k][j];
+            Ok[k][j] = dOdt[k][j];
             // Prepare next argument to compute K2
-            Oarg[k][j] = Orb[k][j] + Orhs[k][j] * 0.5 * dt;
+            Oarg[k][j] = Orb[k][j] + dOdt[k][j] * 0.5 * dt;
         }
     }
 
 
 
-    /* ------------------------------------------------------------------
-    COMPUTE K2 in ?rhs variables
-    --------------------------------------------------------------------- */
-    OrbConfDDT(MC, Carg, Oarg, Ho, Hint, Crhs, Orhs);
+    SetupHo(M, Mpos, Oarg, MC->dx, MC->a2, MC->a1, MC->V, Ho);
+    SetupHint(M, Mpos, Oarg, MC->dx, MC->inter, Hint);
+
+    // ------------------------------------------------------------------
+    // COMPUTE K2
+    // ------------------------------------------------------------------
+
+    MCNL_dOdt(MC, Carg, Oarg, dOdt, Ho, Hint);
+    MC_dCdt(MC, Carg, Ho, Hint, dCdt);
 
     for (i = 0; i < MC->nc; i++)
     {   // Add K2 contribution
-        Cnew[i] += 2 * Crhs[i];
+        Ck[i] += 2 * dCdt[i];
         // Prepare next argument to compute K3
-        Carg[i] = C[i] + Crhs[i] * 0.5 * dt;
+        Carg[i] = C[i] + dCdt[i] * 0.5 * dt;
     }
 
     for (k = 0; k < M; k++)
     {
         for (j = 0; j < Mpos; j++)
         {   // Add K2 contribution
-            Onew[k][j] += 2 * Orhs[k][j];
+            Ok[k][j] += 2 * dOdt[k][j];
             // Prepare next argument to compute K3
-            Oarg[k][j] = Orb[k][j] + Orhs[k][j] * 0.5 * dt;
+            Oarg[k][j] = Orb[k][j] + dOdt[k][j] * 0.5 * dt;
         }
     }
 
 
 
-    /* ------------------------------------------------------------------
-    COMPUTE K3 in ?rhs variables
-    --------------------------------------------------------------------- */
-    OrbConfDDT(MC, Carg, Oarg, Ho, Hint, Crhs, Orhs);
+    SetupHo(M, Mpos, Oarg, MC->dx, MC->a2, MC->a1, MC->V, Ho);
+    SetupHint(M, Mpos, Oarg, MC->dx, MC->inter, Hint);
+
+    // ------------------------------------------------------------------
+    // COMPUTE K3
+    // ------------------------------------------------------------------
+
+    MCNL_dOdt(MC, Carg, Oarg, dOdt, Ho, Hint);
+    MC_dCdt(MC, Carg, Ho, Hint, dCdt);
 
     for (i = 0; i < MC->nc; i++)
     {   // Add K3 contribution
-        Cnew[i] += 2 * Crhs[i];
+        Ck[i] += 2 * dCdt[i];
         // Prepare next argument to compute K4
-        Carg[i] = C[i] + Crhs[i] * dt;
+        Carg[i] = C[i] + dCdt[i] * dt;
     }
 
     for (k = 0; k < M; k++)
     {
         for (j = 0; j < Mpos; j++)
         {   // Add K3 contribution
-            Onew[k][j] += 2 * Orhs[k][j];
+            Ok[k][j] += 2 * dOdt[k][j];
             // Prepare next argument to compute K4
-            Oarg[k][j] = Orb[k][j] + Orhs[k][j] * dt;
+            Oarg[k][j] = Orb[k][j] + dOdt[k][j] * dt;
         }
     }
 
 
 
-    /* ------------------------------------------------------------------
-    COMPUTE K4 in ?rhs variables
-    --------------------------------------------------------------------- */
-    OrbConfDDT(MC, Carg, Oarg, Ho, Hint, Crhs, Orhs);
+    SetupHo(M, Mpos, Oarg, MC->dx, MC->a2, MC->a1, MC->V, Ho);
+    SetupHint(M, Mpos, Oarg, MC->dx, MC->inter, Hint);
+
+    // ------------------------------------------------------------------
+    // COMPUTE K4
+    // ------------------------------------------------------------------
+
+    MCNL_dOdt(MC, Carg, Oarg, dOdt, Ho, Hint);
+    MC_dCdt(MC, Carg, Ho, Hint, dCdt);
 
     for (i = 0; i < MC->nc; i++)
     {   // Add K4 contribution
-        Cnew[i] += Crhs[i];
+        Ck[i] += dCdt[i];
     }
 
     for (k = 0; k < M; k++)
     {
         for (j = 0; j < Mpos; j++)
         {   // Add K4 contribution
-            Onew[k][j] += Orhs[k][j];
+            Ok[k][j] += dOdt[k][j];
         }
     }
 
-    // Until now ?new  holds the sum K1 + 2 * K2 + 2 * K3 + K4
-    // from the Fourth order Runge-Kutta algorithm. Therefore:
+
+
+    // Until now Ok and Ck holds the sum K1 + 2 * K2 + 2 * K3 + K4
+    // from the Fourth order Runge-Kutta algorithm.  Then update :
 
     for (i = 0; i < MC->nc; i++)
     {   // Update Coeficients
-        C[i] = C[i] + Cnew[i] * dt / 6;
+        C[i] = C[i] + Ck[i] * dt / 6;
     }
 
     for (k = 0; k < M; k++)
     {   // Update Orbitals
         for (j = 0; j < Mpos; j++)
         {
-            Orb[k][j] = Orb[k][j] + Onew[k][j] * dt / 6;
+            Orb[k][j] = Orb[k][j] + Ok[k][j] * dt / 6;
         }
     }
 
-    free(Cnew);
-    free(Crhs);
+    free(Ck);
+    free(dCdt);
     free(Carg);
     
-    cmatFree(M, Orhs);
-    cmatFree(M, Onew);
+    cmatFree(M, dOdt);
+    cmatFree(M, Ok);
     cmatFree(M, Oarg);
 
     cmatFree(M, Ho);
@@ -1574,9 +1035,21 @@ void IRK4step (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
 
 
 
-void LinearPartSM (int Mpos, int Morb, CCSmat cnmat, Carray upper,
+void MCLP_CNSM (int Mpos, int Morb, CCSmat cnmat, Carray upper,
      Carray lower, Carray mid, Cmatrix Orb)
-{   // Laplacian part. Solve using CN-discretization
+{
+
+    /* (M)ulti-(C)onfiguration  (L)inear  (P)art  solver by
+     * (C)rank-(N)icolson with (S)herman-(M)orrison formula
+     * to a cyclic-tridiagonal system : MCLPCNSM
+     * ----------------------------------------------------
+     *
+     * Given a complex matrix with orbitals  organized  in
+     * each  row,  Solve  cyclic-tridiagonal  system  that
+     * arises from Crank-Nicolson finite difference scheme
+     * with the discretization matrix to multiply RHS in a
+     * Compressed-Column Storage format                 */
+
     int
         k,
         size = Mpos - 1;
@@ -1602,9 +1075,18 @@ void LinearPartSM (int Mpos, int Morb, CCSmat cnmat, Carray upper,
 
 
 
-void LinearPartLU (int Mpos, int Morb, CCSmat cnmat, Carray upper,
-     Carray lower, Carray mid, Cmatrix Orb )
-{   // Laplacian part. Solve using CN-discretization
+void MCLP_CNLU (int Mpos, int Morb, CCSmat cnmat, Carray upper, Carray lower,
+     Carray mid, Cmatrix Orb )
+{
+    /* (M)ulti-(C)onfiguration  (L)inear  (P)art  solver by
+     * (C)rank-(N)icolson with (LU) decomposition: MCLPCNLU
+     * ----------------------------------------------------
+     *
+     * Given a complex matrix with orbitals  organized  in
+     * each  row,  Solve  cyclic-tridiagonal  system  that
+     * arises from Crank-Nicolson finite difference scheme
+     * with the discretization matrix to multiply RHS in a
+     * Compressed-Column Storage format                 */
 
     int
         k,
@@ -1626,9 +1108,21 @@ void LinearPartLU (int Mpos, int Morb, CCSmat cnmat, Carray upper,
 
 
 
-void LinearPartFFT (int Mpos, int Morb, DFTI_DESCRIPTOR_HANDLE * desc,
+
+
+
+
+
+void MCLP_FFT (int Mpos, int Morb, DFTI_DESCRIPTOR_HANDLE * desc,
      Carray exp_der, Cmatrix Orb)
 {
+    /* (M)ulti-(C)onfiguration (L)inear (P)art solver by
+     * (F)ast (F)ourier (T)ransform : MCLPFFT
+     * -------------------------------------------------
+     *
+     * Given a complex matrix with orbitals organized  in
+     * each row, apply exponential of derivative operator
+     * whose is part of split-step formal solution.    */
 
     int
         k;
@@ -1638,7 +1132,7 @@ void LinearPartFFT (int Mpos, int Morb, DFTI_DESCRIPTOR_HANDLE * desc,
 
     Carray
         forward_fft = carrDef(Mpos - 1),
-        back_fft = carrDef(Mpos - 1);
+        back_fft    = carrDef(Mpos - 1);
 
     for (k = 0; k < Morb; k++)
     {
@@ -1661,228 +1155,50 @@ void LinearPartFFT (int Mpos, int Morb, DFTI_DESCRIPTOR_HANDLE * desc,
 
 
 
-    /* =============================================================*
-     *                                                              *
-     *           Give the solution after some time steps            *
-     *           ---------------------------------------            *
-     *                                                              *
-     * Given the structure MCTDHBsetup whose contains all  relevant *
-     * parameters, do the time (real or complex) evolution  calling *
-     * separetely the nonlinear part together with the  coeficients *
-     * in half of the time step. Then It evolves an entire step the *
-     * linear part of orbital's equation. Finally evolve  one  more *
-     * half time step the nonlinear part.                           *
-     *
-     * ============================================================ */
 
 
 
 
-void MCTDHB_CN_REAL (MCTDHBsetup MC, Cmatrix Orb, Carray C, double dt,
-     int Nsteps, int method, int cyclic, char fname [], int n)
-{
 
+    /* =============================================================
 
 
-    int
-        i,
-        k,
-        l,
-        s,
-        q,
-        Mpos = MC->Mpos;
+                         MAIN INTEGRATOR ROUTINES
 
 
+       ============================================================= */
 
-    double
-        dx = MC->dx,
-        a2 = MC->a2;
 
 
 
-    double complex
-        tr,
-        a1 = MC->a1;
 
 
 
-    // used to store matrix elements of linear part
-    Carray
-        to_int = carrDef(Mpos),
-        upper  = carrDef(Mpos - 1),
-        lower  = carrDef(Mpos - 1),
-        mid    = carrDef(Mpos - 1);
 
 
 
-    Cmatrix
-        rho = cmatDef(MC->Morb, MC->Morb);
-
-
-
-    CCSmat
-        cnmat;
-
-
-    
-    char
-        fname_orb[120],
-        fname_rho[120];
-
-
-
-    FILE
-        * out_orb,
-        * out_rho;
-
-
-
-    strcpy(fname_orb, fname);
-    strcat(fname_orb, "_orb_realtime.dat");
-    strcpy(fname_rho, fname);
-    strcat(fname_rho, "_rho_realtime.dat");
-
-    out_orb = fopen(fname_orb, "w");
-    if (out_orb == NULL)
-    {
-        printf("\n\nError: Impossible to open %s\n", fname_orb);
-        exit(EXIT_FAILURE);
-    }
-
-    out_rho = fopen(fname_rho, "w");
-    if (out_orb == NULL)
-    {
-        printf("\n\nError: Impossible to open %s\n", fname_rho);
-        exit(EXIT_FAILURE);
-    }
-
-
-
-    // Record initial data
-    OBrho(MC->Npar, MC->Morb, MC->NCmat, MC->IF, C, rho);
-    for (k = 0; k < MC->Morb; k++) RecordArray(out_orb, Mpos, Orb[k]);
-    RecordMatrixInLine(out_rho, MC->Morb, rho);
-
-
-
-    // fill main diagonal (use upper as auxiliar array)
-    carrFill(Mpos - 1, - a2 * dt / dx / dx + I, upper);
-    rcarrUpdate(Mpos - 1, upper, dt / 2, MC->V, mid);
-
-    // fill upper diagonal
-    carrFill(Mpos - 1, a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, upper);
-    if (cyclic) { upper[Mpos-2] = a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
-    else        { upper[Mpos-2] = 0;                                        }
-
-    // fill lower diagonal
-    carrFill(Mpos - 1, a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, lower);
-    if (cyclic) { lower[Mpos-2] = a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
-    else        { lower[Mpos-2] = 0;                                        }
-
-    // Store in CCS format the RHS of discretized system of equations
-    cnmat = CyclicToCCS(Mpos - 1, upper, lower, mid);
-
-
-
-
-    // fill main diagonal (use upper as auxiliar array)
-    carrFill(Mpos - 1, a2 * dt / dx / dx + I, upper);
-    rcarrUpdate(Mpos - 1, upper, -dt / 2, MC->V, mid);
-
-    // fill upper diagonal
-    carrFill(Mpos - 1, - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, upper);
-    if (cyclic) { upper[Mpos-2] = - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
-    else        { upper[Mpos-2] = 0;                                          }
-
-    // fill lower diagonal
-    carrFill(Mpos - 1, - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, lower);
-    if (cyclic) { lower[Mpos-2] = - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
-    else        { lower[Mpos-2] = 0;                                          }
-
-
-
-    q = 1;
-    for (i = 0; i < Nsteps; i++)
-    {
-            RK4step(MC, Orb, C, dt / 2);
-
-        if (method == 21 || method == 22)
-            LinearPartLU(Mpos, MC->Morb, cnmat, upper, lower, mid, Orb);
-        else
-            LinearPartSM(Mpos, MC->Morb, cnmat, upper, lower, mid, Orb);
-        // The boundary
-        if (cyclic)
-        { for (k = 0; k < MC->Morb; k++) Orb[k][Mpos-1] = Orb[k][0]; }
-        else
-        { for (k = 0; k < MC->Morb; k++) Orb[k][Mpos-1] = 0;         }
-
-
-            RK4step(MC, Orb, C, dt / 2);
-
-
-        // Build rho after have evolved one step
-        OBrho(MC->Npar, MC->Morb, MC->NCmat, MC->IF, C, rho);
-        tr = 0;
-        for (k = 0; k < MC->Morb; k++) tr = tr + rho[k][k];
-
-
-
-        printf("\n\nAfter %d time steps, Tr(rho) = ", i + 1); cPrint(tr);
-        printf(". Orthogonality matrix is:\n\n");
-        for (k = 0; k < MC->Morb; k++)
-        {
-            printf("\n\t");
-            for (l = 0; l < MC->Morb; l++)
-            {
-                for (s = 0; s < MC->Mpos; s++)
-                {
-                    to_int[s] = conj(Orb[k][s]) * Orb[l][s];
-                }
-                printf(" "); cPrint(Csimps(MC->Mpos, to_int, MC->dx));
-            }
-        }
-        printf("\n\n|| C || = %.8lf", carrMod(MC->nc, C));
-
-
-
-        // record data every n steps
-        if (q == n)
-        {
-            q = 1;
-            RecordMatrixInLine(out_rho, MC->Morb, rho);
-            for (k = 0; k < MC->Morb; k++)
-            {   // record orbitals in a sequence of Morb lines
-                RecordArray(out_orb, Mpos, Orb[k]);
-            }
-        }
-        else { q = q + 1; }
-    }
-
-
-
-    fclose(out_orb);
-    fclose(out_rho);
-
-    cmatFree(MC->Morb, rho);
-    CCSFree(cnmat);
-    free(to_int);
-    free(upper);
-    free(lower);
-    free(mid);
-}
-
-
-
-
-
-
-
-
-
-
-void MCTDHB_FFT_IMAG (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
+void MC_IMAG_RK4_FFTRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
      double dT, int Nsteps)
 {
+
+/** Multi-Configuration Imaginary time propagation
+    ==============================================
+
+
+    Methods
+    -------
+
+    Configuration Coefficients Integrator : 4-th order Runge-Kutta
+
+    Orbitals Integrator : Split-Step with FFT(linear)
+    and 4-th order Runge-Kutta(nonlinear)
+
+
+    Description
+    -----------
+
+    Evolve half step linear part, then full step nonlinear part together
+    with coefficients and another half step linear part */
 
 
 
@@ -1891,7 +1207,8 @@ void MCTDHB_FFT_IMAG (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
         l,
         s,
         m,
-        Mpos = MC->Mpos;
+        Mpos = MC->Mpos,
+        Morb = MC->Morb;
 
     MKL_LONG
         p;
@@ -1908,7 +1225,6 @@ void MCTDHB_FFT_IMAG (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
         a1 = MC->a1,
         dt = - I * dT;
 
-    // used to store matrix elements of linear part
     Carray
         exp_der = carrDef(Mpos - 1),
         to_int = carrDef(Mpos);
@@ -1917,21 +1233,21 @@ void MCTDHB_FFT_IMAG (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
 
 
-    m = Mpos - 1;
+    m = Mpos - 1; // Size of arrays to take the Fourier-Transform
 
-    /* setup descriptor (MKL implementation of FFT)
-     * ------------------------------------------------------------------- */
+    // setup descriptor (MKL implementation of FFT)
+    // -------------------------------------------------------------------
     DFTI_DESCRIPTOR_HANDLE desc;
     p = DftiCreateDescriptor(&desc, DFTI_DOUBLE, DFTI_COMPLEX, 1, m);
     p = DftiSetValue(desc, DFTI_FORWARD_SCALE, 1.0 / sqrt(m));
     p = DftiSetValue(desc, DFTI_BACKWARD_SCALE, 1.0 / sqrt(m));
     p = DftiCommitDescriptor(desc);
-    /* ------------------------------------------------------------------- */
+    // -------------------------------------------------------------------
 
 
 
-    /* Fourier Frequencies to do the exponential of derivative operator
-     * ------------------------------------------------------------------- */
+    // Exponential of derivative operator in momentum space
+    // -------------------------------------------------------------------
     for (i = 0; i < m; i++)
     {
         if (i <= (m - 1) / 2) { freq = (2 * PI * i) / (m * dx);       }
@@ -1939,29 +1255,29 @@ void MCTDHB_FFT_IMAG (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
         // exponential of derivative operators in half time-step
         exp_der[i] = cexp( -0.5 * dT * (I * a1 * freq - a2 * freq * freq) );
     }
-    /* ------------------------------------------------------------------- */
+    // -------------------------------------------------------------------
 
 
 
     // Store the initial guess energy
     E[0] = Energy(MC, Orb, C);
-    printf("\n\nInitial Energy = "); cPrint(E[0]);
+    printf("\n\nInitial Energy = %.9E", creal(E[0]));
 
 
 
     for (i = 0; i < Nsteps; i++)
     {
 
-        LinearPartFFT(Mpos, MC->Morb, &desc, exp_der, Orb);
+        MCLP_FFT(Mpos, Morb, &desc, exp_der, Orb);
 
-        FFTIRK4step(MC, Orb, C, dt);
+        MC_NLTRAPC_IRK4(MC, Orb, C, dt);
 
-        LinearPartFFT(Mpos, MC->Morb, &desc, exp_der, Orb);
+        MCLP_FFT(Mpos, Morb, &desc, exp_der, Orb);
 
 
 
-        // Loss of Norm => undefined behavior on orthogonalization
-        Ortonormalize(MC->Morb, Mpos, dx, Orb);
+        // Loss of Norm => undefined behavior on orthogonality
+        Ortonormalize(Morb, Mpos, dx, Orb);
 
         // Renormalize coeficients
         renormalizeVector(MC->nc, C, 1.0);
@@ -1970,44 +1286,8 @@ void MCTDHB_FFT_IMAG (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
         E[i + 1] = Energy(MC, Orb, C);
 
 
-        // Adapt time step
-        if ( (i + 1) % 2000 == 0 && i < 10000)
-        {
-            dt = dt * (1 + 0.2);
-            dT = dT * (1 + 0.2);
-            printf("\n\n\t TIME STEP ADJUSTED TO : %.9lf\n\n", dT);
-            // Fourier Frequencies to do the exponential of derivative operator
-            for (k = 0; k < m; k++)
-            {
-                if (k <= (m - 1) / 2) { freq = (2 * PI * k) / (m * dx);       }
-                else                  { freq = (2 * PI * (k - m)) / (m * dx); }
-                // exponential of derivative operators in half time-step
-                exp_der[k] = cexp( -0.5*dT * (I*a1*freq - a2*freq*freq) );
-            }
-        }
 
-
-
-        /* ----------------------------------------------------------------
-         * print to check orthogonality/Energy
-        ------------------------------------------------------------------- */
-        printf("\n\nAfter %d time steps, Energy = ", i + 1);
-        cPrint(E[i + 1]);
-        printf(". Orthogonality matrix is:\n\n");
-        for (k = 0; k < MC->Morb; k++)
-        {
-            printf("\n\t");
-            for (l = 0; l < MC->Morb; l++)
-            {
-                for (s = 0; s < MC->Mpos; s++)
-                {
-                    to_int[s] = conj(Orb[k][s]) * Orb[l][s];
-                }
-                printf(" "); cPrint(Csimps(MC->Mpos, to_int, MC->dx));
-            }
-        }
-        printf("\n\n|| C || = %.8lf", carrMod(MC->nc, C));
-        /* ---------------------------------------------------------------- */
+        printf("\n\nAfter %d time steps, Energy = %.9E", i+1, creal(E[i+1]));
     }
     
     p = DftiFreeDescriptor(&desc);
@@ -2025,9 +1305,28 @@ void MCTDHB_FFT_IMAG (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
 
 
-void MCTDHB_CN_IMAG (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
+void MC_IMAG_RK4_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
      double dT, int Nsteps, int cyclic)
 {
+
+/** Multi-Configuration Imaginary time propagation
+    ==============================================
+
+
+    Methods
+    -------
+
+    Configuration Coefficients Integrator : 4-th order Runge-Kutta
+
+    Orbitals Integrator : Split-Step with Crank-Nicolson(linear)
+    with Sherman-Morrison and 4-th order  Runge-Kutta(nonlinear)
+
+
+    Description
+    -----------
+
+    Evolve half step linear part, then full step nonlinear part together
+    with coefficients and another half step linear part */
 
 
 
@@ -2035,19 +1334,19 @@ void MCTDHB_CN_IMAG (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
         k,
         l,
         s,
-        Mpos = MC->Mpos;
+        Mpos = MC->Mpos,
+        Morb = MC->Morb;
 
     double
         dx = MC->dx,
         a2 = MC->a2,
-        inter = MC->inter,
+        g = MC->inter,
         * V = MC->V;
 
     double complex
         a1 = MC->a1,
         dt = - I * dT;
 
-    // used to store matrix elements of linear part
     Carray
         upper  = carrDef(Mpos - 1),
         lower  = carrDef(Mpos - 1),
@@ -2056,91 +1355,199 @@ void MCTDHB_CN_IMAG (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
     CCSmat
         cnmat;
-    
-    
+
+
 
     // Store the initial guess energy
     E[0] = Energy(MC, Orb, C);
-    printf("\n\nInitial Energy = "); cPrint(E[0]);
+    printf("\n\nInitial Energy = %.9E", creal(E[0]));
+
+
 
     // Configure the linear system from Crank-Nicolson scheme
-    cnmat = CNmat(Mpos, dx, dt/2, a2, a1, inter, V, cyclic, upper, lower, mid);
+    cnmat = CNmat(Mpos, dx, dt/2, a2, a1, g, V, cyclic, upper, lower, mid);
 
 
 
     for (i = 0; i < Nsteps; i++)
     {
-        // LanczosIntegrator(MC, Orb, C, dt / 2);
 
-        // Renormalize coeficients
-        // renormalizeVector(MC->nc, C, 1.0);
-
-        LinearPartSM(Mpos, MC->Morb, cnmat, upper, lower, mid, Orb);
+        MCLP_CNSM(Mpos, Morb, cnmat, upper, lower, mid, Orb);
 
         // The boundary
         if (cyclic)
-        { for (k = 0; k < MC->Morb; k++) Orb[k][Mpos-1] = Orb[k][0]; }
+        { for (k = 0; k < Morb; k++) Orb[k][Mpos-1] = Orb[k][0]; }
         else
-        { for (k = 0; k < MC->Morb; k++) Orb[k][Mpos-1] = 0;         }
+        { for (k = 0; k < Morb; k++) Orb[k][Mpos-1] = 0;         }
 
-        IRK4step(MC, Orb, C, dt);
 
-        LinearPartSM(Mpos, MC->Morb, cnmat, upper, lower, mid, Orb);
+
+        MC_NLC_IRK4(MC, Orb, C, dt);
+
+
+
+        MCLP_CNSM(Mpos, Morb, cnmat, upper, lower, mid, Orb);
 
         // The boundary
         if (cyclic)
-        { for (k = 0; k < MC->Morb; k++) Orb[k][Mpos-1] = Orb[k][0]; }
+        { for (k = 0; k < Morb; k++) Orb[k][Mpos-1] = Orb[k][0]; }
         else
-        { for (k = 0; k < MC->Morb; k++) Orb[k][Mpos-1] = 0;         }
-        
-        //LanczosIntegrator(MC, Orb, C, dt / 2);
+        { for (k = 0; k < Morb; k++) Orb[k][Mpos-1] = 0;         }
+
+
 
         // Renormalize coeficients
         renormalizeVector(MC->nc, C, 1.0);
 
 
 
-        // Loss of Norm => undefined behavior on orthogonalization
-        Ortonormalize(MC->Morb, Mpos, dx, Orb);
+        // Loss of Norm => undefined behavior on orthogonality
+        Ortonormalize(Morb, Mpos, dx, Orb);
+
+
 
         // Store energy
         E[i + 1] = Energy(MC, Orb, C);
 
-        /*
-        // Adapt time step
-        if ((i+1) % 2000 == 0 && i < 10000)
-        {
-            dt = dt * (1 + 0.2);
-            dT = dT * (1 + 0.2);
-            CCSFree(cnmat); // Erase old matrix to setup new one
-            cnmat = CNmat(Mpos, dx, dt/2, a2, a1, inter,
-                    V, cyclic, upper, lower, mid);
-            printf("\n\n\t TIME STEP ADJUSTED \n\n");
-        }
-        */
+
+
+        printf("\n\nAfter %d time steps, Energy = %.9E", i+1, creal(E[i+1]));
+    }
+
+    CCSFree(cnmat);
+    free(to_int);
+    free(upper);
+    free(lower);
+    free(mid);
+}
 
 
 
-        /* ----------------------------------------------------------------
-         * print to check orthogonality/Energy
-        ------------------------------------------------------------------- */
-        printf("\n\nAfter %d time steps, Energy = ", i + 1);
-        cPrint(E[i + 1]);
-        printf(". Orthogonality matrix is:\n\n");
-        for (k = 0; k < MC->Morb; k++)
-        {
-            printf("\n\t");
-            for (l = 0; l < MC->Morb; l++)
-            {
-                for (s = 0; s < MC->Mpos; s++)
-                {
-                    to_int[s] = conj(Orb[k][s]) * Orb[l][s];
-                }
-                printf(" "); cPrint(Csimps(MC->Mpos, to_int, MC->dx));
-            }
-        }
-        printf("\n\n|| C || = %.8lf", carrMod(MC->nc, C));
-        /* ---------------------------------------------------------------- */
+
+
+
+
+
+
+
+void MC_IMAG_LAN_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
+     double dT, int Nsteps, int cyclic)
+{
+
+/** Multi-Configuration Imaginary time propagation
+    ==============================================
+
+
+    Methods
+    -------
+
+    Configuration Coefficients Integrator : Lanczos
+
+    Orbitals Integrator : Split-Step with Crank-Nicolson(linear)
+    with Sherman-Morrison and 4-th order  Runge-Kutta(nonlinear)
+
+
+    Description
+    -----------
+
+    Evolve first the coefficients helf of time step  give,  then
+    half time step the linear part of orbitals, next a full step
+    nonlinear part of orbitals, then half time step  the  linear
+    part and finally the other halft time step of coefficients */
+
+
+
+    int i,
+        k,
+        l,
+        s,
+        Mpos = MC->Mpos,
+        Morb = MC->Morb;
+
+    double
+        dx = MC->dx,
+        a2 = MC->a2,
+        g = MC->inter,
+        * V = MC->V;
+
+    double complex
+        a1 = MC->a1,
+        // pure imaginary time
+        dt = - I * dT;
+
+    Carray
+        // arrays of tridiagonal system from discretization
+        upper  = carrDef(Mpos - 1),
+        lower  = carrDef(Mpos - 1),
+        mid    = carrDef(Mpos - 1),
+        to_int = carrDef(Mpos);
+
+    CCSmat
+        cnmat;
+
+
+
+    // Store the initial guess energy
+    E[0] = Energy(MC, Orb, C);
+    printf("\n\nInitial Energy = %.9E", creal(E[0]));
+
+
+
+    // Configure the linear system from Crank-Nicolson scheme
+    cnmat = CNmat(Mpos, dx, dt/2, a2, a1, g, V, cyclic, upper, lower, mid);
+
+
+
+    for (i = 0; i < Nsteps; i++)
+    {
+
+        LanczosIntegrator(MC, Orb, C, dt / 2);
+        // Renormalize coeficients
+        renormalizeVector(MC->nc, C, 1.0);
+
+
+
+        MCLP_CNSM(Mpos, Morb, cnmat, upper, lower, mid, Orb);
+
+        // The boundary
+        if (cyclic)
+        { for (k = 0; k < Morb; k++) Orb[k][Mpos-1] = Orb[k][0]; }
+        else
+        { for (k = 0; k < Morb; k++) Orb[k][Mpos-1] = 0;         }
+
+
+
+        MC_NL_IRK4(MC, Orb, C, dt);
+
+
+
+        MCLP_CNSM(Mpos, Morb, cnmat, upper, lower, mid, Orb);
+
+        // The boundary
+        if (cyclic)
+        { for (k = 0; k < Morb; k++) Orb[k][Mpos-1] = Orb[k][0]; }
+        else
+        { for (k = 0; k < Morb; k++) Orb[k][Mpos-1] = 0;         }
+
+
+
+        LanczosIntegrator(MC, Orb, C, dt / 2);
+        // Renormalize coeficients
+        renormalizeVector(MC->nc, C, 1.0);
+
+
+
+        // Loss of Norm => undefined behavior on orthogonality
+        Ortonormalize(Morb, Mpos, dx, Orb);
+
+
+
+        // Store energy
+        E[i + 1] = Energy(MC, Orb, C);
+
+
+
+        printf("\n\nAfter %d time steps, Energy = %.9E", i+1, creal(E[i+1]));
     }
 
     CCSFree(cnmat);
