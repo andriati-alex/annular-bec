@@ -1178,7 +1178,7 @@ void MCLP_FFT (int Mpos, int Morb, DFTI_DESCRIPTOR_HANDLE * desc,
 
 
 void MC_IMAG_RK4_FFTRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
-     double dT, int Nsteps)
+     Carray virial, double dT, int Nsteps)
 {
 
 /** Multi-Configuration Imaginary time propagation
@@ -1259,9 +1259,16 @@ void MC_IMAG_RK4_FFTRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
 
 
+    printf("\n\n\t  Nstep             Energy                  Virial");
+    printf("\n=======================================================");
+    printf("========================");
+
+
+
     // Store the initial guess energy
     E[0] = Energy(MC, Orb, C);
-    printf("\n\nInitial Energy = %.9E", creal(E[0]));
+    virial[0] = VirialResidue(MC, Orb, C);
+    printf("\n\t%5d\t\t%15.5E\t\t%15.5E", 0, creal(E[0]), creal(virial[0]));
 
 
 
@@ -1282,13 +1289,18 @@ void MC_IMAG_RK4_FFTRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
         // Renormalize coeficients
         renormalizeVector(MC->nc, C, 1.0);
 
-        // Store energy
+        // Store energy and virial residue to check ocnvergence
         E[i + 1] = Energy(MC, Orb, C);
+        virial[i + 1] = VirialResidue(MC, Orb, C);
 
 
 
-        printf("\n\nAfter %d time steps, Energy = %.9E", i+1, creal(E[i+1]));
+        printf("\n\t%5d\t\t%15.5E\t\t%15.5E", i+1, creal(E[i+1]),
+        creal(virial[i+1]));
     }
+    
+    printf("\n=======================================================");
+    printf("========================\n\n");
     
     p = DftiFreeDescriptor(&desc);
 
@@ -1306,7 +1318,7 @@ void MC_IMAG_RK4_FFTRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
 
 void MC_IMAG_RK4_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
-     double dT, int Nsteps, int cyclic)
+     Carray virial, double dT, int Nsteps, int cyclic)
 {
 
 /** Multi-Configuration Imaginary time propagation
@@ -1358,9 +1370,16 @@ void MC_IMAG_RK4_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
 
 
+    printf("\n\n\t  Nstep             Energy                  Virial");
+    printf("\n=======================================================");
+    printf("========================");
+
+
+
     // Store the initial guess energy
     E[0] = Energy(MC, Orb, C);
-    printf("\n\nInitial Energy = %.9E", creal(E[0]));
+    virial[0] = VirialResidue(MC, Orb, C);
+    printf("\n\t%5d\t\t%15.5E\t\t%15.5E", 0, creal(E[0]), creal(virial[0]));
 
 
 
@@ -1408,11 +1427,16 @@ void MC_IMAG_RK4_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
         // Store energy
         E[i + 1] = Energy(MC, Orb, C);
+        virial[i + 1] = VirialResidue(MC, Orb, C);
 
 
 
-        printf("\n\nAfter %d time steps, Energy = %.9E", i+1, creal(E[i+1]));
+        printf("\n\t%5d\t\t%15.5E\t\t%15.5E", i+1, creal(E[i+1]),
+        creal(virial[i+1]));
     }
+
+    printf("\n=======================================================");
+    printf("========================\n\n");
 
     CCSFree(cnmat);
     free(to_int);
@@ -1431,7 +1455,7 @@ void MC_IMAG_RK4_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
 
 void MC_IMAG_LAN_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
-     double dT, int Nsteps, int cyclic)
+     Carray virial, double dT, int Nsteps, int cyclic)
 {
 
 /** Multi-Configuration Imaginary time propagation
@@ -1487,9 +1511,16 @@ void MC_IMAG_LAN_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
 
 
+    printf("\n\n\t  Nstep             Energy                  Virial");
+    printf("\n=======================================================");
+    printf("========================");
+
+
+
     // Store the initial guess energy
     E[0] = Energy(MC, Orb, C);
-    printf("\n\nInitial Energy = %.9E", creal(E[0]));
+    virial[0] = VirialResidue(MC, Orb, C);
+    printf("\n\t%5d\t\t%15.5E\t\t%15.5E", 0, creal(E[0]), creal(virial[0]));
 
 
 
@@ -1544,11 +1575,16 @@ void MC_IMAG_LAN_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
         // Store energy
         E[i + 1] = Energy(MC, Orb, C);
+        virial[i + 1] = VirialResidue(MC, Orb, C);
 
 
 
-        printf("\n\nAfter %d time steps, Energy = %.9E", i+1, creal(E[i+1]));
+        printf("\n\t%5d\t\t%15.5E\t\t%15.5E", i+1, creal(E[i+1]),
+        creal(virial[i+1]));
     }
+    
+    printf("\n=======================================================");
+    printf("========================\n\n");
 
     CCSFree(cnmat);
     free(to_int);

@@ -186,6 +186,7 @@ int main(int argc, char * argv[])
         Ctest,  // estimate time based in on tiime-step
         C,      // Coeficients of superposition of Fock states
         to_int, // auxiliar to compute integration
+        vir,    // virial at each time step (should be zero)
         E;      // Energy at each time step evolved
 
     Cmatrix
@@ -236,7 +237,7 @@ int main(int argc, char * argv[])
     if (eq_setup_file == NULL) // impossible to open file
     { printf("\nERROR: impossible to open file %s\n", fname_in); return -1; }
     else
-    { printf(" ... Found !\n"); }
+    { printf(" .... Found !\n"); }
 
     k = fscanf(eq_setup_file, "%d %d %d %lf %lf",
                &Npar, &Morb, &Mdx, &xi, &xf);
@@ -270,13 +271,13 @@ int main(int argc, char * argv[])
     if (eq_setup_file == NULL)  // impossible to open file
     { printf("\nERROR: impossible to open file %s\n", fname_in); return -1; }
     else
-    { printf(" ... Found !\n"); }
+    { printf(" ...... Found !\n"); }
 
     for (k = 0; k < Mdx + 1; k++)
     {
         for (s = 0; s < Morb; s++)
         {
-            l = fscanf(eq_setup_file, " (%lf+%lfj) ", &real, &imag);
+            l = fscanf(eq_setup_file, " (%lf%lfj) ", &real, &imag);
             Orb[s][k] = real + I * imag;
             Orbtest[s][k] = real + I * imag;
         }
@@ -306,11 +307,11 @@ int main(int argc, char * argv[])
     if (eq_setup_file == NULL)  // impossible to open file
     { printf("\nERROR: impossible to open file %s\n", fname_in); return -1; }
     else
-    { printf(" ... Found !\n"); }
+    { printf(" ..... Found !\n"); }
 
     for (k = 0; k < NC(Npar, Morb); k++)
     {
-        l = fscanf(eq_setup_file, " (%lf+%lfj)", &real, &imag);
+        l = fscanf(eq_setup_file, " (%lf%lfj)", &real, &imag);
         C[k] = real + I * imag;
         Ctest[k] = real + I * imag;
     }
@@ -335,7 +336,7 @@ int main(int argc, char * argv[])
     if (eq_setup_file == NULL)  // impossible to open file
     { printf("ERROR: impossible to open file %s\n", fname_in); return -1; }
     else
-    { printf(" ... Found !\n"); }
+    { printf(" ........ Found !\n"); }
 
     l = fscanf(eq_setup_file, "%lf %lf %lf %d",
                    &a2, &imag, &inter, &cyclic);
@@ -364,7 +365,7 @@ int main(int argc, char * argv[])
     if (eq_setup_file == NULL)  // impossible to open file
     { printf("\nERROR: impossible to open file %s\n", fname_in); return -1; }
     else
-    { printf(" ... Found !\n"); }
+    { printf(" ..... Found !\n"); }
 
     for (k = 0; k < Mdx + 1; k++)
     {
@@ -448,7 +449,7 @@ int main(int argc, char * argv[])
 
     printf("\n\n\n");
     printf("=========================================================\n\n");
-    printf("     Configuration done. Checking orthonormalization     \n\n");
+    printf("Configuration done. Checking orthonormality\n\n");
     printf("=========================================================\n\n");
 
 
@@ -456,7 +457,8 @@ int main(int argc, char * argv[])
 
     to_int = carrDef(Mdx + 1);
 
-    E = carrDef(N + 1); // to store energy
+    E = carrDef(N + 1);   // to store energy
+    vir = carrDef(N + 1); // check consistency by Virial Theorem
 
 
 
@@ -532,31 +534,31 @@ int main(int argc, char * argv[])
     OBrho(Npar, Morb, mc->NCmat, mc->IF, C, rho);
     time_used = (double) (omp_get_wtime() - start);
 
-    printf("\n\ntime to setup rho = %.3lf\n\n", time_used);
+    printf("\n\ntime to setup rho = %.3lf", time_used);
     
     start = omp_get_wtime();
     TBrho(Npar, Morb, mc->NCmat, mc->IF, C, rho2);
     time_used = (double) (omp_get_wtime() - start);
 
-    printf("\n\ntime to setup rho2 = %.3lf\n\n", time_used);
+    printf("\n\ntime to setup rho2 = %.3lf", time_used);
 
     start = omp_get_wtime();
     SetupHo(Morb, Mdx + 1, Orb, mc->dx, a2, a1, V, rho);
     time_used = (double) (omp_get_wtime() - start);
     
-    printf("\n\ntime to setup Ho = %.3lf\n\n", time_used);
+    printf("\n\ntime to setup Ho = %.3lf", time_used);
 
     start = omp_get_wtime();
     SetupHint(Morb, Mdx + 1, Orb, mc->dx, inter, rho2);
     time_used = (double) (omp_get_wtime() - start);
 
-    printf("\n\ntime to setup Hint = %.3lf\n\n", time_used);
+    printf("\n\ntime to setup Hint = %.3lf", time_used);
 
     start = omp_get_wtime();
     applyHconf(mc->Npar, mc->Morb, mc->NCmat, mc->IF, C, rho, rho2, dCdt);
     time_used = (double) (omp_get_wtime() - start);
 
-    printf("\n\ntime to apply Many-Body H = %.3lf\n", time_used);
+    printf("\n\ntime to apply Many-Body H = %.3lf\n\n", time_used);
 
 
 
@@ -576,14 +578,12 @@ int main(int argc, char * argv[])
 
     printf("\n\n\n");
     printf("=========================================================\n\n");
-    printf("    Calling integrator. May take several(hours/days?)    \n\n");
+    printf("Start Integration in pure imaginary time\n\n");
     printf("=========================================================\n\n");
 
     // setup filename to store solution
     strcpy(fname_out, "../mctdhb_data/");
     strcat(fname_out, argv[5]);
-
-    printf("\n\nDoing imaginary time propagation ...\n");
 
     switch (method)
     {
@@ -591,10 +591,10 @@ int main(int argc, char * argv[])
         case 11:
 
             start = omp_get_wtime();
-            MC_IMAG_RK4_CNSMRK4(mc, Orbtest, Ctest, E, dt, 1, cyclic);
+            MC_IMAG_RK4_CNSMRK4(mc, Orbtest, Ctest, E, vir, dt, 1, cyclic);
             time_used = (double) (omp_get_wtime() - start);
 
-            printf("\n\nTime to do 1 step: %.2lf seconds\n", time_used);
+            printf("\n\nTime to do 1 step: %.3lf seconds", time_used);
             printf("\nTotal time estimated: ");
             TimePrint(time_used * N);
 
@@ -604,17 +604,17 @@ int main(int argc, char * argv[])
             printf("\n\n");
 
             // Start Evolution
-            MC_IMAG_RK4_CNSMRK4(mc, Orb, C, E, dt, N, cyclic);
+            MC_IMAG_RK4_CNSMRK4(mc, Orb, C, E, vir, dt, N, cyclic);
 
             break;
 
         case 12:
 
             start = omp_get_wtime();
-            MC_IMAG_LAN_CNSMRK4(mc, Orbtest, Ctest, E, dt, 1, cyclic);
+            MC_IMAG_LAN_CNSMRK4(mc, Orbtest, Ctest, E, vir, dt, 1, cyclic);
             time_used = (double) (omp_get_wtime() - start);
 
-            printf("\n\nTime to do 1 step: %.2lf seconds\n", time_used);
+            printf("\n\nTime to do 1 step: %.3lf seconds", time_used);
             printf("\nTotal time estimated: ");
             TimePrint(time_used * N);
 
@@ -624,17 +624,17 @@ int main(int argc, char * argv[])
             printf("\n\n");
 
             // Start Evolution
-            MC_IMAG_LAN_CNSMRK4(mc, Orb, C, E, dt, N, cyclic);
+            MC_IMAG_LAN_CNSMRK4(mc, Orb, C, E, vir, dt, N, cyclic);
 
             break;
 
         case 21:
 
             start = omp_get_wtime();
-            MC_IMAG_RK4_FFTRK4(mc, Orbtest, Ctest, E, dt, 1);
+            MC_IMAG_RK4_FFTRK4(mc, Orbtest, Ctest, E, vir, dt, 1);
             time_used = (double) (omp_get_wtime() - start);
 
-            printf("\n\nTime to do 1 step: %.2lf seconds\n", time_used);
+            printf("\n\nTime to do 1 step: %.3lf seconds", time_used);
             printf("\nTotal time estimated: ");
             TimePrint(time_used * N);
 
@@ -644,17 +644,17 @@ int main(int argc, char * argv[])
             printf("\n\n");
 
             // Start Evolution
-            MC_IMAG_RK4_FFTRK4(mc, Orb, C, E, dt, N);
+            MC_IMAG_RK4_FFTRK4(mc, Orb, C, E, vir, dt, N);
 
             break;
 
         case 22:
 
             start = omp_get_wtime();
-            MC_IMAG_RK4_FFTRK4(mc, Orbtest, Ctest, E, dt, 1);
+            MC_IMAG_RK4_FFTRK4(mc, Orbtest, Ctest, E, vir, dt, 1);
             time_used = (double) (omp_get_wtime() - start);
 
-            printf("\n\nTime to do 1 step: %.2lf seconds\n", time_used);
+            printf("\n\nTime to do 1 step: %.3lf seconds", time_used);
             printf("\nTotal time estimated: ");
             TimePrint(time_used * N);
 
@@ -664,7 +664,7 @@ int main(int argc, char * argv[])
             printf("\n\n");
 
             // Start Evolution
-            MC_IMAG_RK4_FFTRK4(mc, Orb, C, E, dt, N);
+            MC_IMAG_RK4_FFTRK4(mc, Orb, C, E, vir, dt, N);
 
             break;
     }
@@ -710,6 +710,12 @@ int main(int argc, char * argv[])
         strcat(fname_out, "_E_imagtime.dat");
 
         carr_txt(fname_out, N + 1, E);
+        
+        strcpy(fname_out, "../mctdhb_data/");
+        strcat(fname_out, argv[5]);
+        strcat(fname_out, "_virial_imagtime.dat");
+
+        carr_txt(fname_out, N + 1, vir);
     }
     
     // Record Parameters Used
@@ -748,6 +754,7 @@ int main(int argc, char * argv[])
     EraseMCTDHBdata(mc);
     free(C);
     free(E);
+    free(vir);
     free(dCdt);
     free(rho2);
     free(to_int);

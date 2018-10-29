@@ -978,6 +978,16 @@ def InteractingE(g, dx, rho, Orb):
 
 
 
+def VirialValue(a2, a1, g, V, dx, rho, rho2, Orb):
+    kin = KinectE(a2, a1, dx, rho, Orb);
+    trp = PotentialE(V, dx, rho, Orb);
+    ntr = InteractingE(g, dx, rho2, Orb);
+    return (2 * trp - 2 * kin - ntr).real;
+
+
+
+
+
 def VonNeumannS(occ):
     """ (double) = VonNeumannS(occupation_vector of size # of Orbitals) """
     N = occ.sum();

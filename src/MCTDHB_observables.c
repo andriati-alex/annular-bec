@@ -39,7 +39,7 @@ void SetupHo (int Morb, int Mpos, Cmatrix Omat, double dx, double a2,
 
 
 
-void SetupHint (int Morb, int Mpos, Cmatrix Omat, double dx, double inter,
+void SetupHint (int Morb, int Mpos, Cmatrix Omat, double dx, double g,
      Carray Hint)
 {   // Matrix elements of twobody hamiltonian part
 
@@ -69,7 +69,7 @@ void SetupHint (int Morb, int Mpos, Cmatrix Omat, double dx, double inter,
                         toInt[i] = conj(Omat[k][i] * Omat[s][i]) * \
                                    Omat[q][i] * Omat[l][i];
                     }
-                    Integral = inter * Csimps(Mpos, toInt, dx);
+                    Integral = g * Csimps(Mpos, toInt, dx);
                     Hint[k + s * M + q * M2 + l * M3] = Integral;
                     Hint[k + s * M + l * M2 + q * M3] = Integral;
                     Hint[s + k * M + q * M2 + l * M3] = Integral;
@@ -145,4 +145,191 @@ double complex Energy (MCTDHBsetup mc, Cmatrix Orb, Carray C)
     cmatFree(Morb, Ho);
 
     return (w + z / 2);
+}
+
+
+
+
+
+double complex KinectE (int Morb, int Mpos, Cmatrix Omat, double dx, double a2,
+     double complex a1, Cmatrix rho )
+{
+
+    int i,
+        j,
+        k;
+
+    double complex
+        r;
+
+    Carray
+        ddxi  = carrDef(Mpos),
+        ddxj  = carrDef(Mpos),
+        toInt = carrDef(Mpos);
+
+
+
+    carrFill(Mpos, 0, toInt);
+    for (i = 0; i < Morb; i++)
+    {
+        dxCyclic(Mpos, Omat[i], dx, ddxi);
+        for (j = 0; j < Morb; j++)
+        {
+            r = rho[i][j];
+            dxCyclic(Mpos, Omat[j], dx, ddxj);
+            for (k = 0; k < Mpos; k++)
+            {
+                toInt[k] = toInt[k] - a2 * r * conj(ddxi[k]) * ddxj[k];
+                toInt[k] = toInt[k] + a1 * r * conj(Omat[i][k]) * ddxj[k];
+            }
+        }
+    }
+
+    r = Csimps(Mpos, toInt, dx);
+
+    free(ddxi); free(ddxj); free(toInt);
+
+    return r;
+}
+
+
+
+
+
+double complex PotentialE (int Morb, int Mpos, Cmatrix Omat, double dx,
+     Rarray V, Cmatrix rho )
+{
+
+    int i,
+        j,
+        k;
+
+    double complex
+        r;
+
+    Carray
+        toInt = carrDef(Mpos);
+
+
+
+    carrFill(Mpos, 0, toInt);
+    for (i = 0; i < Morb; i++)
+    {
+        for (j = 0; j < Morb; j++)
+        {
+            r = rho[i][j];
+            for (k = 0; k < Mpos; k++)
+                toInt[k] += r * V[k] * conj(Omat[i][k]) * Omat[j][k];
+        }
+    }
+
+    r = Csimps(Mpos, toInt, dx);
+
+    free(toInt);
+
+    return r;
+}
+
+
+
+
+
+double complex InteractingE(int Morb, int Mpos, Cmatrix Omat, double dx, double g,
+     Carray rho)
+{
+
+    int i,
+        k,
+        s,
+        q,
+        l,
+        M = Morb,
+        M2 = Morb * Morb,
+        M3 = Morb * Morb * Morb;
+
+    double complex
+        r;
+
+    Carray
+        toInt = carrDef(Mpos);
+
+
+
+    carrFill(Mpos, 0, toInt);
+    for (k = 0; k < Morb; k++)
+    {
+
+        for (s = 0; s < Morb; s++)
+        {
+
+            for (q = 0; q < Morb; q++)
+            {
+
+                for (l = 0; l < Morb; l++)
+                {
+
+                    r = rho[k + s * M + q * M2 + l * M3];
+                    for (i = 0; i < Mpos; i++)
+                    {
+                        toInt[i] += r * conj(Omat[k][i] * Omat[s][i]) * \
+                        Omat[l][i] * Omat[q][i];
+                    }
+
+                }   // Take advantage of the symmetry k/s and q/l
+            }
+        }
+    }
+
+    r = g * Csimps(Mpos, toInt, dx) / 2;
+
+    free(toInt);
+
+    return r;
+}
+
+
+
+
+double complex VirialResidue(MCTDHBsetup mc, Cmatrix Orb, Carray C)
+{
+
+    int
+        Npar = mc->Npar,
+        Morb = mc->Morb,
+        Mpos = mc->Mpos;
+
+    double
+        dx = mc->dx,
+        g  = mc->inter,
+        a2 = mc->a2,
+        *V = mc->V;
+
+    double complex
+        kinect,
+        potential,
+        interacting,
+        a1 = mc->a1;
+    
+    Cmatrix
+        rho = cmatDef(Morb, Morb);
+
+    Carray
+        rho2 = carrDef(Morb * Morb * Morb * Morb);
+
+
+
+    OBrho(Npar, Morb, mc->NCmat, mc->IF, C, rho);
+    TBrho(Npar, Morb, mc->NCmat, mc->IF, C, rho2);
+
+
+
+    kinect = KinectE(Morb, Mpos, Orb, dx, a2, a1, rho);
+    potential = PotentialE(Morb, Mpos, Orb, dx, V, rho);
+    interacting = InteractingE(Morb, Mpos, Orb, dx, g, rho2);
+
+    free(rho2);
+    cmatFree(Morb, rho);
+
+    return (2 * potential - 2 * kinect - interacting);
+
 }

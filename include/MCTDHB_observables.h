@@ -71,4 +71,33 @@ void SetupHint
 
 double complex Energy (MCTDHBsetup mc, Cmatrix Orb, Carray C);
 
+
+
+
+
+double complex KinectE (int Morb, int Mpos, Cmatrix Omat, double dx, double a2,
+               double complex a1, Cmatrix rho);
+
+
+
+
+
+double complex PotentialE (int Morb, int Mpos, Cmatrix Omat, double dx,
+               Rarray V, Cmatrix rho );
+
+
+
+
+
+double complex InteractingE (int Morb, int Mpos, Cmatrix Omat, double dx,
+               double g, Carray rho);
+
+
+
+
+
+double complex VirialResidue(MCTDHBsetup mc, Cmatrix Orb, Carray C);
+
+
+
 #endif
