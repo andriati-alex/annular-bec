@@ -710,6 +710,19 @@ def GetOBrho(Npar, Morb, C):
 
 
 
+def GetOccupation(Npar, Morb, C):
+    rho = np.empty([ Morb , Morb ], dtype=np.complex128);
+    NCmat = GetNCmat(Npar, Morb);
+    IF = GetFocks(Npar, Morb);
+    OBrho(Npar, Morb, NCmat, IF, C, rho);
+    eigval, eigvec = la.eig(rho);
+    EigSort(Morb, eigval.real, eigvec);
+    return eigval.real / Npar;
+
+
+
+
+
 def GetTBrho(Npar, Morb, C):
     """
     CALLING : ( 1D array [ Morb⁴ ] ) = GetOBrho(Npar, Morb, C)
