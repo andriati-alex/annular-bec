@@ -87,8 +87,14 @@ void MC_dCdt
 
 
 
-void lanczos(MCTDHBsetup MCdata, Cmatrix Ho, Carray Hint,
-     int lm, Carray diag, Carray offdiag, Cmatrix lvec);
+int lanczos(MCTDHBsetup MCdata, Cmatrix Ho, Carray Hint,
+    int lm, Carray diag, Carray offdiag, Cmatrix lvec);
+
+
+
+
+
+double LanczosGround (int Niter, MCTDHBsetup MC, Cmatrix Orb, Carray C);
 
 
 

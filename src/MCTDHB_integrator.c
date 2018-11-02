@@ -318,8 +318,8 @@ void MC_dCdt (MCTDHBsetup MC, Carray C, Cmatrix Ho, Carray Hint, Carray dCdt)
 
 
 
-void lanczos(MCTDHBsetup MCdata, Cmatrix Ho, Carray Hint,
-     int lm, Carray diag, Carray offdiag, Cmatrix lvec)
+int lanczos(MCTDHBsetup MCdata, Cmatrix Ho, Carray Hint,
+    int lm, Carray diag, Carray offdiag, Cmatrix lvec)
 {
     // Improved lanczos iterations  with  reorthogonalization. Lanczos
     // vectors are stored in 'lvec'.  'diag'  and  'offdiag'  hold the 
@@ -336,7 +336,9 @@ void lanczos(MCTDHBsetup MCdata, Cmatrix Ho, Carray Hint,
         ** IF = MCdata->IF,
         ** NCmat = MCdata->NCmat;
 
-
+    double
+        tol,
+        maxCheck;
 
     Carray
         out = carrDef(nc),
@@ -351,10 +353,24 @@ void lanczos(MCTDHBsetup MCdata, Cmatrix Ho, Carray Hint,
 
 
 
+    // Check for a source of breakdown in the algorithm to do not
+    // divide by zero. Instead of zero use  a  tolerance (tol) to
+    // avoid numerical instability
+    maxCheck = 0;
+    tol = 1E-15;
+
+
+
     // Core iteration procedure
     for (i = 0; i < lm - 1; i++)
     {
         offdiag[i] = carrMod(nc, out);
+
+        if (maxCheck < creal(offdiag[i])) maxCheck = creal(offdiag[i]);
+
+        // If method break return number of iterations achieved
+        if (creal(offdiag[i]) / maxCheck < tol) return (i + 1);
+
         carrScalarMultiply(nc, out, 1.0 / offdiag[i], lvec[i + 1]);
         applyHconf(Npar, Morb, NCmat, IF, lvec[i + 1], Ho, Hint, out);
 
@@ -381,6 +397,140 @@ void lanczos(MCTDHBsetup MCdata, Cmatrix Ho, Carray Hint,
 
     free(ortho);
     free(out);
+
+    return lm;
+}
+
+
+
+
+
+
+
+
+
+
+double LanczosGround (int Niter, MCTDHBsetup MC, Cmatrix Orb, Carray C)
+{
+
+/** Find the lowest Eigenvalue using Lanczos tridiagonal decomposition
+    for the hamiltonian in configurational space, with orbitals fixed.
+    Use up to Niter (unless the iteration break) in Lanczos method  to
+    obtain a basis-fixed ground state approximation  of  the truncated
+    configuration space.                                            */
+
+
+
+    int
+        i,
+        k,
+        j,
+        predictedIter,
+        nc = MC->nc,
+        Morb = MC->Morb,
+        Mpos = MC->Mpos;
+
+
+
+    // variables to call lapack diagonalization routine for tridiagonal
+    // symmetric matrix
+    // ----------------------------------------------------------------
+
+    double
+        sentinel,
+        * d = malloc(Niter * sizeof(double)),
+        * e = malloc(Niter * sizeof(double)),
+        * eigvec = malloc(Niter * Niter * sizeof(double));
+
+
+
+    // variables to store lanczos vectors and tridiagonal symmetric matrix
+    // -------------------------------------------------------------------
+
+    // Elements of tridiagonal lanczos matrix
+    Carray
+        diag = carrDef(Niter),
+        offdiag = carrDef(Niter),
+        Hint = carrDef(Morb * Morb * Morb * Morb);
+    // Lanczos Vectors (organize in rows instead of columns rows)
+    Cmatrix
+        Ho = cmatDef(Morb, Morb),
+        lvec = cmatDef(Niter, nc);
+    
+    
+    
+    SetupHo(Morb, Mpos, Orb, MC->dx, MC->a2, MC->a1, MC->V, Ho);
+    SetupHint(Morb, Mpos, Orb, MC->dx, MC->inter, Hint);
+
+
+
+    // Setup values needed to solve the equations for C
+    // ------------------------------------------------
+
+    offdiag[Niter-1] = 0; // Useless
+    // Setup initial lanczos vector
+    carrCopy(nc, C, lvec[0]);
+
+
+
+    // Call Lanczos what setup tridiagonal symmetric and lanczos vectors
+    // -----------------------------------------------------------------
+    predictedIter = Niter;
+    Niter = lanczos(MC, Ho, Hint, Niter, diag, offdiag, lvec);
+    if (Niter < predictedIter)
+    {
+        printf("\n\n\t\tlanczos iterations exit before expected - %d\n\n", Niter);
+    }
+
+
+
+    // Transfer data to use lapack routine
+    // --------------------------------------------------------------
+    for (k = 0; k < Niter; k++)
+    {
+        d[k] = creal(diag[k]);    // Supposed to be real
+        e[k] = creal(offdiag[k]); // Supposed to be real
+        for (j = 0; j < Niter; j++) eigvec[k * Niter + j] = 0;
+    }
+
+    k = LAPACKE_dstev(LAPACK_ROW_MAJOR, 'V', Niter, d, e, eigvec, Niter);
+    if (k != 0)
+    {
+        printf("\n\n\t\tERROR IN DIAGONALIZATION\n\n");
+        exit(EXIT_FAILURE);
+    }
+
+
+
+    sentinel = 1E10;
+    // Get Index of smallest eigenvalue, keep it on j
+    for (k = 0; k < Niter; k++)
+    {
+        if (sentinel > d[k]) { sentinel = d[k];   j = k; }
+    }
+
+
+
+    // Update C with the coefficients of ground state
+    for (i = 0; i < nc; i++)
+    {
+        C[i] = 0;
+        for (k = 0; k < Niter; k++) C[i] += lvec[k][i] * eigvec[k * Niter + j];
+    }
+
+
+
+    free(d);
+    free(e);
+    free(eigvec);
+    free(diag);
+    free(offdiag);
+    free(Hint);
+    cmatFree(Morb, Ho);
+    cmatFree(predictedIter, lvec);
+
+    return sentinel;
+    
 }
 
 
@@ -403,6 +553,7 @@ void LanczosIntegrator (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt
         k,
         j,
         lm,
+        predictedIter,
         M = MC->Morb,
         Mpos = MC->Mpos,
         Npar = MC->Npar;
@@ -424,7 +575,7 @@ void LanczosIntegrator (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt
 
     /* variables to store lanczos vectors and matrix iterations
     -------------------------------------------------------- */
-    // Lanczos Vectors (organize aint rows)
+    // Lanczos Vectors (organize in rows instead of columns rows)
     Cmatrix lvec = cmatDef(lm, MC->nc);
     // Elements of tridiagonal lanczos matrix
     Carray diag = carrDef(lm);
@@ -467,7 +618,8 @@ void LanczosIntegrator (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt
     /* --------------------------------------------------------------
     Call Lanczos what setup tridiagonal symmetric and lanczos vectors
     ----------------------------------------------------------------- */
-    lanczos(MC, Ho, Hint, lm, diag, offdiag, lvec);
+    predictedIter = lm;
+    lm = lanczos(MC, Ho, Hint, lm, diag, offdiag, lvec);
     /* -------------------------------------------------------------- */
 
 
@@ -535,7 +687,7 @@ void LanczosIntegrator (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt
     free(Clanczos);
     free(aux);
 
-    cmatFree(lm, lvec);
+    cmatFree(predictedIter, lvec);
 
     cmatFree(M, Ho);
     free(Hint);
@@ -1204,8 +1356,6 @@ void MC_IMAG_RK4_FFTRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
     int i,
         k,
-        l,
-        s,
         m,
         Mpos = MC->Mpos,
         Morb = MC->Morb;
@@ -1288,6 +1438,26 @@ void MC_IMAG_RK4_FFTRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
         // Renormalize coeficients
         renormalizeVector(MC->nc, C, 1.0);
+
+
+
+        if ( i == Nsteps/2 )
+        {
+            if (MC->nc < 400) { k = MC->nc / 2; }
+            else              { k = 200;        }
+
+            E[i + 1] = LanczosGround( k, MC, Orb, C );
+            // Renormalize coeficients
+            renormalizeVector(MC->nc, C, 1.0);
+
+            printf("\n=====================================================");
+            printf("==========================\n\n");
+            printf("\tDiagonalization Done E = %.5E", creal(E[i+1]));
+            printf("\n\n===================================================");
+            printf("============================");
+        }
+
+
 
         // Store energy and virial residue to check ocnvergence
         E[i + 1] = Energy(MC, Orb, C);

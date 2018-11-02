@@ -568,6 +568,23 @@ int main(int argc, char * argv[])
 
 
 
+
+    /* ==================================================================== *
+     *                                                                      *
+     *       DIAGONALIZE HAMILTONIAN IN THE GIVEN BASIS BEFORE START        *
+     *                                                                      *
+     * ==================================================================== */
+    if ( NC(Npar, Morb) < 400 )
+    {
+        E[0] = LanczosGround( NC(Npar,Morb)/2, mc, Orb, C );
+        // Renormalize coeficients
+        renormalizeVector( NC(Npar,Morb), C, 1.0);
+    } else
+    {
+        E[0] = LanczosGround( 200, mc, Orb, C );
+        // Renormalize coeficients
+        renormalizeVector( NC(Npar,Morb), C, 1.0);
+    }
     /* ==================================================================== *
      *                                                                      *
      *                          CALL THE INTEGRATOR                         *
