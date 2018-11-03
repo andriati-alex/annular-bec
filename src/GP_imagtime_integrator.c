@@ -439,10 +439,8 @@ void IGPCNSMRK4(int M, int N, double dx, double dT, double a2, double complex a1
         dt,
         interv[1];
 
-
     Rarray
         abs2 = rarrDef(M); // abs square of wave function
-    
 
     Carray
         // hold solution of linear part
@@ -458,6 +456,7 @@ void IGPCNSMRK4(int M, int N, double dx, double dT, double a2, double complex a1
         cnmat;
 
 
+
     dt = - I * dT;     // Set time to pure imaginary
     interv[0] = inter; // setup extra arguments to RK4 derivative
 
@@ -469,6 +468,11 @@ void IGPCNSMRK4(int M, int N, double dx, double dT, double a2, double complex a1
     norm = sqrt(Rsimps(M, abs2, dx));
     E[0] = Functional(M, dx, a2, a1, inter / 2, V, S);
     /* ----------------------------------------------------- */
+    
+    printf("\n\n\t  Nstep         Energy/particle");
+    printf("\n=======================================================");
+    printf("========================");
+    printf("\n\t%5d\t\t%15.5E", 0, creal(E[0]));
 
 
 
@@ -497,16 +501,13 @@ void IGPCNSMRK4(int M, int N, double dx, double dT, double a2, double complex a1
         
         // Energy
         E[i + 1] = Functional(M, dx, a2, a1, inter / 2, V, S);
-
-        if ((i + 1) % 2000 == 0 && i < 10000)
-        {
-            dt = dt * (1 + 0.2);
-            dT = dT * (1 + 0.2);
-            CCSFree(cnmat); // Erase old matrix to setup new one
-            cnmat = CNmat( M, dx, dt, a2, a1, inter,
-                    V, cyclic, upper, lower, mid);
-        }
+        
+        printf("\n\t%5d\t\t%15.5E", i+1, creal(E[i+1]));
+    
     }
+    
+    printf("\n=======================================================");
+    printf("========================\n\n");
 
     free(linpart);
     free(upper);
@@ -587,6 +588,11 @@ void IGPFFTRK4(int M, int N, double dx, double dT, double a2, double complex a1,
     norm = sqrt(Rsimps(M, abs2, dx));
     E[0] = Functional(M, dx, a2, a1, inter / 2, V, S);
     /* ------------------------------------------------------------------- */
+    
+    printf("\n\n\t  Nstep         Energy/particle");
+    printf("\n=======================================================");
+    printf("========================");
+    printf("\n\t%5d\t\t%15.5E", 0, creal(E[0]));
 
 
 
@@ -629,6 +635,7 @@ void IGPFFTRK4(int M, int N, double dx, double dT, double a2, double complex a1,
         // go back to position space
         s = DftiComputeBackward(desc, back_fft);
         carrCopy(m, back_fft, argRK4);
+
         argRK4[m] = argRK4[0];
         
         RK4step(M, dT/2, 0, argRK4, FullPot, S, NonLinearVIDDT);
@@ -641,7 +648,12 @@ void IGPFFTRK4(int M, int N, double dx, double dT, double a2, double complex a1,
 
         // Energy
         E[i + 1] = Functional(M, dx, a2, a1, inter / 2, V, S);
+        
+        printf("\n\t%5d\t\t%15.5E", i+1, creal(E[i+1]));
     }
+    
+    printf("\n=======================================================");
+    printf("========================\n\n");
 
     s = DftiFreeDescriptor(&desc);
 
