@@ -332,7 +332,7 @@ int main(int argc, char * argv[])
 
     for (i = 0; i < M + 1; i++)
     {
-        trash = fscanf(eq_setup_file, " (%lf+%lfj)", &real, &imag);
+        trash = fscanf(eq_setup_file, " (%lf%lfj)", &real, &imag);
         S[i] = real + I * imag;
     }
 
@@ -460,19 +460,19 @@ int main(int argc, char * argv[])
     {
         strcpy(fname_out, "../gp_data/");
         strcat(fname_out, argv[5]);
-        strcat(fname_out, "_imagtime_state.dat");
+        strcat(fname_out, "_orb_imagtime.dat");
 
         carr_txt(fname_out, M + 1, S);
     
         strcpy(fname_out, "../gp_data/");
         strcat(fname_out, argv[5]);
-        strcat(fname_out, "_imagtime_energy.dat");
+        strcat(fname_out, "_E_imagtime.dat");
 
         carr_txt(fname_out, N + 1, E);
 
         strcpy(fname_out, "../gp_data/");
         strcat(fname_out, argv[5]);
-        strcat(fname_out, "_imagdomain.dat");
+        strcat(fname_out, "_domain_imagtime.dat");
     }
     else
     {
