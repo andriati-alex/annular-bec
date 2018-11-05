@@ -189,9 +189,8 @@ void MC_IMAG_RK4_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
 
 
-void MC_IMAG_LAN_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
+void MC_IMAG_RK4_CNLURK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
      Carray virial, double dT, int Nsteps, int cyclic);
-
 
 
 

@@ -5,91 +5,97 @@
 
 
 
-/* =========================================================================
- *
- *
- * OBTAIN REAL OR IMAGINARY TIME EVOLUTION SOLUTION OF
- * MCTDHB EQUATIONS WITH DIRAC DELTA BARRIER
- *
- *
- *
- *
- *
- *
- * REQUIRED FILES
- * -------------------------------------------------------------------------
- *
- * setup/MC_fileId_orb.dat
- *
- *      Text file with a matrix where the k-th column represent the k-th
- *      orbital. Thus the rows represent the values of these orbitals in
- *      discretized positions
- *
- * setup/MC_fileId_eq.dat
- *
- *      A text file within the values of equation coefficients in the
- *      following order, separeted by spaces:
- *
- *      (1) second order derivative
- *      (2) imag part of first order derivative(have no real part)
- *      (3) interaction strength (g)
- *      (4) Delta Barrier Strength
- *      (5) Boundary conditions - Boolean
- *
- * setup/MC_fileId_domain.dat
- *
- *      A text file with position domain information over  which  the
- *      fileId_init was generated. The numbers are in following order
- *
- *      (1) # of particles
- *      (2) # of orbitals
- *      (3) x_i
- *      (4) x_f
- *      (5) M the number of slices of size (xf - xi) / M
- *
- *
- *
- *
- *
- * COMMAND LINE ARGUMENTS
- * -------------------------------------------------------------------------
- * 
- * real/imag dt N fileId output_name method(optional)
- *
- *      real/imag   -> real/Real/imag/Imag (the time)
- *      dt          -> the time step
- *      N           -> number of time steps to propagate
- *      fileId      -> Name to look up for files
- *      output_name -> name of file to write results
- *      method      -> Method to solve (see below)
- *
- * PS: method, if given, must have as :
- *
- *      * First algarism define how to do linear part
- *          1 Crank-Nicolson with Sherman-Morrison
- *          2 Crank-Nicolson with LU-decomposition
- *
- *      * Second algarism define how to do nonlinear part
- *          1 4th order Runge-Kutta
- *          2 Mix between 4th order Runge-Kutta and lanczos
- *
- *
- *
- *
- *
- * CALL
- * -------------------------------------------------------------------------
- *
- * ./MCTDHB_time real/imag dt N fileId output_name method(optional)
- *
- *
- *
- *
- *
- * OUTPUT FILES
- * -------------------------------------------------------------------------
- *
- *
+/* ==========================================================================
+
+
+
+   *  OBTAIN REAL OR IMAGINARY TIME EVOLUTION SOLUTION OF MCTDHB EQUATIONS  *
+
+
+
+   REQUIRED FILES
+   --------------------------------------------------------------------------
+
+   (1)  setup/MC_fileId_orb.dat
+
+        Text file with a matrix where the k-th column represent the k-th
+        orbital. Thus the rows represent the values of these orbitals in
+        discretized positions
+
+   (2)  setup/MC_fileId_eq.dat
+
+        A text file within the values of equation coefficients in the
+        following order, separeted by spaces:
+
+        (2-1) second order derivative
+        (2-2) imag part of first order derivative(have no real part)
+        (2-3) interaction strength (g)
+        (2-5) Boundary conditions - Boolean
+
+   (3)  setup/MC_fileId_config.dat
+
+        A text file with position domain information over  which  the
+        fileId_init was generated. The numbers are in following order
+
+        (3-1) # of particles
+        (3-2) # of orbitals
+        (3-3) x_i
+        (3-4) x_f
+        (3-5) M the number of slices of size (xf - xi) / M
+
+
+
+
+
+   COMMAND LINE ARGUMENTS
+   --------------------------------------------------------------------------
+
+   real/imag dt N fileId output_name method(optional) Nstates(optional)
+
+        real/imag   -> real/Real/imag/Imag (the time)
+        dt          -> the time step
+        N           -> number of time steps to propagate
+        fileId      -> Name to look up for files
+        output_name -> name of file to write results
+        method      -> Method to solve (default 1)
+        Nstates     -> Find Ground state for multiple parameters (default 1)
+
+
+
+
+
+   OBSERVATIONS
+   --------------------------------------------------------------------------
+   PS: method, if given, must be :
+
+            1 Finite differences Crank-Nicolson with Sherman-Morrison
+            2 Finite differences Crank-Nicolson with LU-decomposition
+            3 Fast-Fourier Transform to compute derivatives
+
+   Nstates is the number of lines in _config.dat and _eq.dat files
+   to run multiple imaginary propagation  for  different  equation
+   parameters set
+
+
+
+
+
+   CALL
+   --------------------------------------------------------------------------
+
+   ./MCTDHB_time real/imag dt N fileId output_name method(optional)
+
+
+
+
+
+   OUTPUT FILES
+   --------------------------------------------------------------------------
+
+
+
+
+
  * ========================================================================= */
 
 
@@ -404,11 +410,11 @@ int main(int argc, char * argv[])
 
 
     if (argc == 7) { sscanf(argv[6], "%d", &method); }
-    else           { method = 11;                    }
+    else           { method = 1;                     }
 
-    if (method != 11 && method != 12 && method != 21 && method != 22)
+    if (method != 1 && method != 2 && method != 3)
     {
-        printf("\n\n\tInvalid method Id ! Valid: 11 or 12 or 21 or 22\n\n");
+        printf("\n\n\tInvalid method Id ! Valid: 1 or 2 or 3\n\n");
         return -1;
     }
 
@@ -416,17 +422,14 @@ int main(int argc, char * argv[])
     printf("\n\nMethod chosen : %d - ", method);
     switch (method)
     {
-        case 11:
-            printf("Crank-Nicolson SM and full RK4 \n");
+        case 1:
+            printf("Crank-Nicolson SM and RK4 \n");
             break;
-        case 12:
-            printf("Crank-Nicolson SM and partial RK4 with lanczos \n");
+        case 2:
+            printf("Crank-Nicolson LU and RK4 \n");
             break;
-        case 21:
-            printf("FFT and full RK4 \n");
-            break;
-        case 22:
-            printf("FFT and partial RK4 with lanczos \n");
+        case 3:
+            printf("FFT and RK4 \n");
             break;
     }
 
@@ -574,6 +577,19 @@ int main(int argc, char * argv[])
      *       DIAGONALIZE HAMILTONIAN IN THE GIVEN BASIS BEFORE START        *
      *                                                                      *
      * ==================================================================== */
+
+
+
+
+
+    if ( dt > 5 * dx * dx && method < 3)
+    {
+        printf("\n\nWARNING : step too large to maintain stability");
+        printf(" in finite-differences methods.\n\n");
+    }
+
+
+
     if ( NC(Npar, Morb) < 400 )
     {
         E[0] = LanczosGround( NC(Npar,Morb)/2, mc, Orb, C );
@@ -585,6 +601,39 @@ int main(int argc, char * argv[])
         // Renormalize coeficients
         renormalizeVector( NC(Npar,Morb), C, 1.0);
     }
+
+
+
+    // Test if time step is good
+    if ( dt > 0.2 / creal(E[0]) )
+    {
+        printf("\n\n\n\t!   Too big time step   !");
+        printf("\n\nTry something < %.10lf\n\n", 0.15 / creal(E[0]));
+        exit(EXIT_FAILURE);
+    } else
+    {
+        if ( dt < 0.001 / creal(E[0]) )
+        {
+            printf("\n\n\n\t!   Too small time step   !");
+            printf("\n\nTry something > %.10lf\n\n", 0.003 / creal(E[0]));
+            exit(EXIT_FAILURE);
+        }
+    }
+
+
+
+    // Test if final time is good
+    if ( N * dt < 20 / creal(E[0]) )
+    {
+        printf("\n\n\n\t!   Final step(%.3lf) too small   !", N * dt);
+        printf("\n\nTry N * dt > %.3lf\n\n", 21 / creal(E[0]));
+        exit(EXIT_FAILURE);
+    }
+
+
+
+
+
     /* ==================================================================== *
      *                                                                      *
      *                          CALL THE INTEGRATOR                         *
@@ -605,7 +654,7 @@ int main(int argc, char * argv[])
     switch (method)
     {
 
-        case 11:
+        case 1:
 
             start = omp_get_wtime();
             MC_IMAG_RK4_CNSMRK4(mc, Orbtest, Ctest, E, vir, dt, 1, cyclic);
@@ -621,14 +670,16 @@ int main(int argc, char * argv[])
             printf("\n\n");
 
             // Start Evolution
+            start = omp_get_wtime();
             MC_IMAG_RK4_CNSMRK4(mc, Orb, C, E, vir, dt, N, cyclic);
+            time_used = (double) (omp_get_wtime() - start);
 
             break;
 
-        case 12:
+        case 2:
 
             start = omp_get_wtime();
-            MC_IMAG_LAN_CNSMRK4(mc, Orbtest, Ctest, E, vir, dt, 1, cyclic);
+            MC_IMAG_RK4_CNLURK4(mc, Orbtest, Ctest, E, vir, dt, 1, cyclic);
             time_used = (double) (omp_get_wtime() - start);
 
             printf("\n\nTime to do 1 step: %.3lf seconds", time_used);
@@ -641,31 +692,13 @@ int main(int argc, char * argv[])
             printf("\n\n");
 
             // Start Evolution
-            MC_IMAG_LAN_CNSMRK4(mc, Orb, C, E, vir, dt, N, cyclic);
-
-            break;
-
-        case 21:
-
             start = omp_get_wtime();
-            MC_IMAG_RK4_FFTRK4(mc, Orbtest, Ctest, E, vir, dt, 1);
+            MC_IMAG_RK4_CNLURK4(mc, Orb, C, E, vir, dt, N, cyclic);
             time_used = (double) (omp_get_wtime() - start);
 
-            printf("\n\nTime to do 1 step: %.3lf seconds", time_used);
-            printf("\nTotal time estimated: ");
-            TimePrint(time_used * N);
-
-            free(Ctest);
-            cmatFree(Morb, Orbtest);
-
-            printf("\n\n");
-
-            // Start Evolution
-            MC_IMAG_RK4_FFTRK4(mc, Orb, C, E, vir, dt, N);
-
             break;
 
-        case 22:
+        case 3:
 
             start = omp_get_wtime();
             MC_IMAG_RK4_FFTRK4(mc, Orbtest, Ctest, E, vir, dt, 1);
@@ -681,7 +714,9 @@ int main(int argc, char * argv[])
             printf("\n\n");
 
             // Start Evolution
+            start = omp_get_wtime();
             MC_IMAG_RK4_FFTRK4(mc, Orb, C, E, vir, dt, N);
+            time_used = (double) (omp_get_wtime() - start);
 
             break;
     }
@@ -734,7 +769,9 @@ int main(int argc, char * argv[])
 
         carr_txt(fname_out, N + 1, vir);
     }
-    
+
+
+
     // Record Parameters Used
 
     strcpy(fname_out, "../mctdhb_data/");
@@ -753,10 +790,24 @@ int main(int argc, char * argv[])
         return -1;
     }
 
-    fprintf(out_data, "%d %d %d %.15lf %.15lf %.10lf %d",
-            Npar, Morb, Mdx, xi, xf, dt, N);
+    fprintf(out_data, "%d %d %d %.15lf %.15lf %.15lf %.15lf %.15lf",
+            Npar, Morb, Mdx, xi, xf, mc->a2, cimag(mc->a1), mc->inter);
 
     fclose(out_data);
+    
+    
+    
+    // Record Trap potential
+
+    strcpy(fname_out, "../mctdhb_data/");
+    strcat(fname_out, argv[5]);
+
+    if (timeinfo == 'r' || timeinfo == 'R')
+    { strcat(fname_out, "_trap_realtime.dat"); }
+    else
+    { strcat(fname_out, "_trap_imagtime.dat"); }
+
+    rarr_txt(fname_out, Mdx + 1, mc->V);
 
 
 

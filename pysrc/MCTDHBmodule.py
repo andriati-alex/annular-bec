@@ -710,19 +710,6 @@ def GetOBrho(Npar, Morb, C):
 
 
 
-def GetOccupation(Npar, Morb, C):
-    rho = np.empty([ Morb , Morb ], dtype=np.complex128);
-    NCmat = GetNCmat(Npar, Morb);
-    IF = GetFocks(Npar, Morb);
-    OBrho(Npar, Morb, NCmat, IF, C, rho);
-    eigval, eigvec = la.eig(rho);
-    EigSort(Morb, eigval.real, eigvec);
-    return eigval.real / Npar;
-
-
-
-
-
 def GetTBrho(Npar, Morb, C):
     """
     CALLING : ( 1D array [ Morb⁴ ] ) = GetOBrho(Npar, Morb, C)
@@ -781,24 +768,50 @@ def EigSort(Nvals, RHOeigvals, RHOeigvecs):
 
 
 
-def NatOrb(RHOeigvecs, Orb):
+def GetOccupation(Npar, Morb, C):
     """
-    CALLING :
+    CALLING
     -------
-    ( 2D numpy array [Morb x Mpos] ) = NatOrb(RHOeigvecs, Orb)
+    (1D array of size Morb) = GetOccupation(Npar, Morb, C)
 
-    Arguments :
+    arguments
     ---------
-    RHOeigvecs : Matrix with eigenvectors of rho in columns
-    Orb : 2D array [Morb x Mpos] given by time propagation
+    Npar : # of particles
+    Morb : # of orbitals
+    C    : coefficients of configurations
     """
-    return np.matmul(RHOeigvecs.conj().T, Orb);
+    rho = GetOBrho(Npar, Morb, C);
+    eigval, eigvec = la.eig(rho);
+    EigSort(Morb, eigval.real, eigvec);
+    return eigval.real / Npar;
 
 
 
 
 
-def TimeOccupation(Morb, Nsteps, rhotime):
+def GetNatOrb(Npar, Morb, C, Orb):
+    """
+    CALLING
+    -------
+    ( 2D numpy array [Morb x Mpos] ) = GetNatOrb(Npar, Morb, C, Orb)
+
+    arguments
+    ---------
+    Npar : # of particles
+    Morb : # of orbitals
+    C    : coefficients of many-body state in condiguration basis
+    Orb  : Matrix with each row a 'working' orbital
+    """
+    rho = GetOBrho(Npar, Morb, C);
+    eigval, eigvec = la.eig(rho);
+    EigSort(Morb, eigval.real, eigvec);
+    return np.matmul(eigvec.conj().T, Orb);
+
+
+
+
+
+def TimeOccupation(Npar, Morb, rhotime):
     """
     CALLING :
     -------
@@ -806,22 +819,37 @@ def TimeOccupation(Morb, Nsteps, rhotime):
 
     arguments :
     ---------
+    Npar    : # of particles
     Morb    : # of orbitals (# of columns in rhotime)
-    Nsteps  : # number of time steps (# of rows in rhotime)
     rhotime : each line has row-major matrix representation (a vector)
               that is the  one-body  densiity matrix at each time-step
     """
+    Nsteps = rhotime.shape[0];
     eigval = np.empty( [Nsteps, Morb] , dtype=np.complex128 );
     for i in range(Nsteps):
         eigval[i], eigvec = la.eig( rhotime[i].reshape(Morb, Morb) );
         EigSort(Morb, eigval[i].real, eigvec);
-    return eigval;
+    return eigval / Npar;
 
 
 
 
 
-def SpatialOBdensity(NOoccu, NO):
+@jit( (int32, int32, float64[:], complex128[:,:], complex128[:,:]) ,
+      nopython=True, nogil=True, parallel=True)
+
+def SpatialOBdensity(Morb, Mpos, NOoccu, NO, n):
+    """ Inner loop of GetSpatialOBdensity """
+    for i in prange(Mpos):
+        for j in prange(Mpos):
+            for k in prange(Morb):
+                n[i,j] = n[i,j] + NOoccu[k] * NO[k,j].conjugate() * NO[k,i];
+
+
+
+
+
+def GetSpatialOBdensity(NOoccu, NO):
     """
     CALLING
     -------
@@ -839,14 +867,11 @@ def SpatialOBdensity(NOoccu, NO):
 
     n[i,j] = <  Ψ†(Xj) Ψ(Xi)  >
     """
-    M = NO.shape[1];
+    Mpos = NO.shape[1];
     Morb = NO.shape[0];
-    n = np.zeros([M , M], dtype=np.complex128);
-    for i in range(M):
-        for j in range(M):
-            for k in range(Morb):
-                n[i,j] = n[i,j] + NOoccu[k] * NO[k,j].conjugate() * NO[k,i];
-    return n / (NOoccu.sum());
+    n = np.zeros([ Mpos , Mpos ], dtype=np.complex128);
+    SpatialOBdensity(Morb, Mpos, NOoccu, NO, n);
+    return n;
 
 
 
@@ -991,7 +1016,16 @@ def InteractingE(g, dx, rho, Orb):
 
 
 
-def VirialValue(a2, a1, g, V, dx, rho, rho2, Orb):
+def Virial(a2, a1, g, V, dx, rho, rho2, Orb):
+    """
+    CALLING
+    -------
+    (double) = Virial(a2, a1, g, V, dx, rho, rho2, Orb)
+
+    Given the equation parameters return the Virial value what
+    should be zero according to a scale transformation minimum
+    at the solution of a stationary state.
+    """
     kin = KinectE(a2, a1, dx, rho, Orb);
     trp = PotentialE(V, dx, rho, Orb);
     ntr = InteractingE(g, dx, rho2, Orb);

@@ -12,14 +12,15 @@
 double complex nonlinear (int M, int k, int n, double g, Cmatrix Orb,
                Cmatrix Rinv, Carray R2, Cmatrix Ho, Carray Hint )
 {
-    // For a orbital 'k' computed at discretized position 'n' calculate
-    // the right-hand-side part of MCTDHB orbital's equation of  motion
-    // that is nonlinear, part because of projections that made the eq.
-    // an integral-differential equation, and other part due to contact
-    // interactions. Assume that Rinv, R2 are  defined  by  the  set of
-    // configuration-state coefficients as the inverse of  one-body and
-    // two-body density matrices respectively. Ho and Hint are  assumed
-    // to be defined accoding to 'Orb' variable as well.
+
+//  For a orbital 'k' computed at discretized position 'n' calculate
+//  the right-hand-side part of MCTDHB orbital's equation of  motion
+//  that is nonlinear, part because of projections that made the eq.
+//  an integral-differential equation, and other part due to contact
+//  interactions. Assume that Rinv, R2 are  defined  by  the  set of
+//  configuration-state coefficients as the inverse of  one-body and
+//  two-body density matrices respectively. Ho and Hint are  assumed
+//  to be defined accoding to 'Orb' variable as well.
 
 
 
@@ -104,10 +105,12 @@ double complex nonlinear (int M, int k, int n, double g, Cmatrix Orb,
 void MCNLTRAP_dOdt(MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix dOdt,
      Cmatrix Ho, Carray Hint)
 {
-    // Right-Hand-Side when isolate orbital's time derivative
-    // of nonlinear part accounting for both projections  and
-    // interactions. Assume Ho and Hint are defined according
-    // to 'Orb' variable before have entered this subroutine.
+
+//  Time derivative of the set of orbitals due exclusively to nonlinear
+//  part plus the potential. Used for split-step-spectral method  where
+//  the derivative and potential part are solved separately
+//
+//  OUTPUT ARGUMENT : dOdt
 
 
 
@@ -202,10 +205,12 @@ void MCNLTRAP_dOdt(MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix dOdt,
 void MCNL_dOdt (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix dOdt,
      Cmatrix Ho, Carray Hint)
 {
-    // Right-Hand-Side when isolate orbital's time derivative
-    // of nonlinear part accounting for both projections  and
-    // interactions. Assume Ho and Hint are defined according
-    // to 'Orb' variable before have entered this subroutine.
+
+//  Time derivative of the set of orbitals due exclusively  to nonlinear
+//  part. Used for split-step-Finite-Differences method where the linear
+//  and nonlinear part are solved separately
+//
+//  OUTPUT ARGUMENT : dOdt
 
 
 
@@ -240,6 +245,7 @@ void MCNL_dOdt (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix dOdt,
     Cmatrix
         rho = cmatDef(M, M),
         rho_inv = cmatDef(M, M);
+
 
 
     // Setup one/two-body density matrix
@@ -298,9 +304,11 @@ void MCNL_dOdt (MCTDHBsetup MC, Carray C, Cmatrix Orb, Cmatrix dOdt,
 void MC_dCdt (MCTDHBsetup MC, Carray C, Cmatrix Ho, Carray Hint, Carray dCdt)
 {
 
-/** Time derivative of coefficients from the expansion in configuration
-    basis. Assume elements of Ho and Hint previuosly setted up with the
-    Single Particle Wave function whose the configurations refers to */
+//  Time derivative of coefficients from the expansion in configuration
+//  basis. Assume elements of Ho and Hint previuosly setted up with the
+//  Single Particle Wave function whose the configurations refers to.
+//
+//  OUTPUT PARAMETERS : dCdt
 
     int i;
 
@@ -321,9 +329,21 @@ void MC_dCdt (MCTDHBsetup MC, Carray C, Cmatrix Ho, Carray Hint, Carray dCdt)
 int lanczos(MCTDHBsetup MCdata, Cmatrix Ho, Carray Hint,
     int lm, Carray diag, Carray offdiag, Cmatrix lvec)
 {
-    // Improved lanczos iterations  with  reorthogonalization. Lanczos
-    // vectors are stored in 'lvec'.  'diag'  and  'offdiag'  hold the 
-    // values of tridiagonal real matrix obtained to be diagonalized
+
+//  Improved lanczos iterations with reorthogonalization for the vector
+//  of coefficients of the many-body state represented in configuration
+//  basis. Lanczos procedure give a (real)tridiagonal whose the spectra
+//  approximate the original one, as better as more iterations are done.
+//  It work, however, just with a routine to apply the original  matrix
+//  to any vector, what can save memory.
+//
+//  OUTPUT PARAMETERS :
+//      lvec - Lanczos vectors used to convert eigenvectors
+//      diag - diagonal elements of tridiagonal symmetric matrix
+//      offdiag - symmetric elements of tridiagonal matrix
+//
+//  RETURN :
+//      number of itertion done (just lm if the method does not breakdown)
 
 
 
@@ -413,11 +433,15 @@ int lanczos(MCTDHBsetup MCdata, Cmatrix Ho, Carray Hint,
 double LanczosGround (int Niter, MCTDHBsetup MC, Cmatrix Orb, Carray C)
 {
 
-/** Find the lowest Eigenvalue using Lanczos tridiagonal decomposition
-    for the hamiltonian in configurational space, with orbitals fixed.
-    Use up to Niter (unless the iteration break) in Lanczos method  to
-    obtain a basis-fixed ground state approximation  of  the truncated
-    configuration space.                                            */
+//  Find the lowest Eigenvalue using Lanczos tridiagonal decomposition
+//  for the hamiltonian in configurational space, with orbitals fixed.
+//  Use up to Niter(unless the a breakdown occur) in Lanczos method to
+//  obtain a basis-fixed ground state approximation  of  the truncated
+//  configuration space.
+//
+//  INPUT/OUTPUT : C (end up as eigenvector approximation)
+//
+//  RETURN : Lowest eigenvalue found
 
 
 
@@ -467,13 +491,12 @@ double LanczosGround (int Niter, MCTDHBsetup MC, Cmatrix Orb, Carray C)
     // Setup values needed to solve the equations for C
     // ------------------------------------------------
 
-    offdiag[Niter-1] = 0; // Useless
-    // Setup initial lanczos vector
-    carrCopy(nc, C, lvec[0]);
+    offdiag[Niter-1] = 0;     // Useless
+    carrCopy(nc, C, lvec[0]); // Setup initial lanczos vector
 
 
 
-    // Call Lanczos what setup tridiagonal symmetric and lanczos vectors
+    // Call Lanczos what setup tridiagonal matrix and lanczos vectors
     // -----------------------------------------------------------------
     predictedIter = Niter;
     Niter = lanczos(MC, Ho, Hint, Niter, diag, offdiag, lvec);
@@ -545,7 +568,11 @@ double LanczosGround (int Niter, MCTDHBsetup MC, Cmatrix Orb, Carray C)
 void LanczosIntegrator (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
 {
 
-    /* Integrate Coefficients in a imaginary time-step dt using Lanczos */
+//  Integrate Coefficients in a imaginary time-step dt using Lanczos
+//  iteration to compute approximations to eigenvalues and then use
+//  them to exact diagonalize in this subspace
+//
+//  INPUT/OUTPUT : C (advanced in dt)
 
 
     int
@@ -705,9 +732,13 @@ void LanczosIntegrator (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt
 void MC_NLTRAPC_IRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
 {
 
-    /* (M)ulti-(C)onfiguration (N)on (L)inear part + (TRAP) potential
-       and  (C)oefficients  solver  for  (I)maginary  time-step  with
-       (R)unge-(K)utta method of 4-th order : MC_NLTRAPC_IRK4      */
+//  (M)ulti-(C)onfiguration (N)on (L)inear part + (TRAP) potential
+//  and  (C)oefficients  solver  for  (I)maginary  time-step  with
+//  (R)unge-(K)utta method of 4-th order : MC_NLTRAPC_IRK4
+//
+//  INPUT/OUTPUT :
+//      C   - End up advanced in dt
+//      Orb - End up advanced in dt
 
 
 
@@ -734,6 +765,8 @@ void MC_NLTRAPC_IRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
 
     SetupHo(M, Mpos, Orb, MC->dx, MC->a2, MC->a1, MC->V, Ho);
     SetupHint(M, Mpos, Orb, MC->dx, MC->inter, Hint);
+
+
 
     // ------------------------------------------------------------------
     // COMPUTE K1
@@ -764,6 +797,8 @@ void MC_NLTRAPC_IRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
     SetupHo(M, Mpos, Oarg, MC->dx, MC->a2, MC->a1, MC->V, Ho);
     SetupHint(M, Mpos, Oarg, MC->dx, MC->inter, Hint);
 
+
+
     // ------------------------------------------------------------------
     // COMPUTE K2
     // ------------------------------------------------------------------
@@ -793,6 +828,8 @@ void MC_NLTRAPC_IRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
     SetupHo(M, Mpos, Oarg, MC->dx, MC->a2, MC->a1, MC->V, Ho);
     SetupHint(M, Mpos, Oarg, MC->dx, MC->inter, Hint);
 
+
+
     // ------------------------------------------------------------------
     // COMPUTE K3
     // ------------------------------------------------------------------
@@ -821,6 +858,8 @@ void MC_NLTRAPC_IRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
 
     SetupHo(M, Mpos, Oarg, MC->dx, MC->a2, MC->a1, MC->V, Ho);
     SetupHint(M, Mpos, Oarg, MC->dx, MC->inter, Hint);
+
+
 
     // ------------------------------------------------------------------
     // COMPUTE K4
@@ -882,8 +921,10 @@ void MC_NLTRAPC_IRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
 void MC_NL_IRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
 {
 
-    /* (M)ulti-(C)onfiguration (N)on-(L)inear part solver for  (I)maginary
-       time-step with (R)unge-(K)utta method of 4-th order : MC_NL_IRK4 */
+//  (M)ulti-(C)onfiguration (N)on-(L)inear part solver for  (I)maginary
+//  time-step with (R)unge-(K)utta method of 4-th order : MC_NL_IRK4
+//
+//  INPUT/OUTPUT : Orb - end up advanced in dt
 
 
 
@@ -1011,9 +1052,13 @@ void MC_NL_IRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
 void MC_NLC_IRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
 {
 
-    /* (M)ulti-(C)onfiguration (N)on (L)inear part and  (C)oefficients
-       solver for (I)maginary time-step with (R)unge-(K)utta method of
-       4-th order : MC_NLC_IRK4                                     */
+//  (M)ulti-(C)onfiguration (N)on (L)inear part and  (C)oefficients
+//  solver for (I)maginary time-step with (R)unge-(K)utta method of
+//  4-th order : MC_NLC_IRK4
+//
+//  INPUT/OUTPUT :
+//      C   - End up advanced in dt
+//      Orb - End up advanced in dt
 
 
 
@@ -1040,6 +1085,8 @@ void MC_NLC_IRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
 
     SetupHo(M, Mpos, Orb, MC->dx, MC->a2, MC->a1, MC->V, Ho);
     SetupHint(M, Mpos, Orb, MC->dx, MC->inter, Hint);
+
+
 
     // ------------------------------------------------------------------
     // COMPUTE K1
@@ -1070,6 +1117,8 @@ void MC_NLC_IRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
     SetupHo(M, Mpos, Oarg, MC->dx, MC->a2, MC->a1, MC->V, Ho);
     SetupHint(M, Mpos, Oarg, MC->dx, MC->inter, Hint);
 
+
+
     // ------------------------------------------------------------------
     // COMPUTE K2
     // ------------------------------------------------------------------
@@ -1099,6 +1148,8 @@ void MC_NLC_IRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
     SetupHo(M, Mpos, Oarg, MC->dx, MC->a2, MC->a1, MC->V, Ho);
     SetupHint(M, Mpos, Oarg, MC->dx, MC->inter, Hint);
 
+
+
     // ------------------------------------------------------------------
     // COMPUTE K3
     // ------------------------------------------------------------------
@@ -1127,6 +1178,8 @@ void MC_NLC_IRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
 
     SetupHo(M, Mpos, Oarg, MC->dx, MC->a2, MC->a1, MC->V, Ho);
     SetupHint(M, Mpos, Oarg, MC->dx, MC->inter, Hint);
+
+
 
     // ------------------------------------------------------------------
     // COMPUTE K4
@@ -1191,16 +1244,17 @@ void MCLP_CNSM (int Mpos, int Morb, CCSmat cnmat, Carray upper,
      Carray lower, Carray mid, Cmatrix Orb)
 {
 
-    /* (M)ulti-(C)onfiguration  (L)inear  (P)art  solver by
-     * (C)rank-(N)icolson with (S)herman-(M)orrison formula
-     * to a cyclic-tridiagonal system : MCLPCNSM
-     * ----------------------------------------------------
-     *
-     * Given a complex matrix with orbitals  organized  in
-     * each  row,  Solve  cyclic-tridiagonal  system  that
-     * arises from Crank-Nicolson finite difference scheme
-     * with the discretization matrix to multiply RHS in a
-     * Compressed-Column Storage format                 */
+//  (M)ulti-(C)onfiguration  (L)inear  (P)art  solver by
+//  (C)rank-(N)icolson with (S)herman-(M)orrison formula
+//  to a cyclic-tridiagonal system : MCLP_CNSM
+//  ----------------------------------------------------
+//  Given a complex matrix with orbitals  organized  in
+//  each  row,  Solve  cyclic-tridiagonal  system  that
+//  arises from Crank-Nicolson finite difference scheme
+//  with the discretization matrix to multiply RHS in a
+//  Compressed-Column Storage format
+//
+//  INPUT/OUTPUT PARAMETER : Orb
 
     int
         k,
@@ -1230,30 +1284,34 @@ void MCLP_CNSM (int Mpos, int Morb, CCSmat cnmat, Carray upper,
 void MCLP_CNLU (int Mpos, int Morb, CCSmat cnmat, Carray upper, Carray lower,
      Carray mid, Cmatrix Orb )
 {
-    /* (M)ulti-(C)onfiguration  (L)inear  (P)art  solver by
-     * (C)rank-(N)icolson with (LU) decomposition: MCLPCNLU
-     * ----------------------------------------------------
-     *
-     * Given a complex matrix with orbitals  organized  in
-     * each  row,  Solve  cyclic-tridiagonal  system  that
-     * arises from Crank-Nicolson finite difference scheme
-     * with the discretization matrix to multiply RHS in a
-     * Compressed-Column Storage format                 */
+
+//  (M)ulti-(C)onfiguration  (L)inear  (P)art  solver by
+//  (C)rank-(N)icolson with (LU) decomposition: MCLPCNLU
+//  ----------------------------------------------------
+//  Given a complex matrix with orbitals  organized  in
+//  each  row,  Solve  cyclic-tridiagonal  system  that
+//  arises from Crank-Nicolson finite difference scheme
+//  with the discretization matrix to multiply RHS in a
+//  Compressed-Column Storage format
+//
+//  INPUT/OUTPUT PARAMETER : Orb
 
     int
         k,
         size = Mpos - 1;
 
     Carray
-        rhs = carrDef(size);
+        rhs;
 
+    #pragma omp parallel for private(k, rhs)
     for (k = 0; k < Morb; k++)
     {   // For each orbital k solve a tridiagonal system obtained by CN
+        rhs = carrDef(size);
         CCSvec(size, cnmat->vec, cnmat->col, cnmat->m, Orb[k], rhs);
         triCyclicLU(size, upper, lower, mid, rhs, Orb[k]);
+        free(rhs);
     }
 
-    free(rhs);
 }
 
 
@@ -1268,13 +1326,15 @@ void MCLP_CNLU (int Mpos, int Morb, CCSmat cnmat, Carray upper, Carray lower,
 void MCLP_FFT (int Mpos, int Morb, DFTI_DESCRIPTOR_HANDLE * desc,
      Carray exp_der, Cmatrix Orb)
 {
-    /* (M)ulti-(C)onfiguration (L)inear (P)art solver by
-     * (F)ast (F)ourier (T)ransform : MCLPFFT
-     * -------------------------------------------------
-     *
-     * Given a complex matrix with orbitals organized  in
-     * each row, apply exponential of derivative operator
-     * whose is part of split-step formal solution.    */
+
+//  (M)ulti-(C)onfiguration (L)inear (P)art solver by
+//  (F)ast (F)ourier (T)ransform : MCLPFFT
+//  --------------------------------------------------
+//  Given a complex matrix with orbitals organized  in
+//  each row, apply exponential of derivative operator
+//  whose is part of split-step formal solution.
+//
+//  INPUT/OUTPUT PARAMETER : Orb
 
     int
         k;
@@ -1376,8 +1436,7 @@ void MC_IMAG_RK4_FFTRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
         dt = - I * dT;
 
     Carray
-        exp_der = carrDef(Mpos - 1),
-        to_int = carrDef(Mpos);
+        exp_der = carrDef(Mpos - 1);
 
 
 
@@ -1474,7 +1533,6 @@ void MC_IMAG_RK4_FFTRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
     
     p = DftiFreeDescriptor(&desc);
 
-    free(to_int);
     free(exp_der);
 }
 
@@ -1514,8 +1572,6 @@ void MC_IMAG_RK4_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
     int i,
         k,
-        l,
-        s,
         Mpos = MC->Mpos,
         Morb = MC->Morb;
 
@@ -1532,8 +1588,7 @@ void MC_IMAG_RK4_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
     Carray
         upper  = carrDef(Mpos - 1),
         lower  = carrDef(Mpos - 1),
-        mid    = carrDef(Mpos - 1),
-        to_int = carrDef(Mpos);
+        mid    = carrDef(Mpos - 1);
 
     CCSmat
         cnmat;
@@ -1592,6 +1647,24 @@ void MC_IMAG_RK4_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
         // Loss of Norm => undefined behavior on orthogonality
         Ortonormalize(Morb, Mpos, dx, Orb);
+        
+        
+        
+        if ( i == Nsteps / 2 )
+        {
+            if (MC->nc < 400) { k = MC->nc / 2; }
+            else              { k = 200;        }
+
+            E[i + 1] = LanczosGround( k, MC, Orb, C );
+            // Renormalize coeficients
+            renormalizeVector(MC->nc, C, 1.0);
+
+            printf("\n=====================================================");
+            printf("==========================\n\n");
+            printf("\tDiagonalization Done E = %.5E", creal(E[i+1]));
+            printf("\n\n===================================================");
+            printf("============================");
+        }
 
 
 
@@ -1609,7 +1682,6 @@ void MC_IMAG_RK4_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
     printf("========================\n\n");
 
     CCSFree(cnmat);
-    free(to_int);
     free(upper);
     free(lower);
     free(mid);
@@ -1624,7 +1696,7 @@ void MC_IMAG_RK4_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
 
 
-void MC_IMAG_LAN_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
+void MC_IMAG_RK4_CNLURK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
      Carray virial, double dT, int Nsteps, int cyclic)
 {
 
@@ -1635,7 +1707,7 @@ void MC_IMAG_LAN_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
     Methods
     -------
 
-    Configuration Coefficients Integrator : Lanczos
+    Configuration Coefficients Integrator : 4-th order Runge-Kutta
 
     Orbitals Integrator : Split-Step with Crank-Nicolson(linear)
     with Sherman-Morrison and 4-th order  Runge-Kutta(nonlinear)
@@ -1644,17 +1716,13 @@ void MC_IMAG_LAN_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
     Description
     -----------
 
-    Evolve first the coefficients helf of time step  give,  then
-    half time step the linear part of orbitals, next a full step
-    nonlinear part of orbitals, then half time step  the  linear
-    part and finally the other halft time step of coefficients */
+    Evolve half step linear part, then full step nonlinear part together
+    with coefficients and another half step linear part */
 
 
 
     int i,
         k,
-        l,
-        s,
         Mpos = MC->Mpos,
         Morb = MC->Morb;
 
@@ -1666,15 +1734,12 @@ void MC_IMAG_LAN_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
     double complex
         a1 = MC->a1,
-        // pure imaginary time
         dt = - I * dT;
 
     Carray
-        // arrays of tridiagonal system from discretization
         upper  = carrDef(Mpos - 1),
         lower  = carrDef(Mpos - 1),
-        mid    = carrDef(Mpos - 1),
-        to_int = carrDef(Mpos);
+        mid    = carrDef(Mpos - 1);
 
     CCSmat
         cnmat;
@@ -1702,13 +1767,7 @@ void MC_IMAG_LAN_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
     for (i = 0; i < Nsteps; i++)
     {
 
-        LanczosIntegrator(MC, Orb, C, dt / 2);
-        // Renormalize coeficients
-        renormalizeVector(MC->nc, C, 1.0);
-
-
-
-        MCLP_CNSM(Mpos, Morb, cnmat, upper, lower, mid, Orb);
+        MCLP_CNLU(Mpos, Morb, cnmat, upper, lower, mid, Orb);
 
         // The boundary
         if (cyclic)
@@ -1718,11 +1777,11 @@ void MC_IMAG_LAN_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
 
 
-        MC_NL_IRK4(MC, Orb, C, dt);
+        MC_NLC_IRK4(MC, Orb, C, dt);
 
 
 
-        MCLP_CNSM(Mpos, Morb, cnmat, upper, lower, mid, Orb);
+        MCLP_CNLU(Mpos, Morb, cnmat, upper, lower, mid, Orb);
 
         // The boundary
         if (cyclic)
@@ -1732,7 +1791,6 @@ void MC_IMAG_LAN_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
 
 
-        LanczosIntegrator(MC, Orb, C, dt / 2);
         // Renormalize coeficients
         renormalizeVector(MC->nc, C, 1.0);
 
@@ -1740,6 +1798,24 @@ void MC_IMAG_LAN_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
         // Loss of Norm => undefined behavior on orthogonality
         Ortonormalize(Morb, Mpos, dx, Orb);
+        
+        
+        
+        if ( i == Nsteps / 2 )
+        {
+            if (MC->nc < 400) { k = MC->nc / 2; }
+            else              { k = 200;        }
+
+            E[i + 1] = LanczosGround( k, MC, Orb, C );
+            // Renormalize coeficients
+            renormalizeVector(MC->nc, C, 1.0);
+
+            printf("\n=====================================================");
+            printf("==========================\n\n");
+            printf("\tDiagonalization Done E = %.5E", creal(E[i+1]));
+            printf("\n\n===================================================");
+            printf("============================");
+        }
 
 
 
@@ -1752,12 +1828,11 @@ void MC_IMAG_LAN_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
         printf("\n\t%5d\t\t%15.5E\t\t%15.5E", i+1, creal(E[i+1]),
         creal(virial[i+1]));
     }
-    
+
     printf("\n=======================================================");
     printf("========================\n\n");
 
     CCSFree(cnmat);
-    free(to_int);
     free(upper);
     free(lower);
     free(mid);

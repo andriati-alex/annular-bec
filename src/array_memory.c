@@ -229,6 +229,26 @@ void carr_txt(char fname [], int M, Carray v)
 
 
 
+void rarr_txt(char fname [], int M, Rarray v)
+{
+
+    FILE * data_file = fopen(fname, "w");
+
+    if (data_file == NULL)
+    {   // impossible to open file with the given name
+        printf("ERROR: impossible to open file %s\n", fname);
+        return;
+    }
+
+    for (int j = 0; j < M; j ++) fprintf(data_file, "%.15E ", v[j]);
+
+    fclose(data_file);
+}
+
+
+
+
+
 void cmat_txt (char fname [], int N, int row_step, int M, int col_step,
      Cmatrix A)
 {

@@ -83,6 +83,14 @@ void carr_txt(char fname [], int M, Carray v);
 
 
 
+// Print array in a text  file  suitable  to
+// import with python using the name of file
+void rarr_txt(char fname [], int M, Rarray v);
+
+
+
+
+
 // Print matrix in a text file suitable to import with python
 // using the name of file. Skip some rows  or/and  columns if
 // row_step or/and col_step is not 1
