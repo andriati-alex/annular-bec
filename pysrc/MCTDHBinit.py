@@ -79,7 +79,7 @@ def Hermite(Morb, x, S, omega):
     phase = (np.random.random(Morb) - 0.5) * 2 * pi;
     for n in range(Morb):
         her = ss.eval_hermite(n, sqrt(omega) * x);
-        div = pow((2 ** n) * fac(n), 0.5) * pow(pi, 0.25);
+        div = pow((2 ** n) * fac(n), 0.5) * pow(pi / omega, 0.25);
         S[n,:] = np.exp(- omega * x * x / 2 + 1.0j * phase[n]) * her / div;
 
 
@@ -233,6 +233,6 @@ folder = str(Path.home()) + '/AndriatiLibrary/annular-bec/setup/MC_';
 np.savetxt(folder + Id_name + '_orb.dat', Orb.T, fmt='%.15E');
 np.savetxt(folder + Id_name + '_coef.dat', C.T, fmt='%.15E');
 
-f = open(folder + Id_name + '_config.dat', 'w');
+f = open(folder + Id_name + '_conf.dat', 'w');
 f.write( '%d %d %d %.15f %.15f' % (Npar, Morb, Mdiv, xi, xf) );
 f.close();
