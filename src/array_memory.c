@@ -143,9 +143,9 @@ void carrPrint(int n, Carray v)
 
     else
     {   // print first and last 10 elements
-        for (i = 0; i < 10; i++)     printf("\n\t"); cPrint(v[i]);
-        for (i = 0; i < 5; i++)      printf("\n\t           .");
-        for (i = n - 11; i < n; i++) printf("\n\t"); cPrint(v[i]);
+        for (i = 0; i < 10; i++)     { printf("\n\t"); cPrint(v[i]); }
+        for (i = 0; i < 5; i++)      { printf("\n\t           .");   }
+        for (i = n - 11; i < n; i++) { printf("\n\t"); cPrint(v[i]); }
     }
 
     printf("\n");

@@ -281,7 +281,7 @@ void OBrho(int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix rho)
                     j = FockToIndex(N, M, NCmat, v);
                     v[k] += 1;
                     v[l] -= 1;
-                    RHO = RHO + conj(C[i]) * C[j] * sqrt((v[l] + 1) * v[k]);
+                    RHO += conj(C[i]) * C[j] * sqrt((double)(v[l]+1) * v[k]);
                 }
 
                 free(v); // Each thread release its vector
@@ -423,7 +423,7 @@ void TBrho(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
                 {
                     if (IF[i][k] < 2) continue;
                     for (t = 0; t < M; t++) v[t] = IF[i][t];
-                    sqrtOf = sqrt((v[k] - 1) * v[k] * (v[q] + 1) * (v[q] + 2));
+                    sqrtOf = sqrt((double)(v[k]-1)*v[k]*(v[q]+1)*(v[q]+2));
                     v[k] -= 2;
                     v[q] += 2;
                     j = FockToIndex(N, M, NCmat, v);
@@ -460,7 +460,7 @@ void TBrho(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
                 {
                     if (IF[i][k] < 2) continue;
                     for (t = 0; t < M; t++) v[t] = IF[i][t];
-                    sqrtOf = (v[k] - 1) * sqrt(v[k] * (v[l] + 1));
+                    sqrtOf = (v[k] - 1) * sqrt((double)v[k] * (v[l] + 1));
                     v[k] -= 1;
                     v[l] += 1;
                     j = FockToIndex(N, M, NCmat, v);
@@ -498,7 +498,7 @@ void TBrho(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
                 {
                     if (IF[i][k] < 1 || IF[i][s] < 1) continue;
                     for (t = 0; t < M; t++) v[t] = IF[i][t];
-                    sqrtOf = v[s] * sqrt(v[k] * (v[s] + 1));
+                    sqrtOf = v[s] * sqrt((double)v[k]*(v[s]+1));
                     v[k] -= 1;
                     v[s] += 1;
                     j = FockToIndex(N, M, NCmat, v);
@@ -538,8 +538,7 @@ void TBrho(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
                     {
                         if (IF[i][k] < 2) continue;
                         for (t = 0; t < M; t++) v[t] = IF[i][t];
-                        sqrtOf = sqrt( v[k] * (v[k] - 1) * 
-                                 (v[q] + 1) * (v[l] + 1) );
+                        sqrtOf = sqrt((double)v[k]*(v[k]-1)*(v[q]+1)*(v[l]+1));
                         v[k] -= 2;
                         v[l] += 1;
                         v[q] += 1;
@@ -581,8 +580,7 @@ void TBrho(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
                     {
                         if (IF[i][k] < 2) continue;
                         for (t = 0; t < M; t++) v[t] = IF[i][t];
-                        sqrtOf = sqrt( v[k] * (v[k] - 1) * 
-                                 (v[q] + 1) * (v[l] + 1) );
+                        sqrtOf = sqrt((double)v[k]*(v[k]-1)*(v[q]+1)*(v[l]+1));
                         v[k] -= 2;
                         v[l] += 1;
                         v[q] += 1;
@@ -624,8 +622,7 @@ void TBrho(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
                     {
                         if (IF[i][k] < 2) continue;
                         for (t = 0; t < M; t++) v[t] = IF[i][t];
-                        sqrtOf = sqrt( v[k] * (v[k] - 1) *
-                                 (v[q] + 1) * (v[l] + 1) );
+                        sqrtOf = sqrt((double)v[k]*(v[k]-1)*(v[q]+1)*(v[l]+1));
                         v[k] -= 2;
                         v[l] += 1;
                         v[q] += 1;
@@ -667,7 +664,7 @@ void TBrho(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
                     {
                         if (IF[i][k] < 1 || IF[i][s] < 1) continue;
                         for (t = 0; t < M; t++) v[t] = IF[i][t];
-                        sqrtOf = v[s] * sqrt(v[k] * (v[l] + 1));
+                        sqrtOf = v[s] * sqrt((double)v[k] * (v[l] + 1));
                         v[k] -= 1;
                         v[l] += 1;
                         j = FockToIndex(N, M, NCmat, v);
@@ -713,7 +710,7 @@ void TBrho(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
                     {
                         if (IF[i][k] < 1) continue;
                         for (t = 0; t < M; t++) v[t] = IF[i][t];
-                        sqrtOf = v[s] * sqrt(v[k] * (v[l] + 1));
+                        sqrtOf = v[s] * sqrt((double)v[k] * (v[l] + 1));
                         v[k] -= 1;
                         v[l] += 1;
                         j = FockToIndex(N, M, NCmat, v);
@@ -758,7 +755,7 @@ void TBrho(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
                     {
                         if (IF[i][k] < 1) continue;
                         for (t = 0; t < M; t++) v[t] = IF[i][t];
-                        sqrtOf = v[s] * sqrt(v[k] * (v[l] + 1));
+                        sqrtOf = v[s] * sqrt((double)v[k]*(v[l]+1));
                         v[k] -= 1;
                         v[l] += 1;
                         j = FockToIndex(N, M, NCmat, v);
@@ -811,7 +808,7 @@ void TBrho(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
                         {
                             if (IF[i][k] < 1 || IF[i][s] < 1) continue;
                             for (t = 0; t < M; t++) v[t] = IF[i][t];
-                            sqrtOf = sqrt(v[k]*v[s]*(v[q] + 1)*(v[l] + 1));
+                            sqrtOf = sqrt((double)v[k]*v[s]*(v[q]+1)*(v[l]+1));
                             v[k] -= 1;
                             v[s] -= 1;
                             v[q] += 1;
@@ -929,7 +926,7 @@ void applyHconf (int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix Ho,
             for (l = 0; l < M; l++)
             {
                 if (l == k) continue;
-                sqrtOf = sqrt(v[k] * (v[l] + 1));
+                sqrtOf = sqrt((double)v[k] * (v[l] + 1));
                 v[k] -= 1;
                 v[l] += 1;
                 j = FockToIndex(N, M, NCmat, v);
@@ -987,7 +984,7 @@ void applyHconf (int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix Ho,
             for (q = 0; q < M; q++)
             {
                 if (q == k) continue;
-                sqrtOf = sqrt((v[k] - 1) * v[k] * (v[q] + 1) * (v[q] + 2));
+                sqrtOf = sqrt((double)(v[k]-1) * v[k] * (v[q]+1) * (v[q]+2));
                 v[k] -= 2;
                 v[q] += 2;
                 j = FockToIndex(N, M, NCmat, v);
@@ -1008,7 +1005,7 @@ void applyHconf (int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix Ho,
             for (l = 0; l < M; l++)
             {
                 if (l == k) continue;
-                sqrtOf = (v[k] - 1) * sqrt(v[k] * (v[l] + 1));
+                sqrtOf = (v[k] - 1) * sqrt((double)v[k] * (v[l] + 1));
                 v[k] -= 1;
                 v[l] += 1;
                 j = FockToIndex(N, M, NCmat, v);
@@ -1030,7 +1027,7 @@ void applyHconf (int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix Ho,
             for (s = 0; s < M; s++)
             {
                 if (s == k) continue;
-                sqrtOf = v[s] * sqrt(v[k] * (v[s] + 1));
+                sqrtOf = v[s] * sqrt((double)v[k] * (v[s] + 1));
                 v[k] -= 1;
                 v[s] += 1;
                 j = FockToIndex(N, M, NCmat, v);
@@ -1053,7 +1050,7 @@ void applyHconf (int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix Ho,
             {
                 for (l = q + 1; l < M; l++)
                 {
-                    sqrtOf = sqrt(v[k] * (v[k] - 1) * (v[q] + 1) * (v[l] + 1));
+                    sqrtOf = sqrt((double)v[k]*(v[k]-1)*(v[q]+1)*(v[l]+1));
                     v[k] -= 2;
                     v[l] += 1;
                     v[q] += 1;
@@ -1079,7 +1076,7 @@ void applyHconf (int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix Ho,
                 if (v[k] < 2) continue;
                 for (l = k + 1; l < M; l++)
                 {
-                    sqrtOf = sqrt(v[k] * (v[k] - 1) * (v[q] + 1) * (v[l] + 1));
+                    sqrtOf = sqrt((double)v[k]*(v[k]-1)*(v[q]+1)*(v[l]+1));
                     v[k] -= 2;
                     v[l] += 1;
                     v[q] += 1;
@@ -1105,7 +1102,7 @@ void applyHconf (int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix Ho,
                 for (k = l + 1; k < M; k++)
                 {
                     if (v[k] < 2) continue;
-                    sqrtOf = sqrt(v[k] * (v[k] - 1) * (v[q] + 1) * (v[l] + 1));
+                    sqrtOf = sqrt((double)v[k]*(v[k]-1)*(v[q]+1)*(v[l]+1));
                     v[k] -= 2;
                     v[l] += 1;
                     v[q] += 1;
@@ -1132,7 +1129,7 @@ void applyHconf (int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix Ho,
                 for (s = k + 1; s < M; s++)
                 {
                     if (v[s] < 1) continue;
-                    sqrtOf = sqrt(v[k] * v[s] * (v[q] + 1) * (v[q] + 2));
+                    sqrtOf = sqrt((double)v[k] * v[s] * (v[q]+1) * (v[q]+2));
                     v[k] -= 1;
                     v[s] -= 1;
                     v[q] += 2;
@@ -1159,7 +1156,7 @@ void applyHconf (int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix Ho,
                 for (s = q + 1; s < M; s++)
                 {
                     if (v[s] < 1) continue;
-                    sqrtOf = sqrt(v[k] * v[s] * (v[q] + 1) * (v[q] + 2));
+                    sqrtOf = sqrt((double)v[k] * v[s] * (v[q]+1) * (v[q]+2));
                     v[k] -= 1;
                     v[s] -= 1;
                     v[q] += 2;
@@ -1186,7 +1183,7 @@ void applyHconf (int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix Ho,
                 if (v[s] < 1) continue;
                 for (q = s + 1; q < M; q++)
                 {
-                    sqrtOf = sqrt(v[k] * v[s] * (v[q] + 1) * (v[q] + 2));
+                    sqrtOf = sqrt((double)v[k] * v[s] * (v[q]+1) * (v[q]+2));
                     v[k] -= 1;
                     v[s] -= 1;
                     v[q] += 2;
@@ -1214,7 +1211,7 @@ void applyHconf (int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix Ho,
                 for (l = 0; l < M; l++)
                 {
                     if (l == k || l == s) continue;
-                    sqrtOf = v[s] * sqrt(v[k] * (v[l] + 1));
+                    sqrtOf = v[s] * sqrt((double)v[k] * (v[l] + 1));
                     v[k] -= 1;
                     v[l] += 1;
                     j = FockToIndex(N, M, NCmat, v);
@@ -1246,7 +1243,7 @@ void applyHconf (int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix Ho,
                     for (l = 0; l < M; l ++)
                     {
                         if (l == k || l == s || l == q) continue;
-                        sqrtOf = sqrt(v[k] * v[s] * (v[q] + 1) * (v[l] + 1));
+                        sqrtOf = sqrt((double)v[k]*v[s]*(v[q]+1)*(v[l]+1));
                         v[k] -= 1;
                         v[s] -= 1;
                         v[q] += 1;
