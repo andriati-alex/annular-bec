@@ -261,8 +261,9 @@ int main(int argc, char * argv[])
         method;
 
     double
-        start,  // to measure time
-        time_used,
+        start, // trigger to measure time
+        end,   // trigger to finish time per execution
+        time_used, // total time used
         dx,
         xi,
         xf,    // Domain of orbitals [xi, xf]
@@ -737,24 +738,30 @@ int main(int argc, char * argv[])
         case 1:
 
             start = omp_get_wtime();
-            MC_IMAG_RK4_CNSMRK4(mc, Orb, C, E, vir, dt, N, cyclic);
+            s = MC_IMAG_RK4_CNSMRK4(mc, Orb, C, E, vir, dt, N, cyclic);
             time_used = (double) (omp_get_wtime() - start);
+            printf("\n\nTime taken in integration #%d : %lf", 1, time_used);
+            printf(" = "); TimePrint(time_used);
 
             break;
 
         case 2:
 
             start = omp_get_wtime();
-            MC_IMAG_RK4_CNLURK4(mc, Orb, C, E, vir, dt, N, cyclic);
+            s = MC_IMAG_RK4_CNLURK4(mc, Orb, C, E, vir, dt, N, cyclic);
             time_used = (double) (omp_get_wtime() - start);
+            printf("\n\nTime taken in integration #%d : %lf", 1, time_used);
+            printf(" = "); TimePrint(time_used);
 
             break;
 
         case 3:
 
             start = omp_get_wtime();
-            MC_IMAG_RK4_FFTRK4(mc, Orb, C, E, vir, dt, N);
+            s = MC_IMAG_RK4_FFTRK4(mc, Orb, C, E, vir, dt, N);
             time_used = (double) (omp_get_wtime() - start);
+            printf("\n\nTime taken in integration #%d : %lf", 1, time_used);
+            printf(" = "); TimePrint(time_used);
 
             break;
     }
@@ -787,14 +794,14 @@ int main(int argc, char * argv[])
         strcat(fname, "_line-1");
         strcat(fname, "_E_imagtime.dat");
 
-        carr_txt(fname, N + 1, E);
+        carr_txt(fname, s, E);
         
         strcpy(fname, "../mctdhb_data/");
         strcat(fname, argv[4]);
         strcat(fname, "_line-1");
         strcat(fname, "_virial_imagtime.dat");
 
-        carr_txt(fname, N + 1, vir);
+        carr_txt(fname, s, vir);
     }
 
 
@@ -1007,24 +1014,33 @@ int main(int argc, char * argv[])
             case 1:
 
                 start = omp_get_wtime();
-                MC_IMAG_RK4_CNSMRK4(mc, Orb, C, E, vir, dt, N, cyclic);
-                time_used += (double) (omp_get_wtime() - start);
+                s = MC_IMAG_RK4_CNSMRK4(mc, Orb, C, E, vir, dt, N, cyclic);
+                end = (double) (omp_get_wtime() - start);
+                time_used += end;
+                printf("\n\nTime taken in execution #%d : %.1lf", i+1, end);
+                printf(" = "); TimePrint(end);
 
                 break;
 
             case 2:
 
                 start = omp_get_wtime();
-                MC_IMAG_RK4_CNLURK4(mc, Orb, C, E, vir, dt, N, cyclic);
-                time_used += (double) (omp_get_wtime() - start);
+                s = MC_IMAG_RK4_CNLURK4(mc, Orb, C, E, vir, dt, N, cyclic);
+                end = (double) (omp_get_wtime() - start);
+                time_used += end;
+                printf("\n\nTime taken in execution #%d : %.1lf", i+1, end);
+                printf(" = "); TimePrint(end);
 
                 break;
 
             case 3:
 
                 start = omp_get_wtime();
-                MC_IMAG_RK4_FFTRK4(mc, Orb, C, E, vir, dt, N);
-                time_used += (double) (omp_get_wtime() - start);
+                s = MC_IMAG_RK4_FFTRK4(mc, Orb, C, E, vir, dt, N);
+                end = (double) (omp_get_wtime() - start);
+                time_used += end;
+                printf("\n\nTime taken in execution #%d : %.1lf", i+1, end);
+                printf(" = "); TimePrint(end);
 
                 break;
         }
@@ -1059,7 +1075,7 @@ int main(int argc, char * argv[])
             strcat(fname, strnum);
             strcat(fname, "_E_imagtime.dat");
 
-            carr_txt(fname, N + 1, E);
+            carr_txt(fname, s, E);
             
             strcpy(fname, "../mctdhb_data/");
             strcat(fname, argv[4]);
@@ -1067,7 +1083,7 @@ int main(int argc, char * argv[])
             strcat(fname, strnum);
             strcat(fname, "_virial_imagtime.dat");
 
-            carr_txt(fname, N + 1, vir);
+            carr_txt(fname, s, vir);
         }
 
 

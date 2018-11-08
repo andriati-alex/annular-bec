@@ -67,10 +67,11 @@ mctdhb_header = $(linalg_header) 	    	    \
 
 
 GP_timepropagate : libgp.a exe/GP_timepropagate.c $(gp_header)
-	icc -o GP_timepropagate exe/GP_timepropagate.c   \
+	gcc -o GP_timepropagate exe/GP_timepropagate.c   \
 		-L${MKLROOT}/lib/intel64                     \
+		-Wl,--no-as-needed                           \
 		-lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core \
-		-lm -qopenmp                                 \
+		-lm -fopenmp                                 \
 		-L./lib -I./include -lgp -O3
 
 
@@ -78,10 +79,11 @@ GP_timepropagate : libgp.a exe/GP_timepropagate.c $(gp_header)
 
 
 mu_steady : libgp.a exe/mu_steady.c $(gp_header)
-	icc -o mu_steady exe/mu_steady.c                    \
+	gcc -o mu_steady exe/mu_steady.c                    \
 		-L${MKLROOT}/lib/intel64                        \
+		-Wl,--no-as-needed                              \
 		-lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core    \
-		-lm -qopenmp                                    \
+		-lm -fopenmp                                    \
 		-L./lib -I./include -lgp -O3
 
 
@@ -89,10 +91,11 @@ mu_steady : libgp.a exe/mu_steady.c $(gp_header)
 
 
 MCTDHB_time : libmctdhb.a exe/MCTDHB_time.c include/MCTDHB_integrator.h
-	icc -o MCTDHB_time exe/MCTDHB_time.c			 \
+	gcc -o MCTDHB_time exe/MCTDHB_time.c			 \
 		-L${MKLROOT}/lib/intel64                     \
+		-Wl,--no-as-needed                           \
 		-lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core \
-		-lm -qopenmp                                 \
+		-lm -fopenmp                                 \
 		-L./lib -lmctdhb -O3
 
 
@@ -120,21 +123,21 @@ libmctdhb.a : $(obj_mctdhb)
 # ***************************
 
 array_memory.o : src/array_memory.c
-	icc -c -O3 src/array_memory.c
+	gcc -c -O3 src/array_memory.c
 
 
 
 
 
 array_operations.o : src/array_operations.c
-	icc -c -O3 -qopenmp src/array_operations.c
+	gcc -c -O3 -fopenmp src/array_operations.c
 
 
 
 
 
 matrix_operations.o : src/matrix_operations.c
-	icc -c -O3 -qopenmp -lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core -lgomp \
+	gcc -c -O3 -fopenmp -lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core -lgomp \
 	src/matrix_operations.c
 
 
@@ -142,28 +145,28 @@ matrix_operations.o : src/matrix_operations.c
 
 
 rmatrix_operations.o : src/rmatrix_operations.c
-	icc -c -O3 -qopenmp src/rmatrix_operations.c
+	gcc -c -O3 -fopenmp src/rmatrix_operations.c
 
 
 
 
 
 tridiagonal_solver.o : src/tridiagonal_solver.c
-	icc -c -O3 -qopenmp src/tridiagonal_solver.c
+	gcc -c -O3 -fopenmp src/tridiagonal_solver.c
 
 
 
 
 
 iterative_solver.o : src/iterative_solver.c
-	icc -c -O3 -qopenmp src/iterative_solver.c
+	gcc -c -O3 -fopenmp src/iterative_solver.c
 
 
 
 
 
 GP_realtime_integrator.o : src/GP_realtime_integrator.c
-	icc -c -O3 -qopenmp                              \
+	gcc -c -O3 -fopenmp                              \
 		-lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core \
 		src/GP_realtime_integrator.c
 
@@ -172,7 +175,7 @@ GP_realtime_integrator.o : src/GP_realtime_integrator.c
 
 
 GP_imagtime_integrator.o : src/GP_imagtime_integrator.c
-	icc -c -O3 -qopenmp                              \
+	gcc -c -O3 -fopenmp                              \
 		-lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core \
 		src/GP_imagtime_integrator.c
 
@@ -181,14 +184,14 @@ GP_imagtime_integrator.o : src/GP_imagtime_integrator.c
 
 
 rk4.o : src/rk4.c
-	icc -c -O3 -qopenmp src/rk4.c
+	gcc -c -O3 -fopenmp src/rk4.c
 
 
 
 
 
 calculus.o : src/calculus.c
-	icc -c -O3 -qopenmp                              \
+	gcc -c -O3 -fopenmp                              \
 		-lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core \
 		src/calculus.c
 
@@ -197,36 +200,35 @@ calculus.o : src/calculus.c
 
 
 NewtonCG.o : src/NewtonCG.c
-	icc -c -O3 -qopenmp src/NewtonCG.c
+	gcc -c -O3 -fopenmp src/NewtonCG.c
 
 
 
 
 
 MCTDHB_integrator.o : src/MCTDHB_integrator.c
-	icc -c -O3 -qopenmp -lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core -lgomp \
-		src/MCTDHB_integrator.c
+	gcc -c -O3 -fopenmp src/MCTDHB_integrator.c
 
 
 
 
 
 MCTDHB_configurations.o : src/MCTDHB_configurations.c
-	icc -c -O3 -qopenmp src/MCTDHB_configurations.c
+	gcc -c -O3 -fopenmp src/MCTDHB_configurations.c
 
 
 
 
 
 MCTDHB_observables.o : src/MCTDHB_observables.c
-	icc -c -O3 -qopenmp src/MCTDHB_observables.c
+	gcc -c -O3 -fopenmp src/MCTDHB_observables.c
 
 
 
 
 
 MCTDHB_datatype.o : src/MCTDHB_datatype.c
-	icc -c -O3 src/MCTDHB_datatype.c
+	gcc -c -O3 src/MCTDHB_datatype.c
 
 
 

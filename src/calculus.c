@@ -202,7 +202,7 @@ double complex Functional(int M, double dx, double a2, double complex a1,
         }
     }
 
-    #pragma parallel for private(i)
+    #pragma omp parallel for private(i)
     for (i = 0; i < M; i++)
         Int[i] += - a2 * abs2DF[i] + a1 * conj(f[i]) * DF[i];
 

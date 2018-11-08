@@ -2,6 +2,13 @@
 
 
 
+void SepLine()
+{
+    printf("\n=======================================================");
+    printf("=======================\n");
+}
+
+
 
 
 
@@ -1389,8 +1396,8 @@ void MCLP_FFT (int Mpos, int Morb, DFTI_DESCRIPTOR_HANDLE * desc,
 
 
 
-void MC_IMAG_RK4_FFTRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
-     Carray virial, double dT, int Nsteps)
+int MC_IMAG_RK4_FFTRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
+    Carray virial, double dT, int Nsteps)
 {
 
 /** Multi-Configuration Imaginary time propagation
@@ -1470,8 +1477,7 @@ void MC_IMAG_RK4_FFTRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
 
     printf("\n\n\t  Nstep             Energy                  Virial");
-    printf("\n=======================================================");
-    printf("========================");
+    SepLine();
 
 
 
@@ -1522,11 +1528,9 @@ void MC_IMAG_RK4_FFTRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
             // Renormalize coeficients
             renormalizeVector(nc, C, 1.0);
 
-            printf("\n=====================================================");
-            printf("==========================\n\n");
-            printf("\tDiagonalization Done E = %.5E", creal(E[i+1]));
-            printf("\n\n===================================================");
-            printf("============================");
+            SepLine();
+            printf("\n\tDiagonalization Done E = %.5E\n", creal(E[i+1]));
+            SepLine();
         }
 
 
@@ -1539,14 +1543,26 @@ void MC_IMAG_RK4_FFTRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
         printf("\n\t%5d\t\t%15.5E\t\t%15.5E", i+1, creal(E[i+1]),
         creal(virial[i+1]));
+
+        if ( cabs(virial[i+1]) / cabs(E[i+1]) < 5E-4 )
+        {
+            p = DftiFreeDescriptor(&desc);
+            free(exp_der);
+
+            SepLine();
+            printf("\nProcess ended because achieved virial accuracy\n\n");
+            return i + 1;
+        }
     }
     
-    printf("\n=======================================================");
-    printf("========================\n\n");
+    SepLine();
+    printf("\nProcess ended without achieving desired virial accuracy\n\n");
     
     p = DftiFreeDescriptor(&desc);
-
     free(exp_der);
+
+
+    return Nsteps + 1;
 }
 
 
@@ -1558,7 +1574,7 @@ void MC_IMAG_RK4_FFTRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
 
 
-void MC_IMAG_RK4_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
+int MC_IMAG_RK4_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
      Carray virial, double dT, int Nsteps, int cyclic)
 {
 
@@ -1610,8 +1626,7 @@ void MC_IMAG_RK4_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
 
     printf("\n\n\t  Nstep             Energy                  Virial");
-    printf("\n=======================================================");
-    printf("========================");
+    SepLine();
 
 
 
@@ -1685,11 +1700,9 @@ void MC_IMAG_RK4_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
             // Renormalize coeficients
             renormalizeVector(nc, C, 1.0);
 
-            printf("\n=====================================================");
-            printf("==========================\n\n");
-            printf("\tDiagonalization Done E = %.5E", creal(E[i+1]));
-            printf("\n\n===================================================");
-            printf("============================");
+            SepLine();
+            printf("\n\tDiagonalization Done E = %.5E\n", creal(E[i+1]));
+            SepLine();
         }
 
 
@@ -1702,15 +1715,29 @@ void MC_IMAG_RK4_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
         printf("\n\t%5d\t\t%15.5E\t\t%15.5E", i+1, creal(E[i+1]),
         creal(virial[i+1]));
+        
+        if ( cabs(virial[i+1]) / cabs(E[i+1]) < 5E-4 )
+        {
+            CCSFree(cnmat);
+            free(upper);
+            free(lower);
+            free(mid);
+
+            SepLine();
+            printf("\nProcess ended because achieved virial accuracy\n\n");
+            return i + 1;
+        }
     }
 
-    printf("\n=======================================================");
-    printf("========================\n\n");
+    SepLine();
+    printf("\nProcess ended without achieving desired virial accuracy\n\n");
 
     CCSFree(cnmat);
     free(upper);
     free(lower);
     free(mid);
+
+    return Nsteps + 1;
 }
 
 
@@ -1722,7 +1749,7 @@ void MC_IMAG_RK4_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
 
 
-void MC_IMAG_RK4_CNLURK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
+int MC_IMAG_RK4_CNLURK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
      Carray virial, double dT, int Nsteps, int cyclic)
 {
 
@@ -1774,8 +1801,7 @@ void MC_IMAG_RK4_CNLURK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
 
     printf("\n\n\t  Nstep             Energy                  Virial");
-    printf("\n=======================================================");
-    printf("========================");
+    SepLine();
 
 
 
@@ -1849,11 +1875,9 @@ void MC_IMAG_RK4_CNLURK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
             // Renormalize coeficients
             renormalizeVector(nc, C, 1.0);
 
-            printf("\n=====================================================");
-            printf("==========================\n\n");
-            printf("\tDiagonalization Done E = %.5E", creal(E[i+1]));
-            printf("\n\n===================================================");
-            printf("============================");
+            SepLine();
+            printf("\n\tDiagonalization Done E = %.5E\n", creal(E[i+1]));
+            SepLine();
         }
 
 
@@ -1866,13 +1890,29 @@ void MC_IMAG_RK4_CNLURK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
         printf("\n\t%5d\t\t%15.5E\t\t%15.5E", i+1, creal(E[i+1]),
         creal(virial[i+1]));
+        
+        
+        
+        if ( cabs(virial[i+1]) / cabs(E[i+1]) < 5E-4 )
+        {
+            CCSFree(cnmat);
+            free(upper);
+            free(lower);
+            free(mid);
+
+            SepLine();
+            printf("\nProcess ended because achieved virial accuracy\n\n");
+            return i + 1;
+        }
     }
 
-    printf("\n=======================================================");
-    printf("========================\n\n");
+    SepLine();
+    printf("\nProcess ended without achieving desired virial accuracy\n\n");
 
     CCSFree(cnmat);
     free(upper);
     free(lower);
     free(mid);
+
+    return Nsteps + 1;
 }

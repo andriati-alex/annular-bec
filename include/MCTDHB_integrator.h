@@ -175,21 +175,21 @@ void MCLP_FFT (int Mpos, int Morb, DFTI_DESCRIPTOR_HANDLE * desc,
 
 
 
-void MC_IMAG_RK4_FFTRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
+int MC_IMAG_RK4_FFTRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
      Carray virial, double dT, int Nsteps);
 
 
 
 
 
-void MC_IMAG_RK4_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
+int MC_IMAG_RK4_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
      Carray virial, double dT, int Nsteps, int cyclic);
 
 
 
 
 
-void MC_IMAG_RK4_CNLURK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
+int MC_IMAG_RK4_CNLURK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
      Carray virial, double dT, int Nsteps, int cyclic);
 
 
