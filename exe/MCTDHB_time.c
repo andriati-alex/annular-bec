@@ -641,19 +641,28 @@ int main(int argc, char * argv[])
 
 
 
-    // Estimate energy by diagonalization
-    if ( NC(Npar, Morb) < 400 )
-    {
-        E[0] = LanczosGround( NC(Npar,Morb)/2, mc, Orb, C );
-        // Renormalize coeficients
-        renormalizeVector( NC(Npar,Morb), C, 1.0);
-    } else
-    {
-        E[0] = LanczosGround( 200, mc, Orb, C );
-        // Renormalize coeficients
-        renormalizeVector( NC(Npar,Morb), C, 1.0);
-    }
+    // Estimate energy by diagonalization Restrict the number of iterations
+    // in lanczos routine to avoid massive memory usage. Try to use 200
+    // iterations unless either it exceeds half of the dimension of
+    // configuration space or if it exceeds a memory Threshold.
 
+    if (200 * NC(Npar, Morb) < 5E7)
+    {
+        if (NC(Npar, Morb) / 2 < 200) k = NC(Npar, Morb) / 2;
+        else                          k = 200;
+    }
+    else k = 5E7 / NC(Npar, Morb);
+
+    E[0] = LanczosGround( k, mc, Orb, C );
+    // Renormalize coeficients
+    renormalizeVector(NC(Npar, Morb), C, 1.0);
+
+    printf("\n=====================================================");
+    printf("==========================\n\n");
+    printf("\tDiagonalization Done E = %.5E", creal(E[0]));
+    printf("\n\t# of lanczos iterations used = %d", k);
+    printf("\n\n===================================================");
+    printf("============================");
 
 
     // Test if time step is good
@@ -928,18 +937,23 @@ int main(int argc, char * argv[])
             printf(" in finite-differences methods.\n\n");
         }
 
-        // Estimate energy by diagonalization
-        if ( NC(Npar, Morb) < 400 )
+        if (200 * NC(Npar, Morb) < 5E7)
         {
-            E[0] = LanczosGround( NC(Npar,Morb)/2, mc, Orb, C );
-            // Renormalize coeficients
-            renormalizeVector( NC(Npar,Morb), C, 1.0);
-        } else
-        {
-            E[0] = LanczosGround( 200, mc, Orb, C );
-            // Renormalize coeficients
-            renormalizeVector( NC(Npar,Morb), C, 1.0);
+            if (NC(Npar, Morb) / 2 < 200) k = NC(Npar, Morb) / 2;
+            else                          k = 200;
         }
+        else k = 5E7 / NC(Npar, Morb);
+
+        E[0] = LanczosGround( k, mc, Orb, C );
+        // Renormalize coeficients
+        renormalizeVector(NC(Npar, Morb), C, 1.0);
+
+        printf("\n=====================================================");
+        printf("==========================\n\n");
+        printf("\tDiagonalization Done E = %.5E", creal(E[0]));
+        printf("\n\t# of lanczos iterations used = %d", k);
+        printf("\n\n===================================================");
+        printf("============================");
 
         // Test if time step is good
         if ( dt > 0.1 / creal(E[0]) )

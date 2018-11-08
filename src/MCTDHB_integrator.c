@@ -1417,6 +1417,7 @@ void MC_IMAG_RK4_FFTRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
     int i,
         k,
         m,
+        nc = MC->nc,
         Mpos = MC->Mpos,
         Morb = MC->Morb;
 
@@ -1500,14 +1501,26 @@ void MC_IMAG_RK4_FFTRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
 
 
-        if ( i == Nsteps/2 )
+        if ( i == Nsteps / 2 )
         {
-            if (MC->nc < 400) { k = MC->nc / 2; }
-            else              { k = 200;        }
+            // After half of time steps that must be evolved do a
+            // fixed orbital  basis  diagonalization  to  quicker
+            // convergence. Restrict the number of iterations  in
+            // lanczos routine to avoid massive memory usage. Try
+            // to use 200 iterations unless either it exceeds half
+            // of the dimension of configuration space or if it
+            // exceeds a memory Threshold.
+
+            if (200 * nc < 5E7)
+            {
+                if (nc / 2 < 200) k = nc / 2;
+                else              k = 200;
+            }
+            else k = 5E7 / nc;
 
             E[i + 1] = LanczosGround( k, MC, Orb, C );
             // Renormalize coeficients
-            renormalizeVector(MC->nc, C, 1.0);
+            renormalizeVector(nc, C, 1.0);
 
             printf("\n=====================================================");
             printf("==========================\n\n");
@@ -1572,6 +1585,7 @@ void MC_IMAG_RK4_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
     int i,
         k,
+        nc = MC->nc,
         Mpos = MC->Mpos,
         Morb = MC->Morb;
 
@@ -1652,12 +1666,24 @@ void MC_IMAG_RK4_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
         
         if ( i == Nsteps / 2 )
         {
-            if (MC->nc < 400) { k = MC->nc / 2; }
-            else              { k = 200;        }
+            // After half of time steps that must be evolved do a
+            // fixed orbital  basis  diagonalization  to  quicker
+            // convergence. Restrict the number of iterations  in
+            // lanczos routine to avoid massive memory usage. Try
+            // to use 200 iterations unless either it exceeds half
+            // of the dimension of configuration space or if it
+            // exceeds a memory Threshold.
+
+            if (200 * nc < 5E7)
+            {
+                if (nc / 2 < 200) k = nc / 2;
+                else              k = 200;
+            }
+            else k = 5E7 / nc;
 
             E[i + 1] = LanczosGround( k, MC, Orb, C );
             // Renormalize coeficients
-            renormalizeVector(MC->nc, C, 1.0);
+            renormalizeVector(nc, C, 1.0);
 
             printf("\n=====================================================");
             printf("==========================\n\n");
@@ -1723,6 +1749,7 @@ void MC_IMAG_RK4_CNLURK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
     int i,
         k,
+        nc = MC->nc,
         Mpos = MC->Mpos,
         Morb = MC->Morb;
 
@@ -1803,12 +1830,24 @@ void MC_IMAG_RK4_CNLURK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
         
         if ( i == Nsteps / 2 )
         {
-            if (MC->nc < 400) { k = MC->nc / 2; }
-            else              { k = 200;        }
+            // After half of time steps that must be evolved do a
+            // fixed orbital  basis  diagonalization  to  quicker
+            // convergence. Restrict the number of iterations  in
+            // lanczos routine to avoid massive memory usage. Try
+            // to use 200 iterations unless either it exceeds half
+            // of the dimension of configuration space or if it
+            // exceeds a memory Threshold.
+
+            if (200 * nc < 5E7)
+            {
+                if (nc / 2 < 200) k = nc / 2;
+                else              k = 200;
+            }
+            else k = 5E7 / nc;
 
             E[i + 1] = LanczosGround( k, MC, Orb, C );
             // Renormalize coeficients
-            renormalizeVector(MC->nc, C, 1.0);
+            renormalizeVector(nc, C, 1.0);
 
             printf("\n=====================================================");
             printf("==========================\n\n");
