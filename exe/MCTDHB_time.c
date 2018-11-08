@@ -20,9 +20,7 @@
 
         Text file with a matrix where the k-th column represent the k-th
         orbital. Thus the rows represent the values of these orbitals in
-        discretized positions. If the number of discrete  positions  for
-        instance is M then the file may contain any multiple of M rows
-        to do multiple propagations.
+        discretized positions and each column is then an orbital.
 
    (2)  setup/MC_fileId_eq.dat
 
@@ -39,15 +37,15 @@
 
         A text file with position/time domain information over  which
         the orbitals and coefficients were generated. The numbers are
-        in columns separeted by spaces
+        in columns separeted by spaces, in each line as follows:
 
-        Col 1 - # of particles
+        Col 1 - # of particles (may vary along lines)
         Col 2 - # of orbitals
         Col 5 - (Mpos) # of slices of size (xf - xi) / Mpos
         Col 3 - x_i
         Col 4 - x_f
-        Col 5 - dt
-        Col 6 - # of time-steps
+        Col 5 - dt (may vary along lines)
+        Col 6 - # of time-steps (may vary along lines)
 
 
 
@@ -80,7 +78,29 @@
    Nstates is the number of lines in _config.dat and _eq.dat files
    to run multiple imaginary propagation  for  different  equation
    parameters set. Even if the file has several lines and  Nstates
-   is not defined, the program will run once for the fisrt line.
+   is not defined, the program will run once for the fisrt line. A
+   reasonable step for the varying parameters must be chosen since
+   the program take the initial orbitals those from  the  previous
+   propagation. If some parameter vary abruptely  then this choice
+   may not be the ideal and problems in convergence are likely  to
+   occur.
+
+   NOTE THAT  # OF ORBITALS AND POSITION DOMAIN DISCRETIZATION ARE
+   NOT ALLOWED TO CHANGE BETWEEN LINES.
+
+   Every line the # of particles change, then the file '_coef.dat'
+   is the opened again to read the coefficients. The program then
+   assume the new vector of coefficients is concatenated to   the
+   previous one. For example, if the # of particles change  three
+   times among the lines in _conf.dat file, lets say N1 N2 and N3
+   thus is read from the file  NC( N1 , Morb ) elements taken  as
+   initial condition, and when it changes to N2 the program  read
+   more NC( N2 , Morb ) elements from the file taken again as the
+   new initial condition and so on.
+
+   If the # of particles does not vary between two lines then the
+   new initial conditions is taken as the last one, just like  is
+   done for orbitals explained above
 
 
 
@@ -668,7 +688,7 @@ int main(int argc, char * argv[])
     // Test if time step is good
     if ( dt > 0.1 / creal(E[0]) )
     {
-        printf("\n\n\n\t!   WARNING : Too big time step   !");
+        printf("\n\n\n\t!   WARNING : Large time step   !");
         printf("\n\nTry something < %.10lf\n\n", 0.09 / creal(E[0]));
     } else
     {
@@ -813,14 +833,8 @@ int main(int argc, char * argv[])
     {
 
     /** If either the _conf.dat or _eq.dat file have more than one line it
-     *  find the ground state fo each line in the file. In order  to  keep
-     *  computing stationary states the files of initial conditions (those
-     *  _coef.dat and _orb.dat)  must have concatenated  all  the  initial
-     *  conditions, everyone starting right below the end line of the last
-     *  that have been done. Then for coefficients the program read blocks
-     *  of NC( Npar , Morb ) lines and for orbitals it reads Mdx lines per
-     *  block, each one representing a new initial condition. That is  why
-     *  the files were left opened.                                    **/
+     *  and the Nlines parameter is greater than 1 it read the next config
+     *  from files. **/
 
 
 
@@ -829,36 +843,30 @@ int main(int argc, char * argv[])
 
         // release old data
         EraseMCTDHBdata(mc);
-        cmatFree(Morb, Orb);
-        free(C);
 
+        // setup new parameters
         mc = SetupData(paramFile, confFile, V, &dt, &N);
 
-        Morb = mc->Morb;
-        Npar = mc->Npar;
-
-        // Setup orbitals
-
-        Orb = cmatDef(Morb, Mdx + 1);
-
-        for (k = 0; k < Mdx + 1; k++)
+        if (Npar != mc->Npar)
         {
-            for (s = 0; s < Morb; s++)
+
+        //  Setup Coeficients from file because the number
+        //  of particles has changed
+
+            free(C);
+
+            Npar = mc->Npar;
+
+            C = carrDef(NC(Npar, Morb));
+
+            for (k = 0; k < NC(Npar, Morb); k++)
             {
-                l = fscanf(orb_file, " (%lf%lfj) ", &real, &imag);
-                Orb[s][k] = real + I * imag;
+                l = fscanf(coef_file, " (%lf%lfj)", &real, &imag);
+                C[k] = real + I * imag;
             }
         }
 
-        // Setup Coeficients
-
-        C = carrDef(NC(Npar, Morb));
-
-        for (k = 0; k < NC(Npar, Morb); k++)
-        {
-            l = fscanf(coef_file, " (%lf%lfj)", &real, &imag);
-            C[k] = real + I * imag;
-        }
+        // Use orbitals from previous result
 
 
 
@@ -958,7 +966,7 @@ int main(int argc, char * argv[])
         // Test if time step is good
         if ( dt > 0.1 / creal(E[0]) )
         {
-            printf("\n\n\n\t!   WARNING : Too big time step   !");
+            printf("\n\n\n\t!   WARNING : Large time step   !");
             printf("\n\nTry something < %.10lf\n\n", 0.09 / creal(E[0]));
         } else
         {
@@ -1072,7 +1080,7 @@ int main(int argc, char * argv[])
     
     
     
-    // Record Trap potential
+    // Record Trap potential commom for all executed configurations
 
     strcpy(fname, "../mctdhb_data/");
     strcat(fname, argv[4]);
