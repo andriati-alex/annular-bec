@@ -159,6 +159,99 @@ void TimePrint(double t)
 
 
 
+void SaveConf(char timeinfo, char fnameIn [], char fnameOut [], int Nlines)
+{
+
+    int
+        i,
+        N,
+        k,
+        Npar,
+        Morb,
+        Mdx;
+
+    double
+        xi,
+        xf,
+        dt,
+        a2,
+        g,
+        imag;
+
+    char
+        fname [120];
+
+    FILE
+        * confFileIn,
+        * eqFileIn,
+        * confFileOut;
+
+    strcpy(fname, "setup/MC_");
+    strcat(fname, fnameIn);
+    strcat(fname, "_conf.dat");
+
+    confFileIn = fopen(fname, "r");
+    if (confFileIn == NULL) // impossible to open file
+    {
+        printf("\n\n\tERROR: impossible to open file %s\n", fname);
+        return;
+    }
+
+    strcpy(fname, "setup/MC_");
+    strcat(fname, fnameIn);
+    strcat(fname, "_eq.dat");
+
+    eqFileIn = fopen(fname, "r");
+    if (eqFileIn == NULL) // impossible to open file
+    {
+        printf("\n\n\tERROR: impossible to open file %s\n", fname);
+        return;
+    }
+    
+    strcpy(fname, "../mctdhb_data/");
+    strcat(fname, fnameOut);
+
+    if (timeinfo == 'r' || timeinfo == 'R')
+    { strcat(fname, "_conf_realtime.dat"); }
+    else
+    { strcat(fname, "_conf_imagtime.dat"); }
+
+    confFileOut = fopen(fname, "w");
+    if (confFileOut == NULL) // impossible to open file
+    {
+        printf("\n\n\tERROR: impossible to open file %s\n", fname);
+        return;
+    }
+    
+    // Read data and write in out file (transfer)
+
+    for (i = 0; i < Nlines; i++)
+    {
+        k = fscanf(eqFileIn, "%lf %lf %lf", &a2, &imag, &g);
+
+        k = fscanf(confFileIn, "%d %d %d %lf %lf %lf %d",
+                   &Npar, &Morb, &Mdx, &xi, &xf, &dt, &N);
+
+        fprintf(confFileOut, "%d %d %d %.15lf %.15lf %.15lf %d ",
+                Npar, Morb, Mdx, xi, xf, dt, N);
+
+        fprintf(confFileOut, "%.15lf %.15lf %.15lf", a2, imag, g);
+        fprintf(confFileOut, "\n");
+    }
+
+    fclose(eqFileIn); fclose(confFileIn); fclose(confFileOut);
+
+}
+
+
+
+
+
+
+
+
+
+
 MCTDHBsetup SetupData(FILE * paramFile, FILE * confFile, Rarray pot,
             double * dt, int * N)
 {
@@ -285,8 +378,7 @@ int main(int argc, char * argv[])
         * coef_file,
         * orb_file,
         * confFile,
-        * paramFile,
-        * out_data;
+        * paramFile;
 
     Carray
         C,      // Coeficients of superposition of Fock states
@@ -439,6 +531,25 @@ int main(int argc, char * argv[])
 
 
 
+    // Record Trap potential commom for all executed configurations
+
+    strcpy(fname, "../mctdhb_data/");
+    strcat(fname, argv[4]);
+
+    if (timeinfo == 'r' || timeinfo == 'R')
+    { strcat(fname, "_trap_realtime.dat"); }
+    else
+    { strcat(fname, "_trap_imagtime.dat"); }
+
+    rarr_txt(fname, Mdx + 1, V);
+
+
+
+    // Record the setup file to further analisys
+    SaveConf(timeinfo, argv[3], argv[4], Nlines);
+
+
+
 
 
 
@@ -546,6 +657,9 @@ int main(int argc, char * argv[])
             Orb[s][k] = real + I * imag;
         }
     }
+
+    // orbitals are nor read again
+    fclose(orb_file);
 
 
 
@@ -806,26 +920,6 @@ int main(int argc, char * argv[])
 
 
 
-    // Record Parameters Used
-
-    strcpy(fname, "../mctdhb_data/");
-    strcat(fname, argv[4]);
-
-    if (timeinfo == 'r' || timeinfo == 'R')
-    { strcat(fname, "_conf_realtime.dat"); }
-    else
-    { strcat(fname, "_conf_imagtime.dat"); }
-
-    out_data = fopen(fname, "w");
-
-    if (out_data == NULL)  // impossible to open file
-    {
-        printf("\n\n\tERROR: impossible to open file %s\n", fname);
-        return -1;
-    }
-
-    fprintf(out_data, "%d %d %d %.15lf %.15lf %.15lf %.15lf %.15lf",
-            Npar, Morb, Mdx, xi, xf, mc->a2, cimag(mc->a1), mc->inter);
 
 
 
@@ -834,16 +928,12 @@ int main(int argc, char * argv[])
 
 
 
-
+/** If either the _conf.dat or _eq.dat file have more  than  one  line
+    and the Nlines parameter is greater than 1 it read the next config
+    from files. **/
 
     for (i = 1; i < Nlines; i++)
     {
-
-    /** If either the _conf.dat or _eq.dat file have more than one line it
-     *  and the Nlines parameter is greater than 1 it read the next config
-     *  from files. **/
-
-
 
         // number of line reading in _conf.dat and _eq.dat files
         sprintf(strnum, "%d", i + 1);
@@ -1086,27 +1176,7 @@ int main(int argc, char * argv[])
             carr_txt(fname, s, vir);
         }
 
-
-
-        // Record Parameters Used
-        fprintf(out_data, "\n");
-        fprintf(out_data, "%d %d %d %.15lf %.15lf %.15lf %.15lf %.15lf",
-                Npar, Morb, Mdx, xi, xf, mc->a2, cimag(mc->a1), mc->inter);
     }
-    
-    
-    
-    // Record Trap potential commom for all executed configurations
-
-    strcpy(fname, "../mctdhb_data/");
-    strcat(fname, argv[4]);
-
-    if (timeinfo == 'r' || timeinfo == 'R')
-    { strcat(fname, "_trap_realtime.dat"); }
-    else
-    { strcat(fname, "_trap_imagtime.dat"); }
-
-    rarr_txt(fname, Mdx + 1, V);
 
 
 
@@ -1116,10 +1186,8 @@ int main(int argc, char * argv[])
                                   RELEASE MEMORY
      * ==================================================================== */
 
-    fclose(out_data);
     fclose(confFile);
     fclose(paramFile);
-    fclose(orb_file);
     fclose(coef_file);
 
     EraseMCTDHBdata(mc);
