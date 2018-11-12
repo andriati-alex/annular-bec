@@ -4,43 +4,96 @@
 
 
 
-double complex Csimps(int n, Carray f, double dx)
+double complex Csimps(int n, Carray f, double h)
 {
-    if (n == 1) return 0; // integrating over empty set
 
-    int i, m = n - 1;
-    double complex sums = 0;
+    int
+        i;
 
-    for (i = 0; i < m / 2 - 1; i++)
+    double complex
+        sum = 0;
+
+    if (n < 3)
     {
-        sums = sums + 2 * f[2*(i+1)] + 4 * f[2*i+1];
+        printf("\n\n\tERROR : less than 3 point to integrate by simps !\n\n");
+        exit(EXIT_FAILURE);
     }
 
-    if (m % 2 == 0) { return (sums + f[0] + f[m] + 4 * f[m-1]) * dx / 3; }
+    if (n % 2 == 0)
+    {
 
-    // case odd number of intervals integrate last by trapezium
-    if (m > 2) sums = (sums + f[0] + f[m-1] + 4 * f[m-2]) * dx / 3;
-    return sums + (f[m-1] + f[m]) * dx * 0.5;
+    //  with a even number of points do the last 4 points interval
+    //  using simpson 3/8 rule
+        for (i = 0; i < (n - 4); i = i + 2)
+        {
+            sum = sum + f[i] + 4 * f[i + 1] + f[i + 2];
+        }
+        sum = sum * h / 3; // End 3-point simpsons intervals
+        sum = sum + (f[n-4] + 3 * (f[n-3] + f[n-2]) + f[n-1]) * 3 * h / 8;
+
+    }
+
+    else
+    {
+
+        for (i = 0; i < n - 2; i = i + 2)
+        {
+            sum = sum + f[i] + 4 * f[i + 1] + f[i + 2];
+        }
+        sum = sum * h / 3; // End 3-point simpsons intervals
+
+    }
+
+    return sum;
+
 }
 
 
 
 
 
-double Rsimps(int n, Rarray f, double dx)
+double Rsimps(int n, Rarray f, double h)
 {
-    if (n == 1) return 0; // integrating over empty set
 
-    int i, m = n - 1;
-    double sums = 0;
+    int
+        i;
 
-    for (i = 0; i < m / 2 - 1; i++) sums += 2 * f[2*(i+1)] + 4 * f[2*i+1];
+    double
+        sum = 0;
 
-    if (m % 2 == 0) return (sums + f[0] + f[m] + 4 * f[m-1]) * dx / 3;
+    if (n < 3)
+    {
+        printf("\n\n\tERROR : less than 3 point to integrate by simps !\n\n");
+        exit(EXIT_FAILURE);
+    }
 
-    /* case odd number of intervals integrate last by trapezium */
-    if (m > 2) sums = (sums + f[0] + f[m-1] + 4 * f[m-2]) * dx / 3;
-    return sums + (f[m-1] + f[m]) * dx * 0.5;
+    if (n % 2 == 0)
+    {
+
+    //  with a even number of points do the last 4 points interval
+    //  using simpson 3/8 rule
+        for (i = 0; i < (n - 4); i = i + 2)
+        {
+            sum = sum + f[i] + 4 * f[i + 1] + f[i + 2];
+        }
+        sum = sum * h / 3; // End 3-point simpsons intervals
+        sum = sum + (f[n-4] + 3 * (f[n-3] + f[n-2]) + f[n-1]) * 3 * h / 8;
+
+    }
+
+    else
+    {
+
+        for (i = 0; i < n - 2; i = i + 2)
+        {
+            sum = sum + f[i] + 4 * f[i + 1] + f[i + 2];
+        }
+        sum = sum * h / 3; // End 3-point simpsons intervals
+
+    }
+
+    return sum;
+
 }
 
 
