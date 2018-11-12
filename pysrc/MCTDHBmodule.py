@@ -811,6 +811,12 @@ def GetNatOrb(Npar, Morb, C, Orb):
 
 
 
+def GetGasDensity(NOocc, NO): return np.matmul(NOocc, abs(NO)**2);
+
+
+
+
+
 def TimeOccupation(Npar, Morb, rhotime):
     """
     CALLING :
@@ -836,7 +842,7 @@ def TimeOccupation(Npar, Morb, rhotime):
 
 
 @jit( (int32, int32, float64[:], complex128[:,:], complex128[:,:]) ,
-      nopython=True, nogil=True, parallel=True)
+      nopython=True, nogil=True)
 
 def SpatialOBdensity(Morb, Mpos, NOoccu, NO, n):
     """ Inner loop of GetSpatialOBdensity """
@@ -872,6 +878,52 @@ def GetSpatialOBdensity(NOoccu, NO):
     n = np.zeros([ Mpos , Mpos ], dtype=np.complex128);
     SpatialOBdensity(Morb, Mpos, NOoccu, NO, n);
     return n;
+
+
+
+
+
+@jit( (int32, int32, float64[:], complex128[:,:], float64[:], float64[:,:]),
+      nopython=True, nogil=True)
+
+def OBcorre(Morb, Mpos, NOoccu, NO, GasDen, g):
+    """ Inner loop of GetOBcorrelation """
+    OrbSum = 0.0;
+    for i in prange(Mpos):
+        for j in prange(Mpos):
+            OrbSum = 0.0;
+            for k in prange(Morb):
+                OrbSum = OrbSum + NOoccu[k] * NO[k,j].conjugate() * NO[k,i];
+            g[i,j] = abs(OrbSum) / sqrt(GasDen[i] * GasDen[j]);
+
+
+
+
+
+def GetOBcorrelation(NOocc, NO):
+    """
+    CALLING
+    -------
+    ( 2d array [M,M] ) = GetOBcorrelation(occu, NO)
+
+    arguments
+    ---------
+    NOoccu : occu[k] has # of particles occupying NO[k,:] orbital
+    NO     : [Morb,M] matrix with each row being a natural orbital
+
+    comments
+    --------
+    given two discretized positions Xi and Xj then the entries of
+    the matrix returned (let me call g) represent:
+
+    g[i,j] = | <  Ψ†(Xj) Ψ(Xi)  > |  /  sqrt( Den(xj) * Den(xi) )
+    """
+    GasDensity = np.matmul(NOocc, abs(NO)**2);
+    Morb = NO.shape[0];
+    Mpos = NO.shape[1];
+    g = np.empty( [Mpos , Mpos], dtype=np.float64 );
+    OBcorre(Morb, Mpos, NOocc, NO, GasDensity, g);
+    return g;
 
 
 

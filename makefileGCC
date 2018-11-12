@@ -207,7 +207,9 @@ NewtonCG.o : src/NewtonCG.c
 
 
 MCTDHB_integrator.o : src/MCTDHB_integrator.c
-	gcc -c -O3 -fopenmp src/MCTDHB_integrator.c
+	gcc -c -O3 -fopenmp \
+		-lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core \
+		src/MCTDHB_integrator.c
 
 
 
