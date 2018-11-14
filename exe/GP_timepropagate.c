@@ -109,6 +109,130 @@
 
 
 
+void SaveConf(char timeinfo, char fnameIn [], char fnameOut [], int Nlines)
+{
+
+    int
+        i,
+        N,
+        k,
+        Mdx;
+
+    double
+        xi,
+        xf,
+        dt,
+        a2,
+        g,
+        imag;
+
+    char
+        fname [120];
+
+    FILE
+        * confFileIn,
+        * eqFileIn,
+        * confFileOut;
+
+    strcpy(fname, "setup/GP_");
+    strcat(fname, fnameIn);
+    strcat(fname, "_domain.dat");
+
+    confFileIn = fopen(fname, "r");
+    if (confFileIn == NULL) // impossible to open file
+    {
+        printf("\n\n\tERROR: impossible to open file %s\n", fname);
+        return;
+    }
+
+    strcpy(fname, "setup/GP_");
+    strcat(fname, fnameIn);
+    strcat(fname, "_eq.dat");
+
+    eqFileIn = fopen(fname, "r");
+    if (eqFileIn == NULL) // impossible to open file
+    {
+        printf("\n\n\tERROR: impossible to open file %s\n", fname);
+        return;
+    }
+
+    strcpy(fname, "../gp_data/");
+    strcat(fname, fnameOut);
+
+    if (timeinfo == 'r' || timeinfo == 'R')
+    { strcat(fname, "_conf_realtime.dat"); }
+    else
+    { strcat(fname, "_conf_imagtime.dat"); }
+
+    confFileOut = fopen(fname, "w");
+    if (confFileOut == NULL) // impossible to open file
+    {
+        printf("\n\n\tERROR: impossible to open file %s\n", fname);
+        return;
+    }
+    
+    // Read data and write in out file (transfer)
+
+    for (i = 0; i < Nlines; i++)
+    {
+        k = fscanf(eqFileIn, "%lf %lf %lf", &a2, &imag, &g);
+
+        k = fscanf(confFileIn, "%lf %lf %d %lf %d",
+                   &xi, &xf, &Mdx, &dt, &N);
+
+        fprintf(confFileOut, "%d %.15lf %.15lf %.15lf %d ",
+                Mdx, xi, xf, dt, N);
+
+        fprintf(confFileOut, "%.15lf %.15lf %.15lf", a2, imag, g);
+        fprintf(confFileOut, "\n");
+    }
+
+    fclose(eqFileIn); fclose(confFileIn); fclose(confFileOut);
+
+}
+
+
+
+
+
+void SetupParams(FILE * paramFile, FILE * confFile, double * a2,
+     double complex * a1, double * g, double * dt, int * N)
+{
+
+/** Read line by line of _domain file and _eq to setup a new integration **/
+
+    int
+        k,
+        Mdx;
+
+    double
+        xi,
+        xf,
+        dx,
+        imag;
+
+
+
+    // Setup spatial and time domain
+    // -----------------------------
+
+    k = fscanf(confFile, "%lf %lf %d %lf %d", &xi, &xf, &Mdx, dt, N);
+
+    // Setup Equation parameters
+    // -------------------------
+
+    k = fscanf(paramFile, "%lf %lf %lf", a2, &imag, g);
+
+    * a1 = 0 + imag * I;
+    
+    printf("\n\nConfiguration Done\n");
+
+}
+
+
+
+
+
 int main(int argc, char * argv[])
 {
 
@@ -126,13 +250,18 @@ int main(int argc, char * argv[])
      *
      * ==================================================================== */
 
+
+
     int
         i,
         M,      // # of intervals in spacial domain (sizeof(x) - 1)
         N,      // # of time steps to evolve
+        Nlines, // # of initial data to evolve
         trash,  // returned values from scanf (unused)
         cyclic, // boolean-like to set boundary conditions
         method; // method of integrator
+
+
 
     double
         start,      // start trigger to measure time
@@ -148,17 +277,26 @@ int main(int argc, char * argv[])
         * V,        // Potential computed at discretized positions
         * x;        // Array of discretized positions
 
+
+
     double complex
         a1;         // Coefficient of (d / dx)
 
+
+
     char
         timeinfo,
-        fname_in[80],   // name to look for files with parameters
-        fname_out[80];  // name of files to write data obtained
+        fname[100], // name to look for files with parameters
+        strnum[30]; // string of # of execution
+
+
 
     FILE
-        * eq_setup_file,
-        * out_data;
+        * domain_file,
+        * orb_file,
+        * eq_file;
+
+
 
     Carray
         S, // Starts with initial solution, ends with final time-step
@@ -168,19 +306,22 @@ int main(int argc, char * argv[])
 
 
 
-    /* Check if there is the right number of command line arguments
-     * ------------------------------------------------------------ */
-    if (argc < 6 || argc > 7)
+    // Check if there is the right number of command line arguments
+    // ------------------------------------------------------------
+    if (argc < 5 || argc > 7)
     {
         printf("\nInvalid number of command line arguments, ");
         printf("expected at least 5 and at most 6.\n\n");
         return -1;
     }
-    /* ------------------------------------------------------------ */
+    // ------------------------------------------------------------
 
 
 
 
+
+    // Read data from command line arguments
+    // ----------------------------------------------------------------
 
     timeinfo = argv[1][0]; // character i for imaginary or r for real time
 
@@ -193,13 +334,20 @@ int main(int argc, char * argv[])
         }
     }
 
+    sscanf(argv[2], "%d", &cyclic);
+    if (argc > 5) { sscanf(argv[5], "%d", &method); }
+    else          { method = 1;                     }
+    if (argc > 6) { sscanf(argv[6], "%d", &Nlines); }
+    else          { Nlines = 1;                     }
+    // ----------------------------------------------------------------
+
 
 
 
 
     /*  ===============================================================
      
-                           SETUP VALUES TO VARIABLES
+               SETUP VALUES FROM FILES - FIXED FOR ALL EXECUTIONS
      
         ===============================================================  */
 
@@ -207,139 +355,79 @@ int main(int argc, char * argv[])
 
 
 
-    /* search and read file with values of domain
-     * ----------------------------------------------------------------  */
-    strcpy(fname_in, "setup/GP_");
-    strcat(fname_in, argv[4]);
-    strcat(fname_in, "_domain.dat");
+    // search and read file with values of domain
+    // ----------------------------------------------------------------
+    strcpy(fname, "setup/GP_");
+    strcat(fname, argv[3]);
+    strcat(fname, "_domain.dat");
 
-    printf("\nLooking for %s", fname_in);
+    printf("\nLooking for %s", fname);
 
-    eq_setup_file = fopen(fname_in, "r");
+    domain_file = fopen(fname, "r");
 
-    if (eq_setup_file == NULL)
-    { printf("\nERROR: impossible to open file %s\n", fname_in); return -1; }
-    else
-    { printf(" ... Found !\n"); }
+    if (domain_file == NULL)
+    {
+        printf("\n\n\tERROR: impossible to open file %s\n\n", fname);
+        return -1;
+    } else
+    {
+        printf(" ... Found !\n");
+    }
 
-    trash = fscanf(eq_setup_file, "%lf %lf %d", &x1, &x2, &M);
+    trash = fscanf(domain_file, "%lf %lf %d", &x1, &x2, &M);
 
-    fclose(eq_setup_file);
-    /* ----------------------------------------------------------------  */
-
-
-
-
-
-    /* Read data from command line arguments
-     * ----------------------------------------------------------------  */
-    sscanf(argv[2], "%lf", &dt);
-    sscanf(argv[3], "%d",  &N);
-    if (argc == 7) { sscanf(argv[6], "%d", &method); }
-    else           { method = 1;                     }
-    /* ----------------------------------------------------------------  */
-
-
-
-
-
-    /* Setup discretized positions and potential
-     * ----------------------------------------------------------------  */
+    fclose(domain_file);
+    // ----------------------------------------------------------------
+    
+    
+    
+    // Setup discretized positions and potential
+    // ----------------------------------------------------------------
     dx = (x2 - x1) / M;
     x  = rarrDef(M + 1);
     rarrFillInc(M + 1, x1, dx, x);
     V  = rarrDef(M + 1);
-    /* ----------------------------------------------------------------  */
+    // ----------------------------------------------------------------
 
 
 
+    // search and read file with values of trap potential
+    // ----------------------------------------------------------------
+    strcpy(fname, "setup/GP_");
+    strcat(fname, argv[3]);
+    strcat(fname, "_trap.dat");
 
+    printf("\nLooking for %s ", fname);
 
-    /* search and read file with values of equation parameters
-     * ----------------------------------------------------------------  */
-    strcpy(fname_in, "setup/GP_");
-    strcat(fname_in, argv[4]);
-    strcat(fname_in, "_eq.dat");
+    eq_file = fopen(fname, "r");
 
-    printf("\nLooking for %s", fname_in);
-
-    eq_setup_file = fopen(fname_in, "r");
-
-    if (eq_setup_file == NULL)  // impossible to open file
-    { printf("\nERROR: impossible to open file %s\n", fname_in); return -1; }
-    else
-    { printf(" ... Found !\n"); }
-
-    trash = fscanf(eq_setup_file, "%lf %lf %lf %d",
-                   &a2, &imag, &inter, &cyclic);
-
-    fclose(eq_setup_file);
-
-    a1 = 0 + imag * I;
-    /* ----------------------------------------------------------------  */
-
-
-
-
-
-    /* search and read file with values of trap potential
-     * ----------------------------------------------------------------  */
-    strcpy(fname_in, "setup/GP_");
-    strcat(fname_in, argv[4]);
-    strcat(fname_in, "_trap.dat");
-
-    printf("\nLooking for %s ", fname_in);
-
-    eq_setup_file = fopen(fname_in, "r");
-
-    if (eq_setup_file == NULL)  // impossible to open file
-    { printf("\nERROR: impossible to open file %s\n", fname_in); return -1; }
-    else
-    { printf(" ... Found !\n"); }
+    if (eq_file == NULL)  // impossible to open file
+    {
+        printf("\n\n\tERROR: impossible to open file %s\n\n", fname);
+        return -1;
+    } else
+    {
+        printf(" ... Found !\n");
+    }
 
     for (i = 0; i < M + 1; i++)
     {
-        trash = fscanf(eq_setup_file, " %lf", &real);
+        trash = fscanf(eq_file, " %lf", &real);
         V[i] = real;
     }
 
-    fclose(eq_setup_file); // finish the reading of file
-
-    printf("\nEquation coef. and domain successfully setted up.\n");
-    /* ----------------------------------------------------------------  */
+    fclose(eq_file); // finish the reading of file
 
 
 
+    // write configuration parameters to files
+    // ----------------------------------------------------------------
+    SaveConf(timeinfo, argv[3], argv[4], Nlines);
 
 
-    /* Read from file and setup initial condition
-     * ----------------------------------------------------------------  */
-    S = carrDef(M + 1); // Holds time step solution
-    E = carrDef(N + 1);
 
-    strcpy(fname_in, "setup/GP_");
-    strcat(fname_in, argv[4]);
-    strcat(fname_in, "_init.dat");
 
-    printf("\nLooking for %s", fname_in);
 
-    eq_setup_file = fopen(fname_in, "r");
-
-    if (eq_setup_file == NULL)  // impossible to open file
-    { printf("\nERROR: impossible to open file %s\n", fname_in); return -1; }
-    else
-    { printf(" ... Found !\n"); }
-
-    for (i = 0; i < M + 1; i++)
-    {
-        trash = fscanf(eq_setup_file, " (%lf%lfj)", &real, &imag);
-        S[i] = real + I * imag;
-    }
-
-    fclose(eq_setup_file);
-
-    printf("\nGot Initial condition. Calling time evolution routine ...\n");
-    /* ----------------------------------------------------------------  */
 
 
 
@@ -347,7 +435,120 @@ int main(int argc, char * argv[])
 
     /*  ===============================================================
      
-                              CALL INTEGRATOR ROUTINE
+                    LET FILES OPEN TO EXECUTION LIST OF JOBS
+     
+        ===============================================================  */
+
+
+
+    // open file with values of equation parameters
+    // ----------------------------------------------------------------
+    strcpy(fname, "setup/GP_");
+    strcat(fname, argv[3]);
+    strcat(fname, "_eq.dat");
+
+    printf("\nLooking for %s", fname);
+
+    eq_file = fopen(fname, "r");
+
+    if (eq_file == NULL)  // impossible to open file
+    {
+        printf("\n\n\tERROR: impossible to open file %s\n\n", fname);
+        return -1;
+    }
+    else
+    {
+        printf(" ... Found !\n");
+    }
+    // ----------------------------------------------------------------
+
+
+
+    // open file with values of domain
+    // ----------------------------------------------------------------
+    strcpy(fname, "setup/GP_");
+    strcat(fname, argv[3]);
+    strcat(fname, "_domain.dat");
+
+    printf("\nLooking for %s", fname);
+
+    domain_file = fopen(fname, "r");
+
+    if (domain_file == NULL)  // impossible to open file
+    {
+        printf("\n\n\tERROR: impossible to open file %s\n\n", fname);
+        return -1;
+    }
+    else
+    {
+        printf(" ... Found !\n");
+    }
+    // ----------------------------------------------------------------
+
+
+
+    // open file with values of initial condition
+    // ----------------------------------------------------------------
+    strcpy(fname, "setup/GP_");
+    strcat(fname, argv[3]);
+    strcat(fname, "_init.dat");
+
+    printf("\nLooking for %s", fname);
+
+    orb_file = fopen(fname, "r");
+
+    if (orb_file == NULL)  // impossible to open file
+    {
+        printf("\n\n\tERROR: impossible to open file %s\n\n", fname);
+        return -1;
+    }
+    else
+    {
+        printf(" ... Found !\n");
+    }
+
+
+
+    SetupParams(eq_file, domain_file, &a2, &a1, &inter, &dt, &N);
+
+
+
+
+
+
+
+
+
+
+    /*  ===============================================================
+     
+                       SETUP INITIAL DATA TO PROPAGATE
+     
+        ===============================================================  */
+
+    S = carrDef(M + 1); // solution
+    E = carrDef(N + 1); // energy to record progress of convergence
+
+    for (i = 0; i < M + 1; i++)
+    {
+        trash = fscanf(orb_file, " (%lf%lfj)", &real, &imag);
+        S[i] = real + I * imag;
+    }
+
+    printf("\nGot Initial condition. Calling time evolution routine\n");
+
+
+
+
+
+
+
+
+
+
+    /*  ===============================================================
+     
+                             CALL INTEGRATION ROUTINE
      
         ===============================================================  */
 
@@ -359,82 +560,82 @@ int main(int argc, char * argv[])
     if (timeinfo == 'r' || timeinfo == 'R')
     {
         printf("\n\n\t=================================================\n\n");
-            printf("\t           Doing real time integration.          \n\n");
+            printf("\tDoing real time integration  #%d\n\n", 1);
 
-        strcpy(fname_out, "../gp_data/");
-        strcat(fname_out, argv[5]);
-        strcat(fname_out, "_realtime_state.dat");
+        strcpy(fname, "../gp_data/");
+        strcat(fname, argv[5]);
+        strcat(fname, "_line-1_realtime_state.dat");
         switch (method)
         {
             case 1:
                 GPCNSMRK4(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S,
-                fname_out, 10);
+                fname, 10);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(RK4 nonlinear CN-SM linear)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
             case 2:
-                GPFFTRK4(M + 1, N, dx, dt, a2, a1, inter, V, S, fname_out, 10);
+                GPFFTRK4(M + 1, N, dx, dt, a2, a1, inter, V, S, fname, 10);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(RK4 nonlinear / FFT linear)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
             case 3:
                 GPCNSM(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S,
-                fname_out, 10);
+                fname, 10);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(Crank-Nicolson-SM)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
             case 4:
                 GPCNLU(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S,
-                fname_out, 10);
+                fname, 10);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(Crank-Nicolson-LU)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
             case 5:
-                GPFFT(M + 1, N, dx, dt, a2, a1, inter, V, S, fname_out, 10);
+                GPFFT(M + 1, N, dx, dt, a2, a1, inter, V, S, fname, 10);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(FFT)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
         }
     }
-    
-    
+
+
     if (timeinfo == 'i' || timeinfo == 'I')
     {
         printf("\n\n\t=================================================\n\n");
-            printf("\t        Doing imaginary time integration.        \n\n");
+        printf("\tDoing imaginary time integration  %d\n\n", 1);
         switch (method)
         {
             case 1:
-                IGPCNSMRK4(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S, E);
+                N = IGPCNSMRK4(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S, E);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(RK4 nonlinear/CN-SM linear)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
             case 2:
-                IGPFFTRK4(M + 1, N, dx, dt, a2, a1, inter, V, S, E);
+                N = IGPFFTRK4(M + 1, N, dx, dt, a2, a1, inter, V, S, E);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(RK4 nonlinear/FFT linear)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
             case 3:
-                IGPCNSM(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S, E);
+                N = IGPCNSM(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S, E);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(Crank-Nicolson-SM)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
             case 4:
-                IGPCNLU(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S, E);
+                N = IGPCNLU(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S, E);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(Crank-Nicolson-LU)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
             case 5:
-                IGPFFT(M + 1, N, dx, dt, a2, a1, inter, V, S, E);
+                N = IGPFFT(M + 1, N, dx, dt, a2, a1, inter, V, S, E);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(FFT)");
                 printf(" : %.3f seconds\n", time_used);
@@ -458,44 +659,166 @@ int main(int argc, char * argv[])
 
     if (timeinfo == 'i' || timeinfo == 'I')
     {
-        strcpy(fname_out, "../gp_data/");
-        strcat(fname_out, argv[5]);
-        strcat(fname_out, "_orb_imagtime.dat");
+        strcpy(fname, "../gp_data/");
+        strcat(fname, argv[4]);
+        strcat(fname, "_line-1_orb_imagtime.dat");
 
-        carr_txt(fname_out, M + 1, S);
+        carr_txt(fname, M + 1, S);
     
-        strcpy(fname_out, "../gp_data/");
-        strcat(fname_out, argv[5]);
-        strcat(fname_out, "_E_imagtime.dat");
+        strcpy(fname, "../gp_data/");
+        strcat(fname, argv[4]);
+        strcat(fname, "_line-1_E_imagtime.dat");
 
-        carr_txt(fname_out, N + 1, E);
-
-        strcpy(fname_out, "../gp_data/");
-        strcat(fname_out, argv[5]);
-        strcat(fname_out, "_domain_imagtime.dat");
+        carr_txt(fname, N, E);
     }
-    else
+
+
+
+
+
+    for ( i = 1; i < Nlines; i ++)
     {
-        strcpy(fname_out, "../gp_data/");
-        strcat(fname_out, argv[5]);
-        strcat(fname_out, "_realdomain.dat");
+        
+        // number of line reading in _conf.dat and _eq.dat files
+        sprintf(strnum, "%d", i + 1);
+
+        // free old solution
+        free(E);
+
+        // read new parameters(one more line) to do another time propagation
+        SetupParams(eq_file, domain_file, &a2, &a1, &inter, &dt, &N);
+
+        E = carrDef(N + 1); // energy to record progress of convergence
+
+        // replace initial condition
+        for (i = 0; i < M + 1; i++)
+        {
+            trash = fscanf(orb_file, " (%lf%lfj)", &real, &imag);
+            S[i] = real + I * imag;
+        }
+
+        printf("\nGot Initial condition. Calling time evolution routine\n");
+
+
+
+
+
+        start = omp_get_wtime();
+
+        if (timeinfo == 'r' || timeinfo == 'R')
+        {
+            printf("\n\n\t=============================================\n\n");
+            printf("\tDoing real time integration  #%d \n\n", i + 1);
+
+            strcpy(fname, "../gp_data/");
+            strcat(fname, argv[4]);
+            strcat(fname, "_line-");
+            strcat(fname, strnum);
+            strcat(fname, "_realtime_state.dat");
+
+            switch (method)
+            {
+                case 1:
+                    GPCNSMRK4(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S,
+                    fname, 10);
+                    time_used = (double) (omp_get_wtime() - start);
+                    printf("\nTime taken to solve(RK4 nonlinear CN-SM linear)");
+                    printf(" : %.3f seconds\n", time_used);
+                    break;
+                case 2:
+                    GPFFTRK4(M + 1, N, dx, dt, a2, a1, inter, V, S,
+                    fname, 10);
+                    time_used = (double) (omp_get_wtime() - start);
+                    printf("\nTime taken to solve(RK4 nonlinear / FFT linear)");
+                    printf(" : %.3f seconds\n", time_used);
+                    break;
+                case 3:
+                    GPCNSM(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S,
+                    fname, 10);
+                    time_used = (double) (omp_get_wtime() - start);
+                    printf("\nTime taken to solve(Crank-Nicolson-SM)");
+                    printf(" : %.3f seconds\n", time_used);
+                    break;
+                case 4:
+                    GPCNLU(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S,
+                    fname, 10);
+                    time_used = (double) (omp_get_wtime() - start);
+                    printf("\nTime taken to solve(Crank-Nicolson-LU)");
+                    printf(" : %.3f seconds\n", time_used);
+                    break;
+                case 5:
+                    GPFFT(M + 1, N, dx, dt, a2, a1, inter, V, S, fname, 10);
+                    time_used = (double) (omp_get_wtime() - start);
+                    printf("\nTime taken to solve(FFT)");
+                    printf(" : %.3f seconds\n", time_used);
+                    break;
+            }
+        }
+
+
+        if (timeinfo == 'i' || timeinfo == 'I')
+        {
+            printf("\n\n\t=============================================\n\n");
+            printf("\tDoing imaginary time integration  #%d\n\n", i + 1);
+            switch (method)
+            {
+                case 1:
+                    N = IGPCNSMRK4(M + 1, N, dx, dt, a2, a1, inter, V,
+                        cyclic, S, E);
+                    time_used = (double) (omp_get_wtime() - start);
+                    printf("\nTime taken to solve(RK4 nonlinear/CN-SM linear)");
+                    printf(" : %.3f seconds\n", time_used);
+                    break;
+                case 2:
+                    N = IGPFFTRK4(M + 1, N, dx, dt, a2, a1, inter, V, S, E);
+                    time_used = (double) (omp_get_wtime() - start);
+                    printf("\nTime taken to solve(RK4 nonlinear/FFT linear)");
+                    printf(" : %.3f seconds\n", time_used);
+                    break;
+                case 3:
+                    N = IGPCNSM(M + 1, N, dx, dt, a2, a1, inter, V,
+                        cyclic, S, E);
+                    time_used = (double) (omp_get_wtime() - start);
+                    printf("\nTime taken to solve(Crank-Nicolson-SM)");
+                    printf(" : %.3f seconds\n", time_used);
+                    break;
+                case 4:
+                    N = IGPCNLU(M + 1, N, dx, dt, a2, a1, inter, V,
+                        cyclic, S, E);
+                    time_used = (double) (omp_get_wtime() - start);
+                    printf("\nTime taken to solve(Crank-Nicolson-LU)");
+                    printf(" : %.3f seconds\n", time_used);
+                    break;
+                case 5:
+                    N = IGPFFT(M + 1, N, dx, dt, a2, a1, inter, V, S, E);
+                    time_used = (double) (omp_get_wtime() - start);
+                    printf("\nTime taken to solve(FFT)");
+                    printf(" : %.3f seconds\n", time_used);
+                    break;
+            }
+        }
+        
+        printf("\nRecording data ...\n");
+
+        if (timeinfo == 'i' || timeinfo == 'I')
+        {
+            strcpy(fname, "../gp_data/");
+            strcat(fname, argv[4]);
+            strcat(fname, "_line-");
+            strcat(fname, strnum);
+            strcat(fname, "_orb_imagtime.dat");
+
+            carr_txt(fname, M + 1, S);
+        
+            strcpy(fname, "../gp_data/");
+            strcat(fname, argv[4]);
+            strcat(fname, "_line-");
+            strcat(fname, strnum);
+            strcat(fname, "_E_imagtime.dat");
+
+            carr_txt(fname, N, E);
+        }
     }
-
-
-
-
-
-    /* write domain of solution
-     * -------------------------------------------------------------------- */
-    out_data = fopen(fname_out, "w");
-
-    if (out_data == NULL)  // impossible to open file
-    { printf("ERROR: impossible to open file %s\n", fname_out); return -1; }
-
-    fprintf(out_data, "%.15lf %.15lf %d %.10lf %d", x1, x2, M, dt, N);
-
-    fclose(out_data);
-    /* -------------------------------------------------------------------- */
 
 
 
@@ -503,6 +826,9 @@ int main(int argc, char * argv[])
 
     /* release memory
      * ------------------------------------------------------------------- */
+    fclose(eq_file);
+    fclose(orb_file);
+    fclose(domain_file);
     free(x);
     free(V);
     free(S);

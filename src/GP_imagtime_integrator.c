@@ -44,10 +44,23 @@
 
 
 
+void SepLine()
+{
+    printf("\n=======================================================");
+    printf("=======================\n");
+}
 
 
-void IGPFFT(int M, int N, double dx, double dT, double a2, double complex a1,
-     double inter, Rarray V, Carray S, Carray E)
+
+
+
+
+
+
+
+
+int IGPFFT(int M, int N, double dx, double dT, double a2, double complex a1,
+    double inter, Rarray V, Carray S, Carray E)
 {   // Evolve the wave-function given an initial condition in S
     // on pure imaginary time to converge to an energy minimum.
     // Use FFT to compute derivatives on  linear  part  of  PDE
@@ -76,6 +89,7 @@ void IGPFFT(int M, int N, double dx, double dT, double a2, double complex a1,
 
 
     double complex
+        vir,
         dt = - I  * dT; // pure imaginary time-step
 
 
@@ -100,7 +114,13 @@ void IGPFFT(int M, int N, double dx, double dT, double a2, double complex a1,
     carrAbs2(M, S, abs2);
     norm = sqrt(Rsimps(M, abs2, dx));
     E[0] = Functional(M, dx, a2, a1, inter / 2, V, S);
+    vir = GPvirial(M, a2, a1, inter, V, dx, S);
     /* ------------------------------------------------------------------- */
+
+    printf("\n\n\t Nstep             Energy/particle           Virial");
+    SepLine();
+    printf("\n\t%6d           %15.7E", 0, creal(E[0]));
+    printf("           %15.7E", creal(vir));
 
 
 
@@ -131,11 +151,16 @@ void IGPFFT(int M, int N, double dx, double dT, double a2, double complex a1,
     /*   Apply Split step and solve separately nonlinear and linear part   */
     /*   ===============================================================   */
 
-    for (i = 0; i < N; i++) {
-        // Apply exponential ofone-body potential and nonlinear part
+    for (i = 0; i < N; i++)
+    {
+
+        // Apply exponential of trap potential and nonlinear part
+        carrAbs2(M, S, abs2);
         rarrUpdate(M, V, inter, abs2, out);
         rcarrExp(M, Idt / 2, out, stepexp);
         carrMultiply(m, stepexp, S, forward_fft);
+
+
 
         // go to momentum space
         s = DftiComputeForward(desc, forward_fft);
@@ -143,8 +168,18 @@ void IGPFFT(int M, int N, double dx, double dT, double a2, double complex a1,
         carrMultiply(m, exp_der, forward_fft, back_fft);
         // go back to position space
         s = DftiComputeBackward(desc, back_fft);
-        carrMultiply(m, stepexp, back_fft, S);
+        carrCopy(m, back_fft, S);
         S[m] = S[0];
+
+
+
+        // Apply exponential of trap potential and nonlinear part AGAIN
+        carrAbs2(M, S, abs2);
+        rarrUpdate(M, V, inter, abs2, out);
+        rcarrExp(M, Idt / 2, out, stepexp);
+        for (j = 0; j < M; j++) S[j] = S[j] * stepexp[j];
+
+
 
         carrAbs2(M, S, abs2);
 
@@ -154,7 +189,31 @@ void IGPFFT(int M, int N, double dx, double dT, double a2, double complex a1,
 
         // Energy
         E[i + 1] = Functional(M, dx, a2, a1, inter / 2, V, S);
+        vir = GPvirial(M, a2, a1, inter, V, dx, S);
+        printf("\n\t%6d           %15.7E", i + 1, creal(E[i + 1]));
+        printf("           %15.7E", creal(vir));
+
+
+
+        if (cabs(vir) / cabs(E[i + 1]) < 5E-4 && i > N / 3)
+        {
+            s = DftiFreeDescriptor(&desc);
+
+            free(exp_der);
+            free(stepexp);
+            free(forward_fft);
+            free(back_fft);
+            free(abs2);
+            free(out);
+
+            SepLine();
+            printf("\nProcess ended because achieved virial accuracy\n\n");
+            return i + 1;
+        }
     }
+
+    SepLine();
+    printf("\nProcess ended without achieving desired virial accuracy\n\n");
 
     s = DftiFreeDescriptor(&desc);
 
@@ -164,6 +223,8 @@ void IGPFFT(int M, int N, double dx, double dT, double a2, double complex a1,
     free(back_fft);
     free(abs2);
     free(out);
+
+    return N + 1;
 }
 
 
@@ -175,8 +236,8 @@ void IGPFFT(int M, int N, double dx, double dT, double a2, double complex a1,
 
 
 
-void IGPCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
-     double inter, Rarray V, int cyclic, Carray S, Carray E)
+int IGPCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
+    double inter, Rarray V, int cyclic, Carray S, Carray E)
 {
 
     unsigned int
@@ -191,6 +252,7 @@ void IGPCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
 
 
     double complex
+        vir,
         dt = - I  * dT; // pure imaginary time-step
 
 
@@ -221,7 +283,13 @@ void IGPCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
     carrAbs2(M, S, abs2);
     norm = sqrt(Rsimps(M, abs2, dx));
     E[0] = Functional(M, dx, a2, a1, inter / 2, V, S);
+    vir = GPvirial(M, a2, a1, inter, V, dx, S);
     /* ----------------------------------------------------- */
+
+    printf("\n\n\t Nstep             Energy/particle           Virial");
+    SepLine();
+    printf("\n\t%6d           %15.7E", 0, creal(E[0]));
+    printf("           %15.7E", creal(vir));
 
 
 
@@ -230,10 +298,15 @@ void IGPCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
 
 
 
-    for (i = 0; i < N; i++) {
+    for (i = 0; i < N; i++)
+    {
+
         // Apply exponential with nonlinear part
+        carrAbs2(M, S, abs2);
         rcarrExp(M, inter * Idt / 2, abs2, stepexp);
         carrMultiply(M, stepexp, S, linpart);
+
+
 
         // Solve linear part
         CCSvec(M - 1, cnmat->vec, cnmat->col, cnmat->m, linpart, rhs);
@@ -241,10 +314,18 @@ void IGPCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
         if (cyclic) { linpart[M-1] = linpart[0]; } // Cyclic system
         else        { linpart[M-1] = 0;          } // zero boundary
 
-        // Update solution (solution of linear part in stepexp)
-        carrMultiply(M, linpart, stepexp, S);
+
+
+        // Apply exponential with nonlinear part AGAIN
+        carrAbs2(M, linpart, abs2);
+        rcarrExp(M, inter * Idt / 2, abs2, stepexp);
+        carrMultiply(M, stepexp, linpart, S);
+
+
 
         carrAbs2(M, S, abs2);
+
+
 
         // Renormalize
         NormStep = norm / sqrt(Rsimps(M, abs2, dx));
@@ -252,7 +333,34 @@ void IGPCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
         
         // Energy
         E[i + 1] = Functional(M, dx, a2, a1, inter / 2, V, S);
+        vir = GPvirial(M, a2, a1, inter, V, dx, S);
+        printf("\n\t%6d           %15.7E", i + 1, creal(E[i + 1]));
+        printf("           %15.7E", creal(vir));
+
+
+
+        if ( cabs(vir) / cabs(E[i+1]) < 5E-4 &&
+             fabs(cabs(E[i/2]) - cabs(E[i+1])) / cabs(E[i+1]) < 1E-6)
+        {
+            free(stepexp);
+            free(linpart);
+            free(abs2);
+            free(upper);
+            free(lower);
+            free(mid);
+            free(rhs);
+            CCSFree(cnmat);
+
+            SepLine();
+            printf("\nProcess ended because achieved virial accuracy\n\n");
+            printf("\n\nOK");
+            return i + 1;
+        }
+
     }
+    
+    SepLine();
+    printf("\nProcess ended without achieving desired virial accuracy\n\n");
 
     free(stepexp);
     free(linpart);
@@ -262,6 +370,8 @@ void IGPCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
     free(mid);
     free(rhs);
     CCSFree(cnmat);
+
+    return N + 1;
 }
 
 
@@ -273,8 +383,8 @@ void IGPCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
 
 
 
-void IGPCNLU(int M, int N, double dx, double dT, double a2, double complex a1,
-     double inter, Rarray V, int cyclic, Carray S, Carray E)
+int IGPCNLU(int M, int N, double dx, double dT, double a2, double complex a1,
+    double inter, Rarray V, int cyclic, Carray S, Carray E)
 {
     unsigned int
         i,
@@ -286,6 +396,7 @@ void IGPCNLU(int M, int N, double dx, double dT, double a2, double complex a1,
         Idt = - dT; // factor that multiplies in split-step exponentials
 
     double complex
+        vir,
         dt = - I  * dT;
 
     Carray
@@ -315,7 +426,13 @@ void IGPCNLU(int M, int N, double dx, double dT, double a2, double complex a1,
     carrAbs2(M, S, abs2);
     norm = sqrt(Rsimps(M, abs2, dx));
     E[0] = Functional(M, dx, a2, a1, inter / 2, V, S);
+    vir = GPvirial(M, a2, a1, inter, V, dx, S);
     /* ----------------------------------------------------- */
+
+    printf("\n\n\t Nstep             Energy/particle           Virial");
+    SepLine();
+    printf("\n\t%6d           %15.7E", 0, creal(E[0]));
+    printf("           %15.7E", creal(vir));
 
 
 
@@ -324,10 +441,15 @@ void IGPCNLU(int M, int N, double dx, double dT, double a2, double complex a1,
 
 
 
-    for (i = 0; i < N; i++) {
+    for (i = 0; i < N; i++)
+    {
+
         // Apply exponential with nonlinear part
+        carrAbs2(M, S, abs2);
         rcarrExp(M, inter * Idt / 2, abs2, stepexp);
         carrMultiply(M, stepexp, S, linpart);
+
+
 
         // Solve linear part
         CCSvec(M - 1, cnmat->vec, cnmat->col, cnmat->m, linpart, rhs);
@@ -335,8 +457,14 @@ void IGPCNLU(int M, int N, double dx, double dT, double a2, double complex a1,
         if (cyclic) { linpart[M-1] = linpart[0]; } // Cyclic system
         else        { linpart[M-1] = 0;          } // zero boundary
 
-        // Update solution (solution of linear part in stepexp)
-        carrMultiply(M, linpart, stepexp, S);
+
+
+        // Apply exponential with nonlinear part AGAIN
+        carrAbs2(M, linpart, abs2);
+        rcarrExp(M, inter * Idt / 2, abs2, stepexp);
+        carrMultiply(M, stepexp, linpart, S);
+
+
 
         carrAbs2(M, S, abs2);
 
@@ -346,7 +474,33 @@ void IGPCNLU(int M, int N, double dx, double dT, double a2, double complex a1,
         
         // Energy
         E[i + 1] = Functional(M, dx, a2, a1, inter / 2, V, S);
+        vir = GPvirial(M, a2, a1, inter, V, dx, S);
+        
+        printf("\n\t%6d           %15.7E", i + 1, creal(E[i + 1]));
+        printf("           %15.7E", creal(vir));
+
+
+
+        if (cabs(vir) / cabs(E[i + 1]) < 5E-4 && i > N / 3)
+        {
+            free(stepexp);
+            free(linpart);
+            free(abs2);
+            free(upper);
+            free(lower);
+            free(mid);
+            free(rhs);
+            CCSFree(cnmat);
+
+            SepLine();
+            printf("\nProcess ended because achieved virial accuracy\n\n");
+            return i + 1;
+        }
+
     }
+
+    SepLine();
+    printf("\nProcess ended without achieving desired virial accuracy\n\n");
 
     free(stepexp);
     free(linpart);
@@ -356,6 +510,8 @@ void IGPCNLU(int M, int N, double dx, double dT, double a2, double complex a1,
     free(mid);
     free(rhs);
     CCSFree(cnmat);
+
+    return N + 1;
 }
 
 
@@ -419,8 +575,8 @@ void NonLinearVIDDT(int M, double t, Carray Psi, Carray FullPot, Carray Dpsi)
 
 
 
-void IGPCNSMRK4(int M, int N, double dx, double dT, double a2, double complex a1,
-     double inter, Rarray V, int cyclic, Carray S, Carray E)
+int IGPCNSMRK4(int M, int N, double dx, double dT, double a2, double complex a1,
+    double inter, Rarray V, int cyclic, Carray S, Carray E)
 {   // Evolve Gross-Pitaevskii using 4-th order Runge-Kutta
     // to deal with nonlinear  part.  Solve  Crank-Nicolson
     // linear system with Sherman-Morrison formula
@@ -436,6 +592,7 @@ void IGPCNSMRK4(int M, int N, double dx, double dT, double a2, double complex a1
 
 
     double complex
+        vir,
         dt,
         interv[1];
 
@@ -467,12 +624,13 @@ void IGPCNSMRK4(int M, int N, double dx, double dT, double a2, double complex a1
     carrAbs2(M, S, abs2);
     norm = sqrt(Rsimps(M, abs2, dx));
     E[0] = Functional(M, dx, a2, a1, inter / 2, V, S);
+    vir = GPvirial(M, a2, a1, inter, V, dx, S);
     /* ----------------------------------------------------- */
     
-    printf("\n\n\t  Nstep         Energy/particle");
-    printf("\n=======================================================");
-    printf("========================");
-    printf("\n\t%5d\t\t%15.5E", 0, creal(E[0]));
+    printf("\n\n\t Nstep             Energy/particle           Virial");
+    SepLine();
+    printf("\n\t%6d           %15.7E", 0, creal(E[0]));
+    printf("           %15.7E", creal(vir));
 
 
 
@@ -483,31 +641,61 @@ void IGPCNSMRK4(int M, int N, double dx, double dT, double a2, double complex a1
 
     for (i = 0; i < N; i++)
     {
+
+        // Half step nonlinear part
         RK4step(M, dT/2, 0, S, interv, linpart, NonLinearIDDT);
-        
+
+
+
         // Solve linear part (nabla ^ 2 part)
         CCSvec(M - 1, cnmat->vec, cnmat->col, cnmat->m, linpart, rhs);
         triCyclicSM(M - 1, upper, lower, mid, rhs, linpart);
         if (cyclic) { linpart[M-1] = linpart[0]; } // Cyclic system
         else        { linpart[M-1] = 0;          } // zero boundary
 
+
+
+        // AGAIN Half step nonlinear part
         RK4step(M, dT/2, 0, linpart, interv, S, NonLinearIDDT);
 
+
+
         carrAbs2(M, S, abs2);
-        
+
+
+
         // Renormalize
         NormStep = norm / sqrt(Rsimps(M, abs2, dx));
         for (j = 0; j < M; j++) S[j] = NormStep * S[j];
-        
+
         // Energy
         E[i + 1] = Functional(M, dx, a2, a1, inter / 2, V, S);
-        
-        printf("\n\t%5d\t\t%15.5E", i+1, creal(E[i+1]));
-    
+        vir = GPvirial(M, a2, a1, inter, V, dx, S);
+
+        printf("\n\t%6d           %15.7E", i + 1, creal(E[i + 1]));
+        printf("           %15.7E", creal(vir));
+
+
+
+        if (cabs(vir) / cabs(E[i + 1]) < 5E-4 && i > N / 3)
+        {
+            free(linpart);
+            free(upper);
+            free(lower);
+            free(abs2);
+            free(mid);
+            free(rhs);
+            CCSFree(cnmat);
+
+            SepLine();
+            printf("\nProcess ended because achieved virial accuracy\n\n");
+            return i + 1;
+        }
+
     }
     
-    printf("\n=======================================================");
-    printf("========================\n\n");
+    SepLine();
+    printf("\nProcess ended without achieving desired virial accuracy\n\n");
 
     free(linpart);
     free(upper);
@@ -516,6 +704,8 @@ void IGPCNSMRK4(int M, int N, double dx, double dT, double a2, double complex a1
     free(mid);
     free(rhs);
     CCSFree(cnmat);
+
+    return N + 1;
 }
 
 
@@ -527,8 +717,8 @@ void IGPCNSMRK4(int M, int N, double dx, double dT, double a2, double complex a1
 
 
 
-void IGPFFTRK4(int M, int N, double dx, double dT, double a2, double complex a1,
-     double inter, Rarray V, Carray S, Carray E)
+int IGPFFTRK4(int M, int N, double dx, double dT, double a2, double complex a1,
+    double inter, Rarray V, Carray S, Carray E)
 {   // Evolve the wave-function given an initial condition in S
     // on pure imaginary time to converge to an energy minimum.
     // Use FFT to compute derivatives on  linear  part  of  PDE
@@ -558,6 +748,7 @@ void IGPFFTRK4(int M, int N, double dx, double dT, double a2, double complex a1,
 
 
     double complex
+        vir,
         dt = - I * dT;
 
 
@@ -587,12 +778,13 @@ void IGPFFTRK4(int M, int N, double dx, double dT, double a2, double complex a1,
     carrAbs2(M, S, abs2);
     norm = sqrt(Rsimps(M, abs2, dx));
     E[0] = Functional(M, dx, a2, a1, inter / 2, V, S);
+    vir = GPvirial(M, a2, a1, inter, V, dx, S);
     /* ------------------------------------------------------------------- */
     
-    printf("\n\n\t  Nstep         Energy/particle");
-    printf("\n=======================================================");
-    printf("========================");
-    printf("\n\t%5d\t\t%15.5E", 0, creal(E[0]));
+    printf("\n\n\t Nstep             Energy/particle           Virial");
+    SepLine();
+    printf("\n\t%6d           %15.7E", 0, creal(E[0]));
+    printf("           %15.7E", creal(vir));
 
 
 
@@ -625,8 +817,11 @@ void IGPFFTRK4(int M, int N, double dx, double dT, double a2, double complex a1,
 
     for (i = 0; i < N; i++)
     {
+        // solve half step potential part
         RK4step(M, dT/2, 0, S, FullPot, argRK4, NonLinearVIDDT);
         carrCopy(m, argRK4, forward_fft);
+
+
 
         // go to momentum space
         s = DftiComputeForward(desc, forward_fft);
@@ -635,10 +830,14 @@ void IGPFFTRK4(int M, int N, double dx, double dT, double a2, double complex a1,
         // go back to position space
         s = DftiComputeBackward(desc, back_fft);
         carrCopy(m, back_fft, argRK4);
-
         argRK4[m] = argRK4[0];
-        
+
+
+
+        // Solve another half step potential part
         RK4step(M, dT/2, 0, argRK4, FullPot, S, NonLinearVIDDT);
+
+
 
         carrAbs2(M, S, abs2);
 
@@ -648,12 +847,34 @@ void IGPFFTRK4(int M, int N, double dx, double dT, double a2, double complex a1,
 
         // Energy
         E[i + 1] = Functional(M, dx, a2, a1, inter / 2, V, S);
+        vir = GPvirial(M, a2, a1, inter, V, dx, S);
         
-        printf("\n\t%5d\t\t%15.5E", i+1, creal(E[i+1]));
+        printf("\n\t%6d           %15.7E", i + 1, creal(E[i + 1]));
+        printf("           %15.7E", creal(vir));
+
+
+
+        if (cabs(vir) / cabs(E[i + 1]) < 5E-4 && i > N / 3)
+        {
+
+            s = DftiFreeDescriptor(&desc);
+
+            free(exp_der);
+            free(forward_fft);
+            free(back_fft);
+            free(abs2);
+            free(argRK4);
+            free(FullPot);
+
+            SepLine();
+            printf("\nProcess ended because achieved virial accuracy\n\n");
+            return i + 1;
+        }
+
     }
     
-    printf("\n=======================================================");
-    printf("========================\n\n");
+    SepLine();
+    printf("\nProcess ended without achieving desired virial accuracy\n\n");
 
     s = DftiFreeDescriptor(&desc);
 
@@ -663,4 +884,6 @@ void IGPFFTRK4(int M, int N, double dx, double dT, double a2, double complex a1,
     free(abs2);
     free(argRK4);
     free(FullPot);
+
+    return N + 1;
 }

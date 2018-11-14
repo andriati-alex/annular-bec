@@ -272,3 +272,92 @@ double complex Functional(int M, double dx, double a2, double complex a1,
 
     return E / norm;
 }
+
+
+double complex GPkinect(int M, double a2, double complex a1, double dx,
+               Carray psi)
+{
+
+    int k;
+
+    double complex
+        r;
+
+    Carray
+        ddx   = carrDef(M),
+        toInt = carrDef(M);
+
+    dxCyclic(M, psi, dx, ddx);
+
+    for (k = 0; k < M; k++)
+    {
+        toInt[k] =  - a2 * conj(ddx[k]) * ddx[k];
+    }
+
+    r = Csimps(M, toInt, dx);
+
+    free(ddx); free(toInt);
+
+    return r;
+
+}
+
+
+
+double complex GPtrap(int M, Rarray V, double dx, Carray psi)
+{
+
+    int k;
+
+    double complex
+        r;
+
+    Carray
+        toInt = carrDef(M);
+
+    for (k = 0; k < M; k++)
+    {
+        toInt[k] = V[k] * conj(psi[k]) * psi[k];
+    }
+
+    r = Csimps(M, toInt, dx);
+
+    free(toInt);
+
+    return r;
+
+}
+
+
+
+double GPinter(int M, double g, double dx, Carray psi)
+{
+
+    int k;
+
+    double
+        r;
+
+    Rarray
+        toInt = rarrDef(M);
+
+    carrAbs2(M, psi, toInt);
+
+    for (k = 0; k < M; k++)  toInt[k] = g * toInt[k] * toInt[k];
+
+    r = Rsimps(M, toInt, dx) / 2;
+
+    free(toInt);
+
+    return r;
+
+}
+
+
+
+double complex GPvirial(int M, double a2, double complex a1, double g,
+               Rarray V, double dx, Carray psi)
+{
+    return ( 2 * GPtrap(M, V, dx, psi) - 2 * GPkinect(M, a2, a1, dx, psi) \
+             - GPinter(M, g, dx, psi) );
+}

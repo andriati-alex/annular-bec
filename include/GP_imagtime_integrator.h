@@ -63,8 +63,8 @@
 
 
 
-void IGPCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
-      double inter, Rarray V, int cyclic, Carray S, Carray E);
+int IGPCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
+    double inter, Rarray V, int cyclic, Carray S, Carray E);
 /* ---------------------------------------------------------
  * Crank-Nicolson with Sherman-Morrison to solve linear part
  * --------------------------------------------------------- */
@@ -73,8 +73,8 @@ void IGPCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
 
 
 
-void IGPCNLU(int M, int N, double dx, double dT, double a2, double complex a1,
-     double inter, Rarray V, int cyclic, Carray S, Carray E);
+int IGPCNLU(int M, int N, double dx, double dT, double a2, double complex a1,
+    double inter, Rarray V, int cyclic, Carray S, Carray E);
 /* ---------------------------------------------------------
  * Crank-Nicolson with LU decomposition to solve linear part
  * --------------------------------------------------------- */
@@ -83,8 +83,8 @@ void IGPCNLU(int M, int N, double dx, double dT, double a2, double complex a1,
 
 
 
-void IGPFFT(int M, int N, double dx, double dT, double a2, double complex a1,
-     double inter, Rarray V, Carray S, Carray E);
+int IGPFFT(int M, int N, double dx, double dT, double a2, double complex a1,
+    double inter, Rarray V, Carray S, Carray E);
 /* -------------------------------------------------------
  * Use MKL fourier tranform routine to compute derivatives
  * ------------------------------------------------------- */
@@ -111,8 +111,8 @@ void NonLinearVIDDT(int M, double t, Carray Psi, Carray FullPot, Carray Dpsi);
 
 
 
-void IGPCNSMRK4(int M, int N, double dx, double dT, double a2, double complex a1,
-     double inter, Rarray V, int cyclic, Carray S, Carray E);
+int IGPCNSMRK4(int M, int N, double dx, double dT, double a2, double complex a1,
+    double inter, Rarray V, int cyclic, Carray S, Carray E);
 /* ---------------------------------------
  * Crank-Nicolson with Sherman-Morrison to
  * solve linear part and RK4 to  nonlinear
@@ -122,8 +122,8 @@ void IGPCNSMRK4(int M, int N, double dx, double dT, double a2, double complex a1
 
 
 
-void IGPFFTRK4(int M, int N, double dx, double dT, double a2, double complex a1,
-     double inter, Rarray V, Carray S, Carray E);
+int IGPFFTRK4(int M, int N, double dx, double dT, double a2, double complex a1,
+    double inter, Rarray V, Carray S, Carray E);
 /* ------------------------------------------------------------
  * Use FFT to solve linear part and RK4 for nonderivatives part
  * ------------------------------------------------------------ */
