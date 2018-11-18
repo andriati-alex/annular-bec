@@ -62,6 +62,10 @@
 
 
 
+void SepLine();
+
+
+
 
 
 int IGPCNSM(int M, int N, double dx, double dT, double a2, double complex a1,

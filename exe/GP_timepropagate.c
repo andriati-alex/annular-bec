@@ -254,6 +254,7 @@ int main(int argc, char * argv[])
 
     int
         i,
+        j,
         M,      // # of intervals in spacial domain (sizeof(x) - 1)
         N,      // # of time steps to evolve
         Nlines, // # of initial data to evolve
@@ -407,7 +408,7 @@ int main(int argc, char * argv[])
         return -1;
     } else
     {
-        printf(" ... Found !\n");
+        printf(" .... Found !\n");
     }
 
     for (i = 0; i < M + 1; i++)
@@ -417,6 +418,18 @@ int main(int argc, char * argv[])
     }
 
     fclose(eq_file); // finish the reading of file
+    
+    // Record Trap potential commom for all executed configurations
+
+    strcpy(fname, "../gp_data/");
+    strcat(fname, argv[4]);
+
+    if (timeinfo == 'r' || timeinfo == 'R')
+    { strcat(fname, "_trap_realtime.dat"); }
+    else
+    { strcat(fname, "_trap_imagtime.dat"); }
+
+    rarr_txt(fname, M + 1, V);
 
 
 
@@ -458,7 +471,7 @@ int main(int argc, char * argv[])
     }
     else
     {
-        printf(" ... Found !\n");
+        printf(" ....... Found !\n");
     }
     // ----------------------------------------------------------------
 
@@ -470,18 +483,12 @@ int main(int argc, char * argv[])
     strcat(fname, argv[3]);
     strcat(fname, "_domain.dat");
 
-    printf("\nLooking for %s", fname);
-
     domain_file = fopen(fname, "r");
 
     if (domain_file == NULL)  // impossible to open file
     {
         printf("\n\n\tERROR: impossible to open file %s\n\n", fname);
         return -1;
-    }
-    else
-    {
-        printf(" ... Found !\n");
     }
     // ----------------------------------------------------------------
 
@@ -504,7 +511,7 @@ int main(int argc, char * argv[])
     }
     else
     {
-        printf(" ... Found !\n");
+        printf(" ..... Found !\n");
     }
 
 
@@ -559,8 +566,8 @@ int main(int argc, char * argv[])
 
     if (timeinfo == 'r' || timeinfo == 'R')
     {
-        printf("\n\n\t=================================================\n\n");
-            printf("\tDoing real time integration  #%d\n\n", 1);
+        SepLine();
+        printf("\nDoing real time integration  #%d\n\n", 1);
 
         strcpy(fname, "../gp_data/");
         strcat(fname, argv[5]);
@@ -606,8 +613,8 @@ int main(int argc, char * argv[])
 
     if (timeinfo == 'i' || timeinfo == 'I')
     {
-        printf("\n\n\t=================================================\n\n");
-        printf("\tDoing imaginary time integration  %d\n\n", 1);
+        SepLine();
+        printf("\nDoing imaginary time integration #%d\n\n", 1);
         switch (method)
         {
             case 1:
@@ -678,7 +685,9 @@ int main(int argc, char * argv[])
 
     for ( i = 1; i < Nlines; i ++)
     {
-        
+
+        printf("\n\n\n\n\n");
+
         // number of line reading in _conf.dat and _eq.dat files
         sprintf(strnum, "%d", i + 1);
 
@@ -690,11 +699,12 @@ int main(int argc, char * argv[])
 
         E = carrDef(N + 1); // energy to record progress of convergence
 
-        // replace initial condition
-        for (i = 0; i < M + 1; i++)
+        // replace initial condition reading more M + 1 discretized
+        // positions function values from file
+        for (j = 0; j < M + 1; j++)
         {
             trash = fscanf(orb_file, " (%lf%lfj)", &real, &imag);
-            S[i] = real + I * imag;
+            S[j] = real + I * imag;
         }
 
         printf("\nGot Initial condition. Calling time evolution routine\n");
@@ -707,8 +717,8 @@ int main(int argc, char * argv[])
 
         if (timeinfo == 'r' || timeinfo == 'R')
         {
-            printf("\n\n\t=============================================\n\n");
-            printf("\tDoing real time integration  #%d \n\n", i + 1);
+            SepLine();
+            printf("\nDoing real time integration  #%d \n\n", i + 1);
 
             strcpy(fname, "../gp_data/");
             strcat(fname, argv[4]);
@@ -758,8 +768,8 @@ int main(int argc, char * argv[])
 
         if (timeinfo == 'i' || timeinfo == 'I')
         {
-            printf("\n\n\t=============================================\n\n");
-            printf("\tDoing imaginary time integration  #%d\n\n", i + 1);
+            SepLine();
+            printf("\nDoing imaginary time integration  #%d\n\n", i + 1);
             switch (method)
             {
                 case 1:
