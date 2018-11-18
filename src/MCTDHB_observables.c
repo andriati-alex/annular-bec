@@ -219,7 +219,7 @@ double complex PotentialE (int Morb, int Mpos, Cmatrix Omat, double dx,
         {
             r = rho[i][j];
             for (k = 0; k < Mpos; k++)
-                toInt[k] += r * V[k] * conj(Omat[i][k]) * Omat[j][k];
+                toInt[k] = toInt[k] + r * V[k] * conj(Omat[i][k]) * Omat[j][k];
         }
     }
 
@@ -286,6 +286,7 @@ double complex InteractingE(int Morb, int Mpos, Cmatrix Omat, double dx, double 
 
     return r;
 }
+
 
 
 

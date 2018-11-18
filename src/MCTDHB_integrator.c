@@ -2,11 +2,14 @@
 
 
 
+
+
 void SepLine()
 {
-    printf("\n=======================================================");
-    printf("=======================\n");
+    printf("\n=======================================");
+    printf("=======================================\n");
 }
+
 
 
 
@@ -1476,15 +1479,16 @@ int MC_IMAG_RK4_FFTRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
 
 
-    printf("\n\n\t  Nstep             Energy                  Virial");
-    SepLine();
-
 
 
     // Store the initial guess energy
     E[0] = Energy(MC, Orb, C);
     virial[0] = VirialResidue(MC, Orb, C);
-    printf("\n\t%5d\t\t%15.5E\t\t%15.5E", 0, creal(E[0]), creal(virial[0]));
+
+    printf("\n\n\t Nstep             Energy/particle           Virial");
+    SepLine();
+    printf("\n\t%6d           %15.7E", 0, creal(E[0]));
+    printf("           %15.7E", creal(virial[0]));
 
 
 
@@ -1519,8 +1523,8 @@ int MC_IMAG_RK4_FFTRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
             if (200 * nc < 5E7)
             {
-                if (nc / 2 < 200) k = nc / 2;
-                else              k = 200;
+                if (2 * nc / 3 < 200) k = 2 * nc / 3;
+                else                  k = 200;
             }
             else k = 5E7 / nc;
 
@@ -1529,7 +1533,7 @@ int MC_IMAG_RK4_FFTRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
             renormalizeVector(nc, C, 1.0);
 
             SepLine();
-            printf("\n\tDiagonalization Done E = %.5E\n", creal(E[i+1]));
+            printf("\n\tDiagonalization Done E = %.7E\n", creal(E[i+1]));
             SepLine();
         }
 
@@ -1541,22 +1545,51 @@ int MC_IMAG_RK4_FFTRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
 
 
-        printf("\n\t%5d\t\t%15.5E\t\t%15.5E", i+1, creal(E[i+1]),
-        creal(virial[i+1]));
+        printf("\n\t%6d           %15.7E", i + 1, creal(E[i + 1]));
+        printf("           %15.7E", creal(virial[i+1]));
 
-        if ( cabs(virial[i+1]) / cabs(E[i+1]) < 5E-4 )
+        if ( fabs( creal(E[i + 1] - E[i]) / creal(E[i]) ) < 1E-12 )
         {
+
             p = DftiFreeDescriptor(&desc);
             free(exp_der);
+            
+            if (200 * nc < 5E7)
+            {
+                if (2 * nc / 3 < 200) k = 2 * nc / 3;
+                else                  k = 200;
+            }
+            else k = 5E7 / nc;
+
+            E[i + 1] = LanczosGround( k, MC, Orb, C );
+            // Renormalize coeficients
+            renormalizeVector(nc, C, 1.0);
 
             SepLine();
-            printf("\nProcess ended because achieved virial accuracy\n\n");
+            printf("\n\tDiagonalization Done E = %.7E\n", creal(E[i+1]));
+            SepLine();
+
+            printf("\nProcess ended before because \n");
+            printf("\n\t1. Energy stop decreasing  \n");
+
+            if ( fabs( creal(virial[i+1]) / creal(E[i+1]) ) < 1E-3 )
+            {
+                printf("\n\t2. Achieved virial accuracy\n\n");
+                return i + 1;
+            } else
+            {
+                printf("\n\t2. Not so good virial value ");
+                printf("achieved. Try smaller time-step\n\n");
+            }
+
             return i + 1;
         }
+
     }
     
     SepLine();
-    printf("\nProcess ended without achieving desired virial accuracy\n\n");
+    printf("\nProcess ended without achieving");
+    printf(" stability and/or accuracy\n\n");
     
     p = DftiFreeDescriptor(&desc);
     free(exp_der);
@@ -1625,15 +1658,16 @@ int MC_IMAG_RK4_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
 
 
-    printf("\n\n\t  Nstep             Energy                  Virial");
-    SepLine();
-
 
 
     // Store the initial guess energy
     E[0] = Energy(MC, Orb, C);
     virial[0] = VirialResidue(MC, Orb, C);
-    printf("\n\t%5d\t\t%15.5E\t\t%15.5E", 0, creal(E[0]), creal(virial[0]));
+    
+    printf("\n\n\t Nstep             Energy/particle           Virial");
+    SepLine();
+    printf("\n\t%6d           %15.7E", 0, creal(E[0]));
+    printf("           %15.7E", creal(virial[0]));
 
 
 
@@ -1691,8 +1725,8 @@ int MC_IMAG_RK4_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
             if (200 * nc < 5E7)
             {
-                if (nc / 2 < 200) k = nc / 2;
-                else              k = 200;
+                if (2 * nc / 3 < 200) k = 2 * nc / 3;
+                else                  k = 200;
             }
             else k = 5E7 / nc;
 
@@ -1701,7 +1735,7 @@ int MC_IMAG_RK4_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
             renormalizeVector(nc, C, 1.0);
 
             SepLine();
-            printf("\n\tDiagonalization Done E = %.5E\n", creal(E[i+1]));
+            printf("\n\tDiagonalization Done E = %.7E\n", creal(E[i+1]));
             SepLine();
         }
 
@@ -1713,24 +1747,51 @@ int MC_IMAG_RK4_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
 
 
-        printf("\n\t%5d\t\t%15.5E\t\t%15.5E", i+1, creal(E[i+1]),
-        creal(virial[i+1]));
+        printf("\n\t%6d           %15.7E", i + 1, creal(E[i + 1]));
+        printf("           %15.7E", creal(virial[i+1]));
         
-        if ( cabs(virial[i+1]) / cabs(E[i+1]) < 5E-4 )
+        if ( fabs( creal(E[i + 1] - E[i]) / creal(E[i]) ) < 1E-12 )
         {
+
             CCSFree(cnmat);
             free(upper);
             free(lower);
             free(mid);
 
+            if (200 * nc < 5E7)
+            {
+                if (2 * nc / 3 < 200) k = 2 * nc / 3;
+                else                  k = 200;
+            }
+            else k = 5E7 / nc;
+
+            E[i + 1] = LanczosGround( k, MC, Orb, C );
+            // Renormalize coeficients
+            renormalizeVector(nc, C, 1.0);
+
             SepLine();
-            printf("\nProcess ended because achieved virial accuracy\n\n");
+            printf("\n\tDiagonalization Done E = %.7E\n", creal(E[i+1]));
+            SepLine();
+
+            printf("\nProcess ended before because \n");
+            printf("\n\t1. Energy stop decreasing  \n");
+
+            if ( fabs( creal(virial[i+1]) / creal(E[i+1]) ) < 1E-3 )
+            {
+                printf("\n\t2. Achieved virial accuracy\n\n");
+            } else
+            {
+                printf("\n\t2. Not so good virial value ");
+                printf("achieved. Try smaller time-step\n\n");
+            }
+
             return i + 1;
         }
     }
 
     SepLine();
-    printf("\nProcess ended without achieving desired virial accuracy\n\n");
+    printf("\nProcess ended without achieving");
+    printf(" stability and/or accuracy\n\n");
 
     CCSFree(cnmat);
     free(upper);
@@ -1800,15 +1861,16 @@ int MC_IMAG_RK4_CNLURK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
 
 
-    printf("\n\n\t  Nstep             Energy                  Virial");
-    SepLine();
-
 
 
     // Store the initial guess energy
     E[0] = Energy(MC, Orb, C);
     virial[0] = VirialResidue(MC, Orb, C);
-    printf("\n\t%5d\t\t%15.5E\t\t%15.5E", 0, creal(E[0]), creal(virial[0]));
+
+    printf("\n\n\t Nstep             Energy/particle           Virial");
+    SepLine();
+    printf("\n\t%6d           %15.7E", 0, creal(E[0]));
+    printf("           %15.7E", creal(virial[0]));
 
 
 
@@ -1866,8 +1928,8 @@ int MC_IMAG_RK4_CNLURK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
             if (200 * nc < 5E7)
             {
-                if (nc / 2 < 200) k = nc / 2;
-                else              k = 200;
+                if (2 * nc / 3 < 200) k = 2 * nc / 3;
+                else                  k = 200;
             }
             else k = 5E7 / nc;
 
@@ -1876,7 +1938,7 @@ int MC_IMAG_RK4_CNLURK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
             renormalizeVector(nc, C, 1.0);
 
             SepLine();
-            printf("\n\tDiagonalization Done E = %.5E\n", creal(E[i+1]));
+            printf("\n\tDiagonalization Done E = %.7E\n", creal(E[i+1]));
             SepLine();
         }
 
@@ -1888,26 +1950,53 @@ int MC_IMAG_RK4_CNLURK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
 
 
-        printf("\n\t%5d\t\t%15.5E\t\t%15.5E", i+1, creal(E[i+1]),
-        creal(virial[i+1]));
+        printf("\n\t%6d           %15.7E", i + 1, creal(E[i + 1]));
+        printf("           %15.7E", creal(virial[i+1]));
         
         
         
-        if ( cabs(virial[i+1]) / cabs(E[i+1]) < 5E-4 )
+        if ( fabs( creal(E[i + 1] - E[i]) / creal(E[i]) ) < 1E-12 )
         {
+
             CCSFree(cnmat);
             free(upper);
             free(lower);
             free(mid);
 
+            if (200 * nc < 5E7)
+            {
+                if (2 * nc / 3 < 200) k = 2 * nc / 3;
+                else                  k = 200;
+            }
+            else k = 5E7 / nc;
+
+            E[i + 1] = LanczosGround( k, MC, Orb, C );
+            // Renormalize coeficients
+            renormalizeVector(nc, C, 1.0);
+
             SepLine();
-            printf("\nProcess ended because achieved virial accuracy\n\n");
+            printf("\n\tDiagonalization Done E = %.7E\n", creal(E[i+1]));
+            SepLine();
+
+            printf("\nProcess ended before because \n");
+            printf("\n\t1. Energy stop decreasing  \n");
+
+            if ( fabs( creal(virial[i+1]) / creal(E[i+1]) ) < 1E-3 )
+            {
+                printf("\n\t2. Achieved virial accuracy\n\n");
+            } else
+            {
+                printf("\n\t2. Not so good virial value ");
+                printf("achieved. Try smaller time-step\n\n");
+            }
+            
             return i + 1;
         }
     }
 
     SepLine();
-    printf("\nProcess ended without achieving desired virial accuracy\n\n");
+    printf("\nProcess ended without achieving");
+    printf(" stability and/or accuracy\n\n");
 
     CCSFree(cnmat);
     free(upper);
