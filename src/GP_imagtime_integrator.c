@@ -46,8 +46,8 @@
 
 void SepLine()
 {
-    printf("\n=======================================================");
-    printf("=======================\n");
+    printf("\n=======================================");
+    printf("=======================================\n");
 }
 
 
@@ -90,6 +90,7 @@ int IGPFFT(int M, int N, double dx, double dT, double a2, double complex a1,
 
     double complex
         vir,
+        old_vir,
         dt = - I  * dT; // pure imaginary time-step
 
 
@@ -115,6 +116,7 @@ int IGPFFT(int M, int N, double dx, double dT, double a2, double complex a1,
     norm = sqrt(Rsimps(M, abs2, dx));
     E[0] = Functional(M, dx, a2, a1, inter / 2, V, S);
     vir = GPvirial(M, a2, a1, inter, V, dx, S);
+    old_vir = vir;
     /* ------------------------------------------------------------------- */
 
     printf("\n\n\t Nstep             Energy/particle           Virial");
@@ -195,26 +197,52 @@ int IGPFFT(int M, int N, double dx, double dT, double a2, double complex a1,
 
 
 
-        if ( cabs(vir) / cabs(E[i+1]) < 2E-4 &&
-             fabs(cabs(E[3*i/4]) - cabs(E[i+1])) / cabs(E[i+1]) < 1E-10)
+        if ( fabs( creal(vir - old_vir) / creal(old_vir) ) < 1E-12 )
         {
-            s = DftiFreeDescriptor(&desc);
 
-            free(exp_der);
-            free(stepexp);
-            free(forward_fft);
-            free(back_fft);
-            free(abs2);
-            free(out);
+            // Enter here if Virial value has stabilized
 
-            SepLine();
-            printf("\nProcess ended because achieved virial accuracy\n\n");
-            return i + 1;
+            if ( fabs( creal(E[i + 1] - E[i]) / creal(E[i]) ) < 1E-14 )
+            {
+
+                s = DftiFreeDescriptor(&desc);
+
+                free(exp_der);
+                free(stepexp);
+                free(forward_fft);
+                free(back_fft);
+                free(abs2);
+                free(out);
+
+                SepLine();
+                    
+                printf("\nProcess ended before because \n");
+                printf("\n\t1. Energy stop decreasing  \n");
+                printf("\n\t2. Virial stop decreasing  \n");
+
+                if ( fabs( creal(vir) / creal(E[i+1]) ) < 1E-3 )
+                {
+                    printf("\n\t3. Achieved virial accuracy\n");
+                    printf("\n");
+                    return i + 1;
+                }
+
+                else
+                {
+                    printf("\n\t3. Not so good virial value  ");
+                    printf("achieved. Try smaller time-step\n");
+                    printf("\n");
+                    return i + 1;
+                }
+            }
         }
+
+        old_vir = vir;
     }
 
     SepLine();
-    printf("\nProcess ended without achieving desired virial accuracy\n\n");
+    printf("\nProcess ended without achieving");
+    printf(" stability and/or accuracy\n\n");
 
     s = DftiFreeDescriptor(&desc);
 
@@ -342,12 +370,12 @@ int IGPCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
 
 
 
-        if ( fabs( creal(vir - old_vir) / creal(old_vir) ) < 1E-10 )
+        if ( fabs( creal(vir - old_vir) / creal(old_vir) ) < 1E-12 )
         {
 
             // Enter here if Virial value has stabilized
 
-            if ( fabs( creal(E[i + 1] - E[i]) / creal(E[i]) ) < 1E-12 )
+            if ( fabs( creal(E[i + 1] - E[i]) / creal(E[i]) ) < 1E-14 )
             {
 
                 // Enter here if energy has stabilized. If that
@@ -363,23 +391,21 @@ int IGPCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
                 CCSFree(cnmat);
 
                 SepLine();
+                
+                printf("\nProcess ended before because \n");
+                printf("\n\t1. Energy stop decreasing  \n");
+                printf("\n\t2. Virial stop decreasing  \n");
 
                 if ( fabs( creal(vir) / creal(E[i+1]) ) < 1E-3 )
                 {
-                    printf("\nProcess ended before because \n");
-                    printf("\n\t1. Energy stop decreasing  \n");
-                    printf("\n\t2. Virial stop decreasing  \n");
-                    printf("\n\t2. Achieved virial accuracy\n");
+                    printf("\n\t3. Achieved virial accuracy\n");
                     printf("\n");
                     return i + 1;
                 }
 
                 else
                 {
-                    printf("\nProcess ended before because \n");
-                    printf("\n\t1. Energy stop decreasing  \n");
-                    printf("\n\t2. Virial stop decreasing  \n");
-                    printf("\n\t2. Not so good virial value  ");
+                    printf("\n\t3. Not so good virial value  ");
                     printf("achieved. Try smaller time-step\n");
                     printf("\n");
                     return i + 1;
@@ -430,6 +456,7 @@ int IGPCNLU(int M, int N, double dx, double dT, double a2, double complex a1,
 
     double complex
         vir,
+        old_vir,
         dt = - I  * dT;
 
     Carray
@@ -460,6 +487,7 @@ int IGPCNLU(int M, int N, double dx, double dT, double a2, double complex a1,
     norm = sqrt(Rsimps(M, abs2, dx));
     E[0] = Functional(M, dx, a2, a1, inter / 2, V, S);
     vir = GPvirial(M, a2, a1, inter, V, dx, S);
+    old_vir = vir;
     /* ----------------------------------------------------- */
 
     printf("\n\n\t Nstep             Energy/particle           Virial");
@@ -514,27 +542,53 @@ int IGPCNLU(int M, int N, double dx, double dT, double a2, double complex a1,
 
 
 
-        if ( cabs(vir) / cabs(E[i+1]) < 5E-4 &&
-             fabs(cabs(E[i/2]) - cabs(E[i+1])) / cabs(E[i+1]) < 1E-6)
+        if ( fabs( creal(vir - old_vir) / creal(old_vir) ) < 1E-12 )
         {
-            free(stepexp);
-            free(linpart);
-            free(abs2);
-            free(upper);
-            free(lower);
-            free(mid);
-            free(rhs);
-            CCSFree(cnmat);
 
-            SepLine();
-            printf("\nProcess ended because achieved virial accuracy\n\n");
-            return i + 1;
+            // Enter here if Virial value has stabilized
+
+            if ( fabs( creal(E[i + 1] - E[i]) / creal(E[i]) ) < 1E-14 )
+            {
+
+                free(stepexp);
+                free(linpart);
+                free(abs2);
+                free(upper);
+                free(lower);
+                free(mid);
+                free(rhs);
+                CCSFree(cnmat);
+                
+                SepLine();
+
+                printf("\nProcess ended before because \n");
+                printf("\n\t1. Energy stop decreasing  \n");
+                printf("\n\t2. Virial stop decreasing  \n");
+
+                if ( fabs( creal(vir) / creal(E[i+1]) ) < 1E-3 )
+                {
+                    printf("\n\t3. Achieved virial accuracy\n");
+                    printf("\n");
+                    return i + 1;
+                }
+
+                else
+                {
+                    printf("\n\t3. Not so good virial value  ");
+                    printf("achieved. Try smaller time-step\n");
+                    printf("\n");
+                    return i + 1;
+                }
+            }
         }
+
+        old_vir = vir;
 
     }
 
     SepLine();
-    printf("\nProcess ended without achieving desired virial accuracy\n\n");
+    printf("\nProcess ended without achieving");
+    printf(" stability and/or accuracy\n\n");
 
     free(stepexp);
     free(linpart);
@@ -627,6 +681,7 @@ int IGPCNSMRK4(int M, int N, double dx, double dT, double a2, double complex a1,
 
     double complex
         vir,
+        old_vir,
         dt,
         interv[1];
 
@@ -659,6 +714,7 @@ int IGPCNSMRK4(int M, int N, double dx, double dT, double a2, double complex a1,
     norm = sqrt(Rsimps(M, abs2, dx));
     E[0] = Functional(M, dx, a2, a1, inter / 2, V, S);
     vir = GPvirial(M, a2, a1, inter, V, dx, S);
+    old_vir = vir;
     /* ----------------------------------------------------- */
     
     printf("\n\n\t Nstep             Energy/particle           Virial");
@@ -711,26 +767,53 @@ int IGPCNSMRK4(int M, int N, double dx, double dT, double a2, double complex a1,
 
 
 
-        if ( cabs(vir) / cabs(E[i+1]) < 5E-4 &&
-             fabs(cabs(E[i/2]) - cabs(E[i+1])) / cabs(E[i+1]) < 1E-6)
+        if ( fabs( creal(vir - old_vir) / creal(old_vir) ) < 1E-12 )
         {
-            free(linpart);
-            free(upper);
-            free(lower);
-            free(abs2);
-            free(mid);
-            free(rhs);
-            CCSFree(cnmat);
 
-            SepLine();
-            printf("\nProcess ended because achieved virial accuracy\n\n");
-            return i + 1;
+            // Enter here if Virial value has stabilized
+
+            if ( fabs( creal(E[i + 1] - E[i]) / creal(E[i]) ) < 1E-14 )
+            {
+
+                free(linpart);
+                free(upper);
+                free(lower);
+                free(abs2);
+                free(mid);
+                free(rhs);
+                CCSFree(cnmat);
+
+                SepLine();
+
+                printf("\nProcess ended before because \n");
+                printf("\n\t1. Energy stop decreasing  \n");
+                printf("\n\t2. Virial stop decreasing  \n");
+
+                if ( fabs( creal(vir) / creal(E[i+1]) ) < 1E-3 )
+                {
+                    printf("\n\t3. Achieved virial accuracy\n");
+                    printf("\n");
+                    return i + 1;
+                }
+
+                else
+                {
+                    printf("\n\t3. Not so good virial value  ");
+                    printf("achieved. Try smaller time-step\n");
+                    printf("\n");
+                    return i + 1;
+                }
+            }
+
         }
+
+        old_vir = vir;
 
     }
     
     SepLine();
-    printf("\nProcess ended without achieving desired virial accuracy\n\n");
+    printf("\nProcess ended without achieving");
+    printf(" stability and/or accuracy\n\n");
 
     free(linpart);
     free(upper);
@@ -784,6 +867,7 @@ int IGPFFTRK4(int M, int N, double dx, double dT, double a2, double complex a1,
 
     double complex
         vir,
+        old_vir,
         dt = - I * dT;
 
 
@@ -814,6 +898,7 @@ int IGPFFTRK4(int M, int N, double dx, double dT, double a2, double complex a1,
     norm = sqrt(Rsimps(M, abs2, dx));
     E[0] = Functional(M, dx, a2, a1, inter / 2, V, S);
     vir = GPvirial(M, a2, a1, inter, V, dx, S);
+    old_vir = vir;
     /* ------------------------------------------------------------------- */
     
     printf("\n\n\t Nstep             Energy/particle           Virial");
@@ -889,28 +974,55 @@ int IGPFFTRK4(int M, int N, double dx, double dT, double a2, double complex a1,
 
 
 
-        if ( cabs(vir) / cabs(E[i+1]) < 5E-4 &&
-             fabs(cabs(E[i/2]) - cabs(E[i+1])) / cabs(E[i+1]) < 1E-6)
+        if ( fabs( creal(vir - old_vir) / creal(old_vir) ) < 1E-12 )
         {
 
-            s = DftiFreeDescriptor(&desc);
+            // Enter here if Virial value has stabilized
 
-            free(exp_der);
-            free(forward_fft);
-            free(back_fft);
-            free(abs2);
-            free(argRK4);
-            free(FullPot);
+            if ( fabs( creal(E[i + 1] - E[i]) / creal(E[i]) ) < 1E-14 )
+            {
 
-            SepLine();
-            printf("\nProcess ended because achieved virial accuracy\n\n");
-            return i + 1;
+                s = DftiFreeDescriptor(&desc);
+
+                free(exp_der);
+                free(forward_fft);
+                free(back_fft);
+                free(abs2);
+                free(argRK4);
+                free(FullPot);
+                
+                SepLine();
+
+                printf("\nProcess ended before because \n");
+                printf("\n\t1. Energy stop decreasing  \n");
+                printf("\n\t2. Virial stop decreasing  \n");
+
+                if ( fabs( creal(vir) / creal(E[i+1]) ) < 1E-3 )
+                {
+                    printf("\n\t3. Achieved virial accuracy\n");
+                    printf("\n");
+                    return i + 1;
+                }
+
+                else
+                {
+                    printf("\n\t3. Not so good virial value  ");
+                    printf("achieved. Try smaller time-step\n");
+                    printf("\n");
+                    return i + 1;
+                }
+
+            }
+
         }
+
+        old_vir = vir;
 
     }
     
     SepLine();
-    printf("\nProcess ended without achieving desired virial accuracy\n\n");
+    printf("\nProcess ended without achieving");
+    printf(" stability and/or accuracy\n\n");
 
     s = DftiFreeDescriptor(&desc);
 

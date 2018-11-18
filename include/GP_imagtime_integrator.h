@@ -5,6 +5,7 @@
 #include <mkl_dfti.h>
 
 #include "tridiagonal_solver.h"
+#include "iterative_solver.h"
 #include "matrix_operations.h"
 #include "calculus.h"
 #include "rk4.h"
@@ -127,5 +128,6 @@ int IGPFFTRK4(int M, int N, double dx, double dT, double a2, double complex a1,
 /* ------------------------------------------------------------
  * Use FFT to solve linear part and RK4 for nonderivatives part
  * ------------------------------------------------------------ */
+
 
 #endif
