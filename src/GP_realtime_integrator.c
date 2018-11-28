@@ -45,11 +45,15 @@
 
 
 void record_step(FILE * f, int M, Carray v)
-{   // Given an open file f write the complex array v in a line
+{
+
+//  Given an open file f write the complex array v in a line
+
     int j;
 
     for (j = 0; j < M; j ++)
-    {   // write in a format suitable to import with numpy
+    {   
+        // write in a format suitable to import with numpy
         if (cimag(v[j]) > 0)
         {
             fprintf(f, "(%.15E+%.15Ej) ", creal(v[j]), cimag(v[j]));
@@ -72,15 +76,26 @@ void record_step(FILE * f, int M, Carray v)
 
 void GPFFT(int M, int N, double dx, double dt, double a2, double complex a1,
      double inter, Rarray V, Carray S, char fname[], int n)
-{   // Evolve the wave-function given an initial condition in S
-    // that is overwritten at each time-step.  The  results are
-    // recorded in a file named 'fname' on every 'n' steps. Use
-    // FFT to compute linear derivatives part of  PDE hence the
-    // boundary is consider to be periodic in the last position
+{
+
+//  Evolve the wave-function given an initial condition in S
+//  that is overwritten at each time-step.  The  results are
+//  recorded in a file named 'fname' on every 'n' steps. Use
+//  FFT to compute linear derivatives part of  PDE hence the
+//  boundary is consider to be periodic in the last position
 
 
     // File to write every n step the time-step solution
     FILE * out_data = fopen(fname, "w");
+    
+    if (out_data == NULL)
+    {
+        printf("\n\n\tERROR: impossible to open file %s\n", fname);
+        exit(EXIT_FAILURE);
+    }
+    
+    // Record initial data as first line
+    record_step(out_data, M, S);
 
 
     int
@@ -141,14 +156,15 @@ void GPFFT(int M, int N, double dx, double dt, double a2, double complex a1,
 
 
 
-    /* Apply Split step and solve separately nonlinear and linear part */
-    /*******************************************************************/
+    /*  Apply Split step and solve separately nonlinear and linear part  *
+     *  ===============================================================  */
 
 
 
     k = 1;
     for (i = 0; i < N; i++)
     {
+
         // Apply exponential of potential together nonlinear part
         carrAbs2(M, S, abs2);
         rarrUpdate(M, V, inter, abs2, out);
@@ -161,9 +177,19 @@ void GPFFT(int M, int N, double dx, double dt, double a2, double complex a1,
         carrMultiply(m, exp_der, forward_fft, back_fft);
         // go back to position space
         s = DftiComputeBackward(desc, back_fft);
-        carrMultiply(m, stepexp, back_fft, Sstep);
-        Sstep[m] = Sstep[0]; // cyclic condition
         
+        carrCopy(m, back_fft, Sstep);
+        Sstep[m] = Sstep[0];
+
+        carrAbs2(M, Sstep, abs2);
+        rarrUpdate(M, V, inter, abs2, out);
+        rcarrExp(M, Idt / 2, out, stepexp);
+
+        carrMultiply(m, stepexp, back_fft, Sstep);
+        Sstep[m] = Sstep[0];
+
+
+
         /* IMPROVEMENT
          * -----------
          *
@@ -173,7 +199,10 @@ void GPFFT(int M, int N, double dx, double dt, double a2, double complex a1,
          *
          * ------------------------------------------------------------ */
 
+
+
         // Trapezium rule in the nonlinear exponential part
+        carrAbs2(M, S, abs2);
         for (j = 0; j < M; j++)
         {
             abs2[j] += creal(Sstep[j]) * creal(Sstep[j]);
@@ -218,13 +247,15 @@ void GPFFT(int M, int N, double dx, double dt, double a2, double complex a1,
 
 void GPCNLU(int M, int N, double dx, double dt, double a2, double complex a1,
      double inter, Rarray V, int cyclic, Carray S, char fname[], int n)
-{   // Evolve the wave-function given an initial condition in S
-    // that is overwritten at each time-step.  The  results are
-    // recorded in a file named 'fname' on every 'n' steps. Use
-    // Crank-Nicolson discretization scheme to  compute  linear
-    // part of potential and derivatives of the PDE.   'Cyclic'
-    // is a boolean argument define  whether  the  boundary  is
-    // zero or periodic on last position point.
+{
+
+//  Evolve the wave-function given an initial condition  in S
+//  that is overwritten at each time-step.  The  results  are
+//  recorded in a file named 'fname' on every 'n' steps.  Use
+//  Crank-Nicolson discretization scheme to  compute   linear
+//  part of potential and derivatives of the PDE. 'Cyclic' is
+//  a boolean argument define  whether  the  boundary is zero
+//  or periodic on last position point.
 
 
     // File to write every n step the time-step solution
@@ -233,11 +264,13 @@ void GPCNLU(int M, int N, double dx, double dt, double a2, double complex a1,
 
 
     if (out_data == NULL)
-    {   // impossible to open file with the given name
+    {
         printf("\n\n\tERROR: impossible to open file %s\n", fname);
-        return;
+        exit(EXIT_FAILURE);
     }
 
+    // Record initial data as first line
+    record_step(out_data, M, S);
 
 
     unsigned int
@@ -279,9 +312,11 @@ void GPCNLU(int M, int N, double dx, double dt, double a2, double complex a1,
 
 
 
-    /*                 ****************************                 */
-    /*                 Setup Right-Hand-Side matrix                 */
-    /*                 ****************************                 */
+            /*  ==========================================
+
+                       Setup Right-Hand-Side matrix
+
+                ==========================================  */
 
 
 
@@ -304,9 +339,11 @@ void GPCNLU(int M, int N, double dx, double dt, double a2, double complex a1,
 
 
 
-    /*                *******************************                */
-    /*                Setup Cyclic tridiagonal matrix                */
-    /*                *******************************                */
+            /*  ===========================================
+
+                      Setup Cyclic tridiagonal matrix
+
+                ===========================================  */
 
 
 
@@ -326,13 +363,15 @@ void GPCNLU(int M, int N, double dx, double dt, double a2, double complex a1,
 
 
 
-    /* Apply Split step and solve separately nonlinear and linear part */
-    /* *************************************************************** */
+    /*  Apply Split step and solve separately nonlinear and linear part  *
+     *  ===============================================================  */
 
 
 
     k = 1;
-    for (i = 0; i < N; i++) {
+    for (i = 0; i < N; i++)
+    {
+
         // Apply exponential with nonlinear part
         carrAbs2(M, S, abs2);
         rcarrExp(M, inter * Idt / 2, abs2, stepexp);
@@ -343,20 +382,27 @@ void GPCNLU(int M, int N, double dx, double dt, double a2, double complex a1,
         triCyclicLU(M - 1, upper, lower, mid, rhs, linpart);
         if (cyclic) { linpart[M-1] = linpart[0]; } // Cyclic system
         else        { linpart[M-1] = 0;          } // zero boundary
-
-        // Update solution (solution of linear part in stepexp)
-        carrMultiply(M, linpart, stepexp, Sstep);
         
+        // Apply exponential with nonlinear part again
+        carrAbs2(M, linpart, abs2);
+        rcarrExp(M, inter * Idt / 2, abs2, stepexp);
+        carrMultiply(M, stepexp, linpart, Sstep);
+
+
+
         /* IMPROVEMENT
          * -----------
          *
          * The steps above use rectangular integration of the nonlinear
          * part,  thus with an approximate solution to the next step we
-         * can improve by using trapezium method in the  nonlinear part.
+         * can improve by using trapezium method in the  nonlinear part
          *
          * ------------------------------------------------------------ */
 
+
+
         // Trapezium rule in the nonlinear exponential part
+        carrAbs2(M, S, abs2);
         for (j = 0; j < M; j++)
         {
             abs2[j] += creal(Sstep[j]) * creal(Sstep[j]);
@@ -377,6 +423,7 @@ void GPCNLU(int M, int N, double dx, double dt, double a2, double complex a1,
         // record data every n steps
         if (k == n) { record_step(out_data, M, S); k = 1; }
         else        { k = k + 1;                          }
+
     }
 
     fclose(out_data);
@@ -398,13 +445,15 @@ void GPCNLU(int M, int N, double dx, double dt, double a2, double complex a1,
 
 void GPCNSM(int M, int N, double dx, double dt, double a2, double complex a1,
      double inter, Rarray V, int cyclic, Carray S, char fname [], int n)
-{   // Evolve the wave-function given an initial condition in S
-    // that is overwritten at each time-step.  The  results are
-    // recorded in a file named 'fname' on every 'n' steps. Use
-    // Crank-Nicolson discretization scheme to  compute  linear
-    // part of potential and derivatives of the PDE.   'Cyclic'
-    // is a boolean argument define  whether  the  boundary  is
-    // zero or periodic on last position point.
+{
+
+//  Evolve the wave-function given an initial condition in S
+//  that is overwritten at each time-step.  The  results are
+//  recorded in a file named 'fname' on every 'n' steps. Use
+//  Crank-Nicolson discretization scheme to  compute  linear
+//  part of potential and derivatives of the PDE.   'Cyclic'
+//  is a boolean argument define  whether  the  boundary  is
+//  zero or periodic on last position point.
 
 
     // File to write every n step the time-step solution
@@ -415,8 +464,11 @@ void GPCNSM(int M, int N, double dx, double dt, double a2, double complex a1,
     if (out_data == NULL)
     {   // impossible to open file with the given name
         printf("\n\n\tERROR: impossible to open file %s\n", fname);
-        return;
+        exit(EXIT_FAILURE);
     }
+
+    // Record initial data as first line
+    record_step(out_data, M, S);
 
 
 
@@ -459,9 +511,11 @@ void GPCNSM(int M, int N, double dx, double dt, double a2, double complex a1,
 
 
 
-    /*                 ****************************                 */
-    /*                 Setup Right-Hand-Side matrix                 */
-    /*                 ****************************                 */
+            /*  ==========================================
+
+                       Setup Right-Hand-Side matrix
+
+                ==========================================  */
 
 
 
@@ -484,9 +538,11 @@ void GPCNSM(int M, int N, double dx, double dt, double a2, double complex a1,
 
 
 
-    /*                *******************************                */
-    /*                Setup Cyclic tridiagonal matrix                */
-    /*                *******************************                */
+            /*  ===========================================
+
+                      Setup Cyclic tridiagonal matrix
+
+                ===========================================  */
 
 
 
@@ -505,14 +561,16 @@ void GPCNSM(int M, int N, double dx, double dt, double a2, double complex a1,
     else        { lower[M-2] = 0;                                          }
 
 
-
-    /* Apply Split step and solve separately nonlinear and linear part */
-    /* *************************************************************** */
+    
+    /*  Apply Split step and solve separately nonlinear and linear part  *
+     *  ===============================================================  */
 
 
 
     k = 1;
-    for (i = 0; i < N; i++) {
+    for (i = 0; i < N; i++)
+    {
+
         // Apply exponential with nonlinear part
         carrAbs2(M, S, abs2);
         rcarrExp(M, inter * Idt / 2, abs2, stepexp);
@@ -524,9 +582,13 @@ void GPCNSM(int M, int N, double dx, double dt, double a2, double complex a1,
         if (cyclic) { linpart[M-1] = linpart[0]; } // Cyclic system
         else        { linpart[M-1] = 0;          } // zero boundary
 
-        // Update solution (solution of linear part in stepexp)
+        // Apply exponential with nonlinear part again
+        carrAbs2(M, linpart, abs2);
+        rcarrExp(M, inter * Idt / 2, abs2, stepexp);
         carrMultiply(M, linpart, stepexp, Sstep);
-        
+
+
+
         /* IMPROVEMENT
          * -----------
          *
@@ -536,6 +598,9 @@ void GPCNSM(int M, int N, double dx, double dt, double a2, double complex a1,
          *
          * ------------------------------------------------------------ */
 
+
+
+        carrAbs2(M, S, abs2);
         // Trapezium rule in the nonlinear exponential part
         for (j = 0; j < M; j++)
         {
@@ -642,6 +707,17 @@ void GPCNSMRK4(int M, int N, double dx, double dt, double a2, double complex a1,
 
 
 
+    if (out_data == NULL)
+    {   // impossible to open file with the given name
+        printf("\n\n\tERROR: impossible to open file %s\n", fname);
+        exit(EXIT_FAILURE);
+    }
+
+    // Record initial data as first line
+    record_step(out_data, M, S);
+
+
+
     int k,
         i,
         j;
@@ -673,9 +749,11 @@ void GPCNSMRK4(int M, int N, double dx, double dt, double a2, double complex a1,
 
 
 
-    /*                 ****************************                 */
-    /*                 Setup Right-Hand-Side matrix                 */
-    /*                 ****************************                 */
+            /*  ==========================================
+
+                       Setup Right-Hand-Side matrix
+
+                ==========================================  */
 
 
 
@@ -698,9 +776,11 @@ void GPCNSMRK4(int M, int N, double dx, double dt, double a2, double complex a1,
 
 
 
-    /*                *******************************                */
-    /*                Setup Cyclic tridiagonal matrix                */
-    /*                *******************************                */
+            /*  ===========================================
+
+                      Setup Cyclic tridiagonal matrix
+
+                ===========================================  */
 
 
 
@@ -720,8 +800,8 @@ void GPCNSMRK4(int M, int N, double dx, double dt, double a2, double complex a1,
 
 
 
-    /* Apply Split step and solve separately nonlinear and linear part */
-    /* *************************************************************** */
+    /*  Apply Split step and solve separately nonlinear and linear part  *
+     *  ===============================================================  */
 
 
 
@@ -756,6 +836,7 @@ void GPCNSMRK4(int M, int N, double dx, double dt, double a2, double complex a1,
 
 
 
+
 void GPFFTRK4(int M, int N, double dx, double dt, double a2, double complex a1,
      double inter, Rarray V, Carray S, char fname[], int n)
 {   // Evolve the wave-function given an initial condition in S
@@ -769,6 +850,17 @@ void GPFFTRK4(int M, int N, double dx, double dt, double a2, double complex a1,
 
     // File to write every n step the time-step solution
     FILE * out_data = fopen(fname, "w");
+
+
+
+    if (out_data == NULL)
+    {   // impossible to open file with the given name
+        printf("\n\n\tERROR: impossible to open file %s\n", fname);
+        exit(EXIT_FAILURE);
+    }
+
+    // Record initial data as first line
+    record_step(out_data, M, S);
 
 
 
@@ -833,8 +925,8 @@ void GPFFTRK4(int M, int N, double dx, double dt, double a2, double complex a1,
 
 
 
-    /* Apply Split step and solve separately nonlinear and linear part */
-    /*******************************************************************/
+    /*  Apply Split step and solve separately nonlinear and linear part  *
+     *  ===============================================================  */
 
 
 
@@ -858,6 +950,7 @@ void GPFFTRK4(int M, int N, double dx, double dt, double a2, double complex a1,
         // record data every n steps
         if (k == n) { record_step(out_data, M, S); k = 1; }
         else        { k = k + 1;                          }
+
     }
 
     fclose(out_data);

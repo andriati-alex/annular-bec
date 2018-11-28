@@ -1,6 +1,7 @@
 import sys;
 import numpy as np;
 import matplotlib as mpl;
+from pathlib import Path;
 
 """
 
@@ -21,27 +22,27 @@ import matplotlib as mpl;
 
 """
 
-# SETUP PLOT PARAMS   #
-mpl.use('Qt5Agg');
 # IMPORT PLOT MODULES #
 import matplotlib.pyplot as plt;
 from matplotlib import animation;
 
-fname = '../gp_data/' + sys.argv[1] + '_realtime_state.dat';
+folder = str(Path.home()) + '/AndriatiLibrary/gp_data/';
+
+fname = folder + sys.argv[1] + '_line-1_function_realtime.dat';
 fstep = int(sys.argv[2]); # how much time-steps a frame jumps
 
 S = np.loadtxt(fname, dtype=np.complex128);
 Smod2 = np.absolute(S)[::fstep,:] ** 2;
 
-fname = '../gp_data/' + sys.argv[1] + '_realdomain.dat'
+fname = folder + sys.argv[1] + '_conf_realtime.dat'
 domain = np.loadtxt(fname, dtype=np.float64);
 
 y2 = Smod2.max() + 0.1 * (Smod2.max() - Smod2.min());
 y1 = Smod2.min() - 0.1 * (Smod2.max() - Smod2.min());
 
-x1 = domain[0];
-x2 = domain[1];
-x  = np.linspace(x1, x2, S.shape[1]);
+x1 = domain[1];
+x2 = domain[2];
+x  = np.linspace(x1, x2, int(domain[0]) + 1);
 
 fig   = plt.figure(figsize=(10, 8));
 ax    = plt.axes(xlim=(x1, x2), ylim=(y1, y2));

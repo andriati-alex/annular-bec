@@ -24,8 +24,8 @@ def deltaBarrier(x, height):
 
 def doubleDeltaBarrier(x, h1, h2):
     V = np.zeros(x.size, dtype=np.float128);
-    V[x.size / 2] = h1 / (x[1] - x[0]);
-    V[x.size - 1] = h2 / (x[1] - x[0]);
+    V[int(x.size / 2)] = h1 / (x[1] - x[0]);
+    V[int(x.size - 1)] = h2 / (x[1] - x[0]);
     V[0] = h2 / (x[1] - x[0]);
     return V;
 

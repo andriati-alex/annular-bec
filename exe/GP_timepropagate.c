@@ -570,39 +570,39 @@ int main(int argc, char * argv[])
         printf("\nDoing real time integration  #%d\n\n", 1);
 
         strcpy(fname, "../gp_data/");
-        strcat(fname, argv[5]);
-        strcat(fname, "_line-1_realtime_state.dat");
+        strcat(fname, argv[4]);
+        strcat(fname, "_line-1_function_realtime.dat");
         switch (method)
         {
             case 1:
                 GPCNSMRK4(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S,
-                fname, 10);
+                fname, 20);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(RK4 nonlinear CN-SM linear)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
             case 2:
-                GPFFTRK4(M + 1, N, dx, dt, a2, a1, inter, V, S, fname, 10);
+                GPFFTRK4(M + 1, N, dx, dt, a2, a1, inter, V, S, fname, 20);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(RK4 nonlinear / FFT linear)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
             case 3:
                 GPCNSM(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S,
-                fname, 10);
+                fname, 20);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(Crank-Nicolson-SM)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
             case 4:
                 GPCNLU(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S,
-                fname, 10);
+                fname, 20);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(Crank-Nicolson-LU)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
             case 5:
-                GPFFT(M + 1, N, dx, dt, a2, a1, inter, V, S, fname, 10);
+                GPFFT(M + 1, N, dx, dt, a2, a1, inter, V, S, fname, 20);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(FFT)");
                 printf(" : %.3f seconds\n", time_used);
@@ -699,15 +699,18 @@ int main(int argc, char * argv[])
 
         E = carrDef(N + 1); // energy to record progress of convergence
 
-        // replace initial condition reading more M + 1 discretized
-        // positions function values from file
-        for (j = 0; j < M + 1; j++)
+        if (timeinfo == 'r' || timeinfo == 'R')
         {
-            trash = fscanf(orb_file, " (%lf%lfj)", &real, &imag);
-            S[j] = real + I * imag;
-        }
 
-        printf("\nGot Initial condition. Calling time evolution routine\n");
+        //  replace initial condition reading more  M + 1 discretized
+        //  positions function values from file, for real time domain
+
+            for (j = 0; j < M + 1; j++)
+            {
+                trash = fscanf(orb_file, " (%lf%lfj)", &real, &imag);
+                S[j] = real + I * imag;
+            }
+        }
 
 
 
