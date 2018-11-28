@@ -19,7 +19,7 @@ void SetupHo (int Morb, int Mpos, Cmatrix Omat, double dx, double a2,
     for (i = 0; i < Morb; i++)
     {
         dxCyclic(Mpos, Omat[i], dx, ddxi);
-        for (j = 0; j < Morb; j++)
+        for (j = i + 1; j < Morb; j++)
         {
             dxCyclic(Mpos, Omat[j], dx, ddxj);
             for (k = 0; k < Mpos; k++)
@@ -29,7 +29,16 @@ void SetupHo (int Morb, int Mpos, Cmatrix Omat, double dx, double a2,
                            + V[k] * conj(Omat[i][k]) * Omat[j][k];
             }
             Ho[i][j] = Csimps(Mpos, toInt, dx);
+            Ho[j][i] = conj(Ho[i][j]);
         }
+
+        for (k = 0; k < Mpos; k++)
+        {
+            toInt[k] = - a2 * conj(ddxi[k]) * ddxi[k]    \
+                       + a1 * conj(Omat[i][k]) * ddxi[k] \
+                       + V[k] * conj(Omat[i][k]) * Omat[i][k];
+        }
+        Ho[i][i] = creal(Csimps(Mpos, toInt, dx));
     }
 
     free(ddxi); free(ddxj); free(toInt);
