@@ -62,6 +62,9 @@ void RCCSFree(RCCSmat M);
 
 
 
+
+void SepLine();
+
 // Print in current screen(terminal)
 void cPrint(double complex z);
 

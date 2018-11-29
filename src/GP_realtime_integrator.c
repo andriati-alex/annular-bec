@@ -43,7 +43,6 @@
 
 
 
-
 void record_step(FILE * f, int M, Carray v)
 {
 
@@ -87,15 +86,21 @@ void GPFFT(int M, int N, double dx, double dt, double a2, double complex a1,
 
     // File to write every n step the time-step solution
     FILE * out_data = fopen(fname, "w");
-    
+
     if (out_data == NULL)
     {
         printf("\n\n\tERROR: impossible to open file %s\n", fname);
         exit(EXIT_FAILURE);
     }
-    
+
     // Record initial data as first line
     record_step(out_data, M, S);
+
+
+    // Reader of screen printing
+    printf("\n\n\n");
+    printf("     step            Energy                   Norm");
+    SepLine();
 
 
     int
@@ -114,6 +119,7 @@ void GPFFT(int M, int N, double dx, double dt, double a2, double complex a1,
 
 
     double complex
+        E,
         Idt = 0.0 - dt * I;
 
 
@@ -164,9 +170,17 @@ void GPFFT(int M, int N, double dx, double dt, double a2, double complex a1,
     k = 1;
     for (i = 0; i < N; i++)
     {
+        carrAbs2(M, S, abs2);
+
+        // Print in screen to quality and progress control
+        E = Functional(M, dx, a2, a1, inter / 2, V, S);
+        printf(" \n  %7d          ", i);
+        printf("%15.7E          ", creal(E));
+        printf("%15.7E          ", Rsimps(M, abs2, dx));
+
+
 
         // Apply exponential of potential together nonlinear part
-        carrAbs2(M, S, abs2);
         rarrUpdate(M, V, inter, abs2, out);
         rcarrExp(M, Idt / 2, out, stepexp);
         carrMultiply(m, stepexp, S, forward_fft);
@@ -177,7 +191,7 @@ void GPFFT(int M, int N, double dx, double dt, double a2, double complex a1,
         carrMultiply(m, exp_der, forward_fft, back_fft);
         // go back to position space
         s = DftiComputeBackward(desc, back_fft);
-        
+
         carrCopy(m, back_fft, Sstep);
         Sstep[m] = Sstep[0];
 
@@ -222,11 +236,22 @@ void GPFFT(int M, int N, double dx, double dt, double a2, double complex a1,
         s = DftiComputeBackward(desc, back_fft);
         carrMultiply(m, stepexp, back_fft, S);
         S[m] = S[0];
-        
-        // record data every n steps
+
+
+
+        // RECORD solution
+
         if (k == n) { record_step(out_data, M, S); k = 1; }
         else        { k = k + 1;                          }
     }
+
+    carrAbs2(M, S, abs2);
+    E = Functional(M, dx, a2, a1, inter / 2, V, S);
+    printf(" \n  %7d          ", N);
+    printf("%15.7E          ", creal(E));
+    printf("%15.7E          ", Rsimps(M, abs2, dx));
+    
+    SepLine();
 
     fclose(out_data);
 
@@ -271,6 +296,13 @@ void GPCNLU(int M, int N, double dx, double dt, double a2, double complex a1,
 
     // Record initial data as first line
     record_step(out_data, M, S);
+    
+    
+    
+    // Reader of screen printing
+    printf("\n\n\n");
+    printf("     step            Energy                   Norm");
+    SepLine();
 
 
     unsigned int
@@ -282,6 +314,7 @@ void GPCNLU(int M, int N, double dx, double dt, double a2, double complex a1,
 
     // Factor to multiply in nonlinear exponential part after split-step
     double complex
+        E,
         Idt = 0.0 - dt * I;
 
 
@@ -371,9 +404,18 @@ void GPCNLU(int M, int N, double dx, double dt, double a2, double complex a1,
     k = 1;
     for (i = 0; i < N; i++)
     {
+        
+        carrAbs2(M, S, abs2);
+
+        // Print in screen to quality and progress control
+        E = Functional(M, dx, a2, a1, inter / 2, V, S);
+        printf(" \n  %7d          ", i);
+        printf("%15.7E          ", creal(E));
+        printf("%15.7E          ", Rsimps(M, abs2, dx));
+
+
 
         // Apply exponential with nonlinear part
-        carrAbs2(M, S, abs2);
         rcarrExp(M, inter * Idt / 2, abs2, stepexp);
         carrMultiply(M, stepexp, S, linpart);
 
@@ -426,6 +468,14 @@ void GPCNLU(int M, int N, double dx, double dt, double a2, double complex a1,
 
     }
 
+    carrAbs2(M, S, abs2);
+    E = Functional(M, dx, a2, a1, inter / 2, V, S);
+    printf(" \n  %7d          ", N);
+    printf("%15.7E          ", creal(E));
+    printf("%15.7E          ", Rsimps(M, abs2, dx));
+    
+    SepLine();
+
     fclose(out_data);
 
     free(stepexp);
@@ -469,6 +519,13 @@ void GPCNSM(int M, int N, double dx, double dt, double a2, double complex a1,
 
     // Record initial data as first line
     record_step(out_data, M, S);
+    
+    
+    
+    // Reader of screen printing
+    printf("\n\n\n");
+    printf("     step            Energy                   Norm");
+    SepLine();
 
 
 
@@ -481,6 +538,7 @@ void GPCNSM(int M, int N, double dx, double dt, double a2, double complex a1,
 
     // Factor to multiply in nonlinear exponential part after split-step
     double complex
+        E,
         Idt = 0.0 - dt * I;
 
 
@@ -571,8 +629,17 @@ void GPCNSM(int M, int N, double dx, double dt, double a2, double complex a1,
     for (i = 0; i < N; i++)
     {
 
-        // Apply exponential with nonlinear part
         carrAbs2(M, S, abs2);
+
+        // Print in screen to quality and progress control
+        E = Functional(M, dx, a2, a1, inter / 2, V, S);
+        printf(" \n  %7d          ", i);
+        printf("%15.7E          ", creal(E));
+        printf("%15.7E          ", Rsimps(M, abs2, dx));
+
+
+
+        // Apply exponential with nonlinear part
         rcarrExp(M, inter * Idt / 2, abs2, stepexp);
         carrMultiply(M, stepexp, S, linpart);
 
@@ -618,11 +685,19 @@ void GPCNSM(int M, int N, double dx, double dt, double a2, double complex a1,
         else        { linpart[M-1] = 0;          } // zero boundary
 
         carrMultiply(M, linpart, stepexp, S);
-        
+
         // record data every n steps
         if (k == n) { record_step(out_data, M, S); k = 1; }
         else        { k = k + 1;                          }
     }
+
+    carrAbs2(M, S, abs2);
+    E = Functional(M, dx, a2, a1, inter / 2, V, S);
+    printf(" \n  %7d          ", N);
+    printf("%15.7E          ", creal(E));
+    printf("%15.7E          ", Rsimps(M, abs2, dx));
+    
+    SepLine();
 
     fclose(out_data);
 
@@ -718,6 +793,13 @@ void GPCNSMRK4(int M, int N, double dx, double dt, double a2, double complex a1,
 
 
 
+    // Reader of screen printing
+    printf("\n\n\n");
+    printf("     step            Energy                   Norm");
+    SepLine();
+
+
+
     int k,
         i,
         j;
@@ -725,7 +807,13 @@ void GPCNSMRK4(int M, int N, double dx, double dt, double a2, double complex a1,
 
 
     double complex
+        E,
         interv[1];
+
+
+
+    Rarray
+        abs2 = rarrDef(M);
 
 
 
@@ -808,6 +896,16 @@ void GPCNSMRK4(int M, int N, double dx, double dt, double a2, double complex a1,
     k = 1;
     for (i = 0; i < N; i++)
     {
+        carrAbs2(M, S, abs2);
+
+        // Print in screen to quality and progress control
+        E = Functional(M, dx, a2, a1, inter / 2, V, S);
+        printf(" \n  %7d          ", i);
+        printf("%15.7E          ", creal(E));
+        printf("%15.7E          ", Rsimps(M, abs2, dx));
+
+
+
         RK4step(M, dt/2, 0, S, interv, linpart, NonLinearDDT);
         
         // Solve linear part (nabla ^ 2 part + onebody potential)
@@ -817,11 +915,21 @@ void GPCNSMRK4(int M, int N, double dx, double dt, double a2, double complex a1,
         else        { linpart[M-1] = 0;          } // zero boundary
 
         RK4step(M, dt/2, 0, linpart, interv, S, NonLinearDDT);
-        
+
+
+
         // record data every n steps
         if (k == n) { record_step(out_data, M, S); k = 1; }
         else        { k = k + 1;                          }
     }
+
+    carrAbs2(M, S, abs2);
+    E = Functional(M, dx, a2, a1, inter / 2, V, S);
+    printf(" \n  %7d          ", N);
+    printf("%15.7E          ", creal(E));
+    printf("%15.7E          ", Rsimps(M, abs2, dx));
+
+    SepLine();
 
     fclose(out_data);
 
@@ -830,6 +938,7 @@ void GPCNSMRK4(int M, int N, double dx, double dt, double a2, double complex a1,
     free(lower);
     free(mid);
     free(rhs);
+    free(abs2);
     CCSFree(cnmat);
 }
 
@@ -864,6 +973,13 @@ void GPFFTRK4(int M, int N, double dx, double dt, double a2, double complex a1,
 
 
 
+    // Reader of screen printing
+    printf("\n\n\n");
+    printf("     step            Energy                   Norm");
+    SepLine();
+
+
+
     int
         k,
         i,
@@ -883,7 +999,12 @@ void GPFFTRK4(int M, int N, double dx, double dt, double a2, double complex a1,
 
 
     double complex
+        E,
         Idt = 0 - dt * I;
+
+
+    Rarray
+        abs2 = rarrDef(M);
 
 
 
@@ -933,6 +1054,17 @@ void GPFFTRK4(int M, int N, double dx, double dt, double a2, double complex a1,
     k = 1;
     for (i = 0; i < N; i++)
     {
+
+        carrAbs2(M, S, abs2);
+
+        // Print in screen to quality and progress control
+        E = Functional(M, dx, a2, a1, inter / 2, V, S);
+        printf(" \n  %7d          ", i);
+        printf("%15.7E          ", creal(E));
+        printf("%15.7E          ", Rsimps(M, abs2, dx));
+
+
+
         RK4step(M, dt/2, 0, S, FullPot, argRK4, NonLinearVDDT);
         carrCopy(m, argRK4, forward_fft);
 
@@ -953,6 +1085,14 @@ void GPFFTRK4(int M, int N, double dx, double dt, double a2, double complex a1,
 
     }
 
+    carrAbs2(M, S, abs2);
+    E = Functional(M, dx, a2, a1, inter / 2, V, S);
+    printf(" \n  %7d          ", N);
+    printf("%15.7E          ", creal(E));
+    printf("%15.7E          ", Rsimps(M, abs2, dx));
+
+    SepLine();
+
     fclose(out_data);
 
     s = DftiFreeDescriptor(&desc);
@@ -961,5 +1101,255 @@ void GPFFTRK4(int M, int N, double dx, double dt, double a2, double complex a1,
     free(forward_fft);
     free(back_fft);
     free(argRK4);
+    free(abs2);
     free(FullPot);
+}
+
+
+
+
+
+
+
+
+
+
+void CFDS(int M, int N, double dx, double dt, double a2, double complex a1,
+     double inter, Rarray V, int cyclic, Carray S, char fname [], int n)
+{
+
+//  Evolve the wave-function given an initial condition in S
+//  that is overwritten at each time-step.  The  results are
+//  recorded in a file named 'fname' on every 'n' steps. Use
+//  Crank-Nicolson discretization scheme to  compute  linear
+//  part of potential and derivatives of the PDE.   'Cyclic'
+//  is a boolean argument define  whether  the  boundary  is
+//  zero or periodic on last position point.
+
+
+    // File to write every n step the time-step solution
+    FILE * out_data = fopen(fname, "w");
+
+
+
+    if (out_data == NULL)
+    {   // impossible to open file with the given name
+        printf("\n\n\tERROR: impossible to open file %s\n", fname);
+        exit(EXIT_FAILURE);
+    }
+
+    // Record initial data as first line
+    record_step(out_data, M, S);
+
+
+
+    // Reader of screen printing
+    printf("\n\n\n");
+    printf("     step            Energy                   Norm");
+    SepLine();
+
+
+
+    unsigned int
+        k,
+        i,
+        j,
+        iter,
+        condition;
+
+
+    double
+        tol;
+
+
+
+    // Factor to multiply in nonlinear exponential part after split-step
+    double complex
+        aux,
+        Idt = 0.0 - dt * I;
+
+
+
+    Rarray
+        abs2 = rarrDef(M); // abs square of wave function
+
+
+
+    Carray
+        // go back and integrate nonlinear part by trapezium
+        Sstep = carrDef(M),
+        // Used to apply nonlinear part
+        stepexp = carrDef(M),
+        // hold solution of linear system
+        linpart = carrDef(M),
+        // (cyclic)tridiagonal matrix from Crank-Nicolson
+        upper = carrDef(M - 1),
+        lower = carrDef(M - 1),
+        mid   = carrDef(M - 1),
+        // RHS of linear system to solve
+        rhs   = carrDef(M - 1);
+
+
+
+    CCSmat
+        cnmat;
+
+
+
+            /*  ==========================================
+
+                       Setup Right-Hand-Side matrix
+
+                ==========================================  */
+
+
+
+    // fill main diagonal (use upper as auxiliar pointer)
+    carrFill(M - 1, - a2 * dt / dx / dx + I, upper);
+    rcarrUpdate(M - 1, upper, dt / 2, V, mid);
+
+    // fill upper diagonal
+    carrFill(M - 1, a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, upper);
+    if (cyclic) { upper[M-2] = a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
+    else        { upper[M-2] = 0;                                        }
+
+    // fill lower diagonal
+    carrFill(M - 1, a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, lower);
+    if (cyclic) { lower[M-2] = a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
+    else        { lower[M-2] = 0;                                        }
+
+    // Store in CCS format
+    cnmat = CyclicToCCS(M - 1, upper, lower, mid);
+
+
+
+            /*  ===========================================
+
+                      Setup Cyclic tridiagonal matrix
+
+                ===========================================  */
+
+
+
+    // fill main diagonal (use upper as auxiliar pointer)
+    carrFill(M - 1, a2 * dt / dx /dx + I, upper);
+    rcarrUpdate(M - 1, upper, -dt / 2, V, mid);
+
+    // fill upper diagonal
+    carrFill(M - 1, - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4, upper);
+    if (cyclic) { upper[M-2] = - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4; }
+    else        { upper[M-2] = 0;                                          }
+
+    // fill lower diagonal
+    carrFill(M - 1, - a2 * dt / dx / dx / 2 + a1 * dt / dx / 4, lower);
+    if (cyclic) { lower[M-2] = - a2 * dt / dx / dx / 2 - a1 * dt / dx / 4; }
+    else        { lower[M-2] = 0;                                          }
+
+
+    
+    /*  Apply Split step and solve separately nonlinear and linear part  *
+     *  ===============================================================  */
+
+
+
+    k = 1;
+    for (i = 0; i < N; i++)
+    {
+
+        carrAbs2(M, S, abs2);
+
+        // Print in screen to quality and progress control
+        aux = Functional(M, dx, a2, a1, inter / 2, V, S);
+        printf(" \n  %7d          ", i);
+        printf("%15.7E          ", creal(aux));
+        printf("%15.7E          ", Rsimps(M, abs2, dx));
+
+
+
+        // Apply exponential with nonlinear part
+        rcarrExp(M, inter * Idt / 2, abs2, stepexp);
+        carrMultiply(M, stepexp, S, linpart);
+
+        // Solve linear part
+        CCSvec(M - 1, cnmat->vec, cnmat->col, cnmat->m, linpart, rhs);
+        triCyclicSM(M - 1, upper, lower, mid, rhs, linpart);
+        if (cyclic) { linpart[M-1] = linpart[0]; } // Cyclic system
+        else        { linpart[M-1] = 0;          } // zero boundary
+
+        // Apply exponential with nonlinear part again
+        carrAbs2(M, linpart, abs2);
+        rcarrExp(M, inter * Idt / 2, abs2, stepexp);
+        carrMultiply(M, linpart, stepexp, Sstep);
+
+
+
+        // Change main diagonal to do iterations
+        for (j = 0; j < M - 1; j ++)
+        {
+            mid[j] = mid[j] - 0.25 * dt * inter * cabs(S[j]) * cabs(S[j]);
+        }
+
+
+        condition = 1;
+        iter = 0;
+        while (condition)
+        {
+
+            carrCopy(M, Sstep, linpart);
+            CCSvec(M - 1, cnmat->vec, cnmat->col, cnmat->m, S, rhs);
+
+            for (j = 0; j  < M - 1; j++)
+            {
+                aux = cabs(Sstep[j]) * cabs(Sstep[j]) * (Sstep[j] + S[j]);
+                aux = aux + cabs(S[j]) * cabs(S[j]) * S[j];
+                rhs[j] = rhs[j] + 0.25 * dt * inter * aux;
+            }
+
+            triCyclicSM(M - 1, upper, lower, mid, rhs, Sstep);
+            Sstep[M-1] = Sstep[0];
+
+            condition = 0;
+            for (j = 0; j  < M; j++)
+            {
+                tol = 1E-9 * cabs(linpart[j]) + 1E-12;
+                if (cabs(Sstep[j] - linpart[j]) > tol) condition = 1;
+            }
+
+            iter = iter + 1;
+
+        }
+
+        // correct the main diagonal
+        for (j = 0; j < M - 1; j ++)
+        {
+            mid[j] = I + a2 * dt / dx / dx - dt * V[j] / 2;
+        }
+
+        carrCopy(M, Sstep, S);
+        
+        // record data every n steps
+        if (k == n) { record_step(out_data, M, S); k = 1; }
+        else        { k = k + 1;                          }
+
+    }
+
+    carrAbs2(M, S, abs2);
+    aux = Functional(M, dx, a2, a1, inter / 2, V, S);
+    printf(" \n  %7d          ", N);
+    printf("%15.7E          ", creal(aux));
+    printf("%15.7E          ", Rsimps(M, abs2, dx));
+
+    SepLine();
+
+    fclose(out_data);
+
+    free(stepexp);
+    free(linpart);
+    free(abs2);
+    free(upper);
+    free(lower);
+    free(mid);
+    free(rhs);
+    free(Sstep);
+    CCSFree(cnmat);
 }

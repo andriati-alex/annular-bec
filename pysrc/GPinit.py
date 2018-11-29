@@ -131,7 +131,7 @@ dx = (x2 - x1) / M;
 
 
 if   (Id == 1):
-    out = BrightSoliton(x, *Params);
+    out = NBrightSoliton(x, *Params);
     Id_name = 'BrightSoliton';
 elif (Id == 2):
     out = FourierLocModes(x, *Params)

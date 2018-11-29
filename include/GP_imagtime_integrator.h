@@ -62,9 +62,6 @@
 
 
 
-void SepLine();
-
-
 
 
 
@@ -133,5 +130,8 @@ int IGPFFTRK4(int M, int N, double dx, double dT, double a2, double complex a1,
  * Use FFT to solve linear part and RK4 for nonderivatives part
  * ------------------------------------------------------------ */
 
+
+void CFDS(int M, int N, double dx, double dt, double a2, double complex a1,
+     double inter, Rarray V, int cyclic, Carray S, char fname [], int n);
 
 #endif

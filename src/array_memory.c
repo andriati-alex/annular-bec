@@ -123,6 +123,14 @@ void RCCSFree(RCCSmat M)
 
 
 
+void SepLine()
+{
+    printf("\n=======================================");
+    printf("=======================================\n");
+}
+
+
+
 
 
 void cPrint(double complex z) { printf("(%9.2E,%9.2E )", creal(z), cimag(z)); }

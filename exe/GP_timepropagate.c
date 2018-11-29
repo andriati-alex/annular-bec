@@ -607,6 +607,13 @@ int main(int argc, char * argv[])
                 printf("\nTime taken to solve(FFT)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
+            case 6:
+                CFDS(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S,
+                fname, 20);
+                time_used = (double) (omp_get_wtime() - start);
+                printf("\nTime taken to solve(CFDS)");
+                printf(" : %.3f seconds\n", time_used);
+                break;
         }
     }
 
@@ -763,6 +770,13 @@ int main(int argc, char * argv[])
                     GPFFT(M + 1, N, dx, dt, a2, a1, inter, V, S, fname, 10);
                     time_used = (double) (omp_get_wtime() - start);
                     printf("\nTime taken to solve(FFT)");
+                    printf(" : %.3f seconds\n", time_used);
+                    break;
+                case 6:
+                    CFDS(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S,
+                    fname, 20);
+                    time_used = (double) (omp_get_wtime() - start);
+                    printf("\nTime taken to solve(CFDS)");
                     printf(" : %.3f seconds\n", time_used);
                     break;
             }
