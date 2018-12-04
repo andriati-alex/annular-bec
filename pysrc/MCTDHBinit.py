@@ -86,6 +86,21 @@ def Hermite(Morb, x, S, omega):
 
 
 
+def RingBarrier(Morb, x, S, omega):
+    i = 0;
+    if (int(10 * omega) % 10 == 0):
+        S[0,:] = np.exp(0.5j * pi * omega * x) * np.sin(pi * omega * x * 0.5);
+        i = 1;
+    m = 1;
+    for k in range(0, Morb - i):
+        if (m == omega) : m = m + 1;
+        S[k + i,:] = np.exp(1.0j * np.pi * omega * x) * np.sin(m * np.pi * x)
+        m = m + 1;
+
+
+
+
+
 def AngularMom(Morb, x, S):
     """
     Setup matrix S with eigenstates of  angular  momentum  in ascending
@@ -220,6 +235,12 @@ elif (Id == 3) :
 
     Id_name = 'hermite-' + str(Npar) + '-' + str(Morb);
     Hermite(Morb, x, Orb, params[1]);
+    ThermalCoef(Npar, Morb, params[0], C);
+
+elif (Id == 4) :
+
+    Id_name = 'ringbarrier-' + str(Npar) + '-' + str(Morb);
+    RingBarrier(Morb, x, Orb, params[1]);
     ThermalCoef(Npar, Morb, params[0], C);
 
 
