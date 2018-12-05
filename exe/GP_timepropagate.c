@@ -3,6 +3,7 @@
 #include <math.h>
 #include "../include/GP_realtime_integrator.h"
 #include "../include/GP_imagtime_integrator.h"
+#include "../include/linear_potential.h"
 
 
 
@@ -119,6 +120,9 @@ void SaveConf(char timeinfo, char fnameIn [], char fnameOut [], int Nlines)
         Mdx;
 
     double
+        p1,
+        p2,
+        p3,
         xi,
         xf,
         dt,
@@ -127,6 +131,7 @@ void SaveConf(char timeinfo, char fnameIn [], char fnameOut [], int Nlines)
         imag;
 
     char
+        Vname [30],
         fname [120];
 
     FILE
@@ -175,7 +180,8 @@ void SaveConf(char timeinfo, char fnameIn [], char fnameOut [], int Nlines)
 
     for (i = 0; i < Nlines; i++)
     {
-        k = fscanf(eqFileIn, "%lf %lf %lf", &a2, &imag, &g);
+        k = fscanf(eqFileIn, "%lf %lf %lf %s %lf %lf %lf",
+                   &a2, &imag, &g, Vname, &p1, &p2, &p3);
 
         k = fscanf(confFileIn, "%lf %lf %d %lf %d",
                    &xi, &xf, &Mdx, &dt, &N);
@@ -183,7 +189,10 @@ void SaveConf(char timeinfo, char fnameIn [], char fnameOut [], int Nlines)
         fprintf(confFileOut, "%d %.15lf %.15lf %.15lf %d ",
                 Mdx, xi, xf, dt, N);
 
-        fprintf(confFileOut, "%.15lf %.15lf %.15lf", a2, imag, g);
+        fprintf(confFileOut, "%.15lf %.15lf %.15lf ", a2, imag, g);
+        
+        fprintf(confFileOut, "%s %.15lf %.15lf %.15lf", Vname, p1, p2, p3);
+
         fprintf(confFileOut, "\n");
     }
 
@@ -195,8 +204,8 @@ void SaveConf(char timeinfo, char fnameIn [], char fnameOut [], int Nlines)
 
 
 
-void SetupParams(FILE * paramFile, FILE * confFile, double * a2,
-     double complex * a1, double * g, double * dt, int * N)
+void SetupParams(FILE * paramFile, FILE * confFile, Rarray x, double * a2,
+     double complex * a1, double * g, Rarray V, double * dt, int * N)
 {
 
 /** Read line by line of _domain file and _eq to setup a new integration **/
@@ -205,7 +214,13 @@ void SetupParams(FILE * paramFile, FILE * confFile, double * a2,
         k,
         Mdx;
 
+    char
+        Vname[30];
+
     double
+        p1,
+        p2,
+        p3,
         xi,
         xf,
         dx,
@@ -221,9 +236,12 @@ void SetupParams(FILE * paramFile, FILE * confFile, double * a2,
     // Setup Equation parameters
     // -------------------------
 
-    k = fscanf(paramFile, "%lf %lf %lf", a2, &imag, g);
+    k = fscanf(paramFile, "%lf %lf %lf %s %lf %lf %lf",
+        a2, &imag, g, Vname, &p1, &p2, &p3);
 
     * a1 = 0 + imag * I;
+    
+    GetPotential(Mdx + 1, Vname, x, V, p1, p2, p3);
     
     printf("\n\nConfiguration Done\n");
 
@@ -295,7 +313,8 @@ int main(int argc, char * argv[])
     FILE
         * domain_file,
         * orb_file,
-        * eq_file;
+        * eq_file,
+        * E_file;
 
 
 
@@ -388,48 +407,8 @@ int main(int argc, char * argv[])
     x  = rarrDef(M + 1);
     rarrFillInc(M + 1, x1, dx, x);
     V  = rarrDef(M + 1);
+    S  = carrDef(M + 1); // solution
     // ----------------------------------------------------------------
-
-
-
-    // search and read file with values of trap potential
-    // ----------------------------------------------------------------
-    strcpy(fname, "setup/GP_");
-    strcat(fname, argv[3]);
-    strcat(fname, "_trap.dat");
-
-    printf("\nLooking for %s ", fname);
-
-    eq_file = fopen(fname, "r");
-
-    if (eq_file == NULL)  // impossible to open file
-    {
-        printf("\n\n\tERROR: impossible to open file %s\n\n", fname);
-        return -1;
-    } else
-    {
-        printf(" .... Found !\n");
-    }
-
-    for (i = 0; i < M + 1; i++)
-    {
-        trash = fscanf(eq_file, " %lf", &real);
-        V[i] = real;
-    }
-
-    fclose(eq_file); // finish the reading of file
-    
-    // Record Trap potential commom for all executed configurations
-
-    strcpy(fname, "../gp_data/");
-    strcat(fname, argv[4]);
-
-    if (timeinfo == 'r' || timeinfo == 'R')
-    { strcat(fname, "_trap_realtime.dat"); }
-    else
-    { strcat(fname, "_trap_imagtime.dat"); }
-
-    rarr_txt(fname, M + 1, V);
 
 
 
@@ -513,10 +492,24 @@ int main(int argc, char * argv[])
     {
         printf(" ..... Found !\n");
     }
+    
+    // open file to write energy values
+    // ----------------------------------------------------------------
+    strcpy(fname, "../gp_data/");
+    strcat(fname, argv[4]);
+    strcat(fname, "_energy_imagtime.dat");
+
+    E_file = fopen(fname, "w");
+
+    if (E_file == NULL)  // impossible to open file
+    {
+        printf("\n\n\tERROR: impossible to open file %s\n\n", fname);
+        return -1;
+    }
 
 
 
-    SetupParams(eq_file, domain_file, &a2, &a1, &inter, &dt, &N);
+    SetupParams(eq_file, domain_file, x, &a2, &a1, &inter, V, &dt, &N);
 
 
 
@@ -533,7 +526,6 @@ int main(int argc, char * argv[])
      
         ===============================================================  */
 
-    S = carrDef(M + 1); // solution
     E = carrDef(N + 1); // energy to record progress of convergence
 
     for (i = 0; i < M + 1; i++)
@@ -541,6 +533,8 @@ int main(int argc, char * argv[])
         trash = fscanf(orb_file, " (%lf%lfj)", &real, &imag);
         S[i] = real + I * imag;
     }
+    
+    if (timeinfo == 'i' || timeinfo == 'I') fclose(orb_file);
 
     printf("\nGot Initial condition. Calling time evolution routine\n");
 
@@ -678,12 +672,15 @@ int main(int argc, char * argv[])
         strcat(fname, "_line-1_orb_imagtime.dat");
 
         carr_txt(fname, M + 1, S);
-    
+        
+        /*
         strcpy(fname, "../gp_data/");
         strcat(fname, argv[4]);
         strcat(fname, "_line-1_E_imagtime.dat");
 
         carr_txt(fname, N, E);
+        */
+        fprintf(E_file, "%.10E\n", creal(E[N-1]));
     }
 
 
@@ -702,7 +699,7 @@ int main(int argc, char * argv[])
         free(E);
 
         // read new parameters(one more line) to do another time propagation
-        SetupParams(eq_file, domain_file, &a2, &a1, &inter, &dt, &N);
+        SetupParams(eq_file, domain_file, x, &a2, &a1, &inter, V, &dt, &N);
 
         E = carrDef(N + 1); // energy to record progress of convergence
 
@@ -734,7 +731,7 @@ int main(int argc, char * argv[])
             strcat(fname, argv[4]);
             strcat(fname, "_line-");
             strcat(fname, strnum);
-            strcat(fname, "_realtime_state.dat");
+            strcat(fname, "_orb_realtime.dat");
 
             switch (method)
             {
@@ -836,7 +833,8 @@ int main(int argc, char * argv[])
             strcat(fname, "_orb_imagtime.dat");
 
             carr_txt(fname, M + 1, S);
-        
+
+            /*
             strcpy(fname, "../gp_data/");
             strcat(fname, argv[4]);
             strcat(fname, "_line-");
@@ -844,6 +842,9 @@ int main(int argc, char * argv[])
             strcat(fname, "_E_imagtime.dat");
 
             carr_txt(fname, N, E);
+            */
+            
+            fprintf(E_file, "%.10E\n", creal(E[N-1]));
         }
     }
 
@@ -854,7 +855,8 @@ int main(int argc, char * argv[])
     /* release memory
      * ------------------------------------------------------------------- */
     fclose(eq_file);
-    fclose(orb_file);
+    fclose(E_file);
+    if (timeinfo == 'r' || timeinfo == 'R') fclose(orb_file);
     fclose(domain_file);
     free(x);
     free(V);

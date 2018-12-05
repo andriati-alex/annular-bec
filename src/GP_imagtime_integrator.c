@@ -189,12 +189,12 @@ int IGPFFT(int M, int N, double dx, double dT, double a2, double complex a1,
 
 
 
-        if ( fabs( creal(vir - old_vir) / creal(old_vir) ) < 1E-12 )
+        if ( fabs( creal(vir - old_vir) / creal(old_vir) ) < 1E-10 )
         {
 
             // Enter here if Virial value has stabilized
 
-            if ( fabs( creal(E[i + 1] - E[i]) / creal(E[i]) ) < 1E-14 )
+            if ( fabs( creal(E[i + 1] - E[i]) / creal(E[i]) ) < 1E-13 )
             {
 
                 s = DftiFreeDescriptor(&desc);
@@ -362,12 +362,12 @@ int IGPCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
 
 
 
-        if ( fabs( creal(vir - old_vir) / creal(old_vir) ) < 1E-12 )
+        if ( fabs( creal(vir - old_vir) / creal(old_vir) ) < 1E-10 )
         {
 
             // Enter here if Virial value has stabilized
 
-            if ( fabs( creal(E[i + 1] - E[i]) / creal(E[i]) ) < 1E-14 )
+            if ( fabs( creal(E[i + 1] - E[i]) / creal(E[i]) ) < 1E-13 )
             {
 
                 // Enter here if energy has stabilized. If that
@@ -534,12 +534,12 @@ int IGPCNLU(int M, int N, double dx, double dT, double a2, double complex a1,
 
 
 
-        if ( fabs( creal(vir - old_vir) / creal(old_vir) ) < 1E-12 )
+        if ( fabs( creal(vir - old_vir) / creal(old_vir) ) < 1E-10 )
         {
 
             // Enter here if Virial value has stabilized
 
-            if ( fabs( creal(E[i + 1] - E[i]) / creal(E[i]) ) < 1E-14 )
+            if ( fabs( creal(E[i + 1] - E[i]) / creal(E[i]) ) < 1E-13 )
             {
 
                 free(stepexp);
@@ -759,12 +759,12 @@ int IGPCNSMRK4(int M, int N, double dx, double dT, double a2, double complex a1,
 
 
 
-        if ( fabs( creal(vir - old_vir) / creal(old_vir) ) < 1E-12 )
+        if ( fabs( creal(vir - old_vir) / creal(old_vir) ) < 1E-10 )
         {
 
             // Enter here if Virial value has stabilized
 
-            if ( fabs( creal(E[i + 1] - E[i]) / creal(E[i]) ) < 1E-14 )
+            if ( fabs( creal(E[i + 1] - E[i]) / creal(E[i]) ) < 1E-13 )
             {
 
                 free(linpart);
@@ -966,12 +966,12 @@ int IGPFFTRK4(int M, int N, double dx, double dT, double a2, double complex a1,
 
 
 
-        if ( fabs( creal(vir - old_vir) / creal(old_vir) ) < 1E-12 )
+        if ( fabs( creal(vir - old_vir) / creal(old_vir) ) < 1E-10 )
         {
 
             // Enter here if Virial value has stabilized
 
-            if ( fabs( creal(E[i + 1] - E[i]) / creal(E[i]) ) < 1E-14 )
+            if ( fabs( creal(E[i + 1] - E[i]) / creal(E[i]) ) < 1E-13 )
             {
 
                 s = DftiFreeDescriptor(&desc);

@@ -18,13 +18,15 @@ obj_gp = $(obj_linalg) \
 		 calculus.o    \
 		 NewtonCG.o    \
 		 rk4.o         \
+		 linear_potential.o       \
 		 GP_realtime_integrator.o \
 		 GP_imagtime_integrator.o
 
 
 
 obj_mctdhb = $(obj_linalg)           \
-			 calculus.o	             \
+			 calculus.o              \
+			 linear_potential.o      \
 		 	 MCTDHB_configurations.o \
 			 MCTDHB_datatype.o       \
 			 MCTDHB_observables.o    \
@@ -46,6 +48,7 @@ gp_header = $(linalg_header) 	\
 			include/calculus.h  \
 			include/NewtonCG.h  \
 			include/rk4.h		\
+		 	include/linear_potential.h       \
 			include/GP_realtime_integrator.h \
 			include/GP_imagtime_integrator.h
 
@@ -53,6 +56,7 @@ gp_header = $(linalg_header) 	\
 
 mctdhb_header = $(linalg_header) 	    	    \
 				include/calculus.h		        \
+		 		include/linear_potential.h      \
 				include/MCTDHB_configurations.h \
 				include/MCTDHB_datatype.h       \
 				include/MCTDHB_observables.h    \
@@ -157,6 +161,11 @@ tridiagonal_solver.o : src/tridiagonal_solver.c
 
 iterative_solver.o : src/iterative_solver.c
 	icc -c -O3 -qopenmp src/iterative_solver.c
+
+
+
+linear_potential.o : src/linear_potential.c
+	icc -c -O3 src/linear_potential.c
 
 
 
