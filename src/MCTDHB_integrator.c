@@ -1538,7 +1538,7 @@ int MC_IMAG_RK4_FFTRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
         printf("\n\t%6d           %15.7E", i + 1, creal(E[i + 1]));
         printf("           %15.7E", creal(virial[i+1]));
 
-        if ( fabs( creal(E[i + 1] - E[i]) / creal(E[i]) ) < 1E-12 )
+        if ( fabs( creal(E[i + 1] - E[i]) / creal(E[i]) ) < 5E-11 )
         {
 
             p = DftiFreeDescriptor(&desc);
@@ -1576,6 +1576,17 @@ int MC_IMAG_RK4_FFTRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
         }
 
     }
+
+    if (200 * nc < 5E7)
+    {
+        if (2 * nc / 3 < 200) k = 2 * nc / 3;
+        else                  k = 200;
+    }
+    else k = 5E7 / nc;
+
+    E[Nsteps] = LanczosGround( k, MC, Orb, C );
+    // Renormalize coeficients
+    renormalizeVector(nc, C, 1.0);
     
     SepLine();
     printf("\nProcess ended without achieving");
@@ -1740,7 +1751,7 @@ int MC_IMAG_RK4_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
         printf("\n\t%6d           %15.7E", i + 1, creal(E[i + 1]));
         printf("           %15.7E", creal(virial[i+1]));
         
-        if ( fabs( creal(E[i + 1] - E[i]) / creal(E[i]) ) < 1E-12 )
+        if ( fabs( creal(E[i + 1] - E[i]) / creal(E[i]) ) < 5E-11 )
         {
 
             CCSFree(cnmat);
@@ -1778,6 +1789,17 @@ int MC_IMAG_RK4_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
             return i + 1;
         }
     }
+
+    if (200 * nc < 5E7)
+    {
+        if (2 * nc / 3 < 200) k = 2 * nc / 3;
+        else                  k = 200;
+    }
+    else k = 5E7 / nc;
+
+    E[Nsteps] = LanczosGround( k, MC, Orb, C );
+    // Renormalize coeficients
+    renormalizeVector(nc, C, 1.0);
 
     SepLine();
     printf("\nProcess ended without achieving");
@@ -1945,7 +1967,7 @@ int MC_IMAG_RK4_CNLURK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
         
         
         
-        if ( fabs( creal(E[i + 1] - E[i]) / creal(E[i]) ) < 1E-12 )
+        if ( fabs( creal(E[i + 1] - E[i]) / creal(E[i]) ) < 5E-11 )
         {
 
             CCSFree(cnmat);
@@ -1983,6 +2005,17 @@ int MC_IMAG_RK4_CNLURK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
             return i + 1;
         }
     }
+
+    if (200 * nc < 5E7)
+    {
+        if (2 * nc / 3 < 200) k = 2 * nc / 3;
+        else                  k = 200;
+    }
+    else k = 5E7 / nc;
+
+    E[Nsteps] = LanczosGround( k, MC, Orb, C );
+    // Renormalize coeficients
+    renormalizeVector(nc, C, 1.0);
 
     SepLine();
     printf("\nProcess ended without achieving");

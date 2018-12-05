@@ -1,5 +1,6 @@
 #include <string.h>
 #include "../include/MCTDHB_integrator.h"
+#include "../include/linear_potential.h"
 
 
 
@@ -171,6 +172,9 @@ void SaveConf(char timeinfo, char fnameIn [], char fnameOut [], int Nlines)
         Mdx;
 
     double
+        p1,
+        p2,
+        p3,
         xi,
         xf,
         dt,
@@ -179,6 +183,7 @@ void SaveConf(char timeinfo, char fnameIn [], char fnameOut [], int Nlines)
         imag;
 
     char
+        Vname[30],
         fname [120];
 
     FILE
@@ -227,7 +232,8 @@ void SaveConf(char timeinfo, char fnameIn [], char fnameOut [], int Nlines)
 
     for (i = 0; i < Nlines; i++)
     {
-        k = fscanf(eqFileIn, "%lf %lf %lf", &a2, &imag, &g);
+        k = fscanf(eqFileIn, "%lf %lf %lf %s %lf %lf %lf",
+                   &a2, &imag, &g, Vname, &p1, &p2, &p3);
 
         k = fscanf(confFileIn, "%d %d %d %lf %lf %lf %d",
                    &Npar, &Morb, &Mdx, &xi, &xf, &dt, &N);
@@ -235,7 +241,10 @@ void SaveConf(char timeinfo, char fnameIn [], char fnameOut [], int Nlines)
         fprintf(confFileOut, "%d %d %d %.15lf %.15lf %.15lf %d ",
                 Npar, Morb, Mdx, xi, xf, dt, N);
 
-        fprintf(confFileOut, "%.15lf %.15lf %.15lf", a2, imag, g);
+        fprintf(confFileOut, "%.15lf %.15lf %.15lf ", a2, imag, g);
+
+        fprintf(confFileOut, "%s %.15lf %.15lf %.15lf", Vname, p1, p2, p3);
+
         fprintf(confFileOut, "\n");
     }
 
@@ -252,7 +261,7 @@ void SaveConf(char timeinfo, char fnameIn [], char fnameOut [], int Nlines)
 
 
 
-MCTDHBsetup SetupData(FILE * paramFile, FILE * confFile, Rarray pot,
+MCTDHBsetup SetupData(FILE * paramFile, FILE * confFile, Rarray x,
             double * dt, int * N)
 {
 
@@ -262,7 +271,13 @@ MCTDHBsetup SetupData(FILE * paramFile, FILE * confFile, Rarray pot,
         Npar,
         Morb;
 
+    char
+        Vname[30];
+
     double
+        p1,
+        p2,
+        p3,
         xi,
         xf,
         dx,
@@ -287,7 +302,6 @@ MCTDHBsetup SetupData(FILE * paramFile, FILE * confFile, Rarray pot,
     dx = (xf - xi) / Mdx;
 
     V = rarrDef(Mdx + 1);
-    rarrCopy(Mdx + 1, pot, V);
 
     printf("\n\nConfiguration Done\n");
 
@@ -300,8 +314,10 @@ MCTDHBsetup SetupData(FILE * paramFile, FILE * confFile, Rarray pot,
     // Setup Equation parameters
     // -------------------------
 
-    k = fscanf(paramFile, "%lf %lf %lf",
-                   &a2, &imag, &inter);
+    k = fscanf(paramFile, "%lf %lf %lf %s %lf %lf %lf",
+               &a2, &imag, &inter, Vname, &p1, &p2, &p3);
+
+    GetPotential(Mdx + 1, Vname, x, V, p1, p2, p3);
 
     a1 = 0 + imag * I;
 
@@ -364,7 +380,7 @@ int main(int argc, char * argv[])
         real,  // real part of read data from file
         imag,  // imag part of read data from file
         check, // to check norm
-        * V;   // Potential computed in discretized positions
+        * x;   // discretized positions
 
     double complex
         checkDiag; // To check norm
@@ -375,6 +391,7 @@ int main(int argc, char * argv[])
         fname[120];
     
     FILE // pointer to file opened
+        * E_file,
         * coef_file,
         * orb_file,
         * confFile,
@@ -465,8 +482,8 @@ int main(int argc, char * argv[])
 
 
 
-    // Read number of discrete positions in spatial domain to define trap
-    // ------------------------------------------------------------------
+    // Read number of discrete positions in spatial domain
+    // ---------------------------------------------------
 
     strcpy(fname, "setup/MC_");
     strcat(fname, argv[3]);
@@ -494,54 +511,12 @@ int main(int argc, char * argv[])
     k = fscanf(confFile, "%lf ", &xf);
 
     dx = (xf - xi) / Mdx;
+    
+    x  = rarrDef(Mdx + 1);
+    
+    rarrFillInc(Mdx + 1, xi, dx, x);
 
     fclose(confFile);
-
-
-
-    // Setup Trap potential in discretized positions
-    // ---------------------------------------------
-
-    V = rarrDef(Mdx + 1);
-
-    strcpy(fname, "setup/MC_");
-    strcat(fname, argv[3]);
-    strcat(fname, "_trap.dat");
-
-    printf("\nLooking for %s ", fname);
-
-    confFile = fopen(fname, "r");
-
-    if (confFile == NULL)  // impossible to open file
-    {
-        printf("\n\n\tERROR: impossible to open file %s\n", fname);
-        return -1;
-    } else
-    {
-        printf(" ... Found !\n");
-    }
-
-    for (k = 0; k < Mdx + 1; k++)
-    {
-        l = fscanf(confFile, " %lf", &real);
-        V[k] = real;
-    }
-
-    fclose(confFile); // finish the reading of file for now
-
-
-
-    // Record Trap potential commom for all executed configurations
-
-    strcpy(fname, "../mctdhb_data/");
-    strcat(fname, argv[4]);
-
-    if (timeinfo == 'r' || timeinfo == 'R')
-    { strcat(fname, "_trap_realtime.dat"); }
-    else
-    { strcat(fname, "_trap_imagtime.dat"); }
-
-    rarr_txt(fname, Mdx + 1, V);
 
 
 
@@ -626,6 +601,22 @@ int main(int argc, char * argv[])
 
 
 
+    // open file to write energy values
+    // ----------------------------------------------------------------
+    strcpy(fname, "../mctdhb_data/");
+    strcat(fname, argv[4]);
+    strcat(fname, "_energy_imagtime.dat");
+
+    E_file = fopen(fname, "w");
+
+    if (E_file == NULL)  // impossible to open file
+    {
+        printf("\n\n\tERROR: impossible to open file %s\n\n", fname);
+        return -1;
+    }
+
+
+
 
 
 
@@ -637,7 +628,7 @@ int main(int argc, char * argv[])
            READ DATA TO SETUP EQUATION PARAMETERS AND INITIAL CONDITIONS
        ==================================================================== */
 
-    mc = SetupData(paramFile, confFile, V, &dt, &N);
+    mc = SetupData(paramFile, confFile, x, &dt, &N);
 
     Morb = mc->Morb;
     Npar = mc->Npar;
@@ -658,7 +649,7 @@ int main(int argc, char * argv[])
         }
     }
 
-    // orbitals are nor read again
+    // orbitals are not read again
     fclose(orb_file);
 
 
@@ -901,21 +892,24 @@ int main(int argc, char * argv[])
 
         carr_txt(fname, mc->nc, C);
 
-        // Record Energy Data in case of imaginary time
-
+        // Record Energy
+        /*
         strcpy(fname, "../mctdhb_data/");
         strcat(fname, argv[4]);
         strcat(fname, "_line-1");
         strcat(fname, "_E_imagtime.dat");
 
         carr_txt(fname, s, E);
-        
+
         strcpy(fname, "../mctdhb_data/");
         strcat(fname, argv[4]);
         strcat(fname, "_line-1");
         strcat(fname, "_virial_imagtime.dat");
 
         carr_txt(fname, s, vir);
+        */
+
+        fprintf(E_file, "%.10E\n", creal(E[s-1]));
     }
 
 
@@ -942,7 +936,7 @@ int main(int argc, char * argv[])
         EraseMCTDHBdata(mc);
 
         // setup new parameters
-        mc = SetupData(paramFile, confFile, V, &dt, &N);
+        mc = SetupData(paramFile, confFile, x, &dt, &N);
 
         if (Npar != mc->Npar)
         {
@@ -1157,8 +1151,8 @@ int main(int argc, char * argv[])
 
             carr_txt(fname, mc->nc, C);
 
-            // Record Energy Data in case of imaginary time
-
+            // Record Energy
+            /*
             strcpy(fname, "../mctdhb_data/");
             strcat(fname, argv[4]);
             strcat(fname, "_line-");
@@ -1174,6 +1168,9 @@ int main(int argc, char * argv[])
             strcat(fname, "_virial_imagtime.dat");
 
             carr_txt(fname, s, vir);
+            */
+
+            fprintf(E_file, "%.10E\n", creal(E[s-1]));
         }
 
     }
@@ -1186,12 +1183,13 @@ int main(int argc, char * argv[])
                                   RELEASE MEMORY
      * ==================================================================== */
 
+    fclose(E_file);
     fclose(confFile);
     fclose(paramFile);
     fclose(coef_file);
 
     EraseMCTDHBdata(mc);
-    free(V);
+    free(x);
     free(C);
     free(E);
     free(vir);
