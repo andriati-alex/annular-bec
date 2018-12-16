@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include "../include/calculus.h"
 
 /* PROGRAM TO TEST DERIVATIVES AND INTEGRALS
@@ -20,36 +21,54 @@
  *
  ******************************************************************************/
 
-int main() {
+int main(int argc, char * argv [])
+{
 
-    /* DEFINE THE NUMBER OF THREADS BASED ON THE COMPUTER */
-    mkl_set_num_threads(4);
-    omp_set_num_threads(4);
+    int
+        i,
+        n;
+    
+    sscanf(argv[1], "%d", &n);
 
-    int n = 256;
-    int i;
 
-    double dx = (2 * PI) / (n - 1);
 
-    double start, time_used; // show time taken
+    double
+        dx,
+        rans,
+        start,
+        time_used;
+
+
+
+    double complex
+        cans;
+
+
 
     // allocate memory
-    Carray f = carrDef(n);
-    Carray dfdx = carrDef(n);
-    Carray dfdxdiff = carrDef(n);
-    Rarray freal = rarrDef(n);
-    Rarray x = rarrDef(n);
-    Carray cints = carrDef(n);
-    Rarray rints = rarrDef(n);
+    Carray
+        f = carrDef(n),
+        dfdx = carrDef(n);
 
-    // setup input data
-    for (i = 0; i < n; i++) {
+
+
+    Rarray
+        freal = rarrDef(n),
+        x = rarrDef(n);
+
+
+
+    dx = 2 * PI / (n - 1);
+    // setup input data to integrate
+    for (i = 0; i < n; i++)
+    {
         x[i] = -PI + i * dx;
-        f[i] = cos(x[i]) + I * sin(x[i]);
+        f[i] = cos(x[i] / 2) + I * sin(x[i] / 4);
         dfdx[i] = f[i];
     }
 
     carrRPart(n, f, freal);
+
 
 
     /*                        *****************                        */
@@ -59,20 +78,18 @@ int main() {
 
 
     start = omp_get_wtime();
-    for (i = 0; i < 1000; i++)
-        cints[n - 1] = Functional(n, dx, -1, 0, -1, rints, f);
+    for (i = 0; i < 1000; i++) cans = Csimps(n, f, dx);
     time_used = (double) (omp_get_wtime() - start) / 1000;
-    printf("\n\n\tFunctional took %.6f ms", time_used * 1000);
+    printf("\n\nIntegral took %.6f ms", time_used * 1000);
 
-    for (i = 0; i < n - 1; i++) {
-        cints[i] = Csimps(i + 1, f, dx);
-        rints[i] = Rsimps(i + 1, freal, dx);
-    }
-
-    start = omp_get_wtime();
-    for (i = 0; i < 1000; i++) cints[n - 1] = Csimps(n, f, dx);
-    time_used = (double) (omp_get_wtime() - start) / 1000;
-    printf("\n\n\tIntegral took %.6f ms", time_used * 1000);
+    rans = Rsimps(n, freal, dx);
+    printf("\n\nf(x) = cos(x / 2) + i sin(x / 4) integrated");
+    printf(" in (-PI, PI] give:");
+    printf("\n\n\tAnalitically : 4 + i 0");
+    printf("\n\n\tSimpson rule : %.10lf + i %.10lf",rans,cimag(cans));
+    cans = Ctrapezium(n, f, dx);
+    rans = Rtrapezium(n, freal, dx);
+    printf("\n\n\tTrapezium    : %.10lf + i %.10lf",rans,cimag(cans));
 
 
 
@@ -82,38 +99,42 @@ int main() {
 
 
 
+    // setup input data to differentiate
+
+    for (i = 0; i < n; i++)
+    {
+        x[i] = -PI + i * dx;
+        f[i] = cos(x[i]) + I * sin(x[i]);
+        dfdx[i] = f[i];
+    }
+
+    printf("\n\nf(x) = cos(x) + i sin(x) - f'(-PI) = 0 - i ");
+
+
+
     start = omp_get_wtime();
     for (i = 0; i < 1000; i++) dxFFT(n, f, dx, dfdx);
     time_used = ((double) (omp_get_wtime() - start)) / 1000;
 
-    printf("\n\n\tDerivative by FFT took %.6f ms", time_used * 1000);
+    printf("\n\nDerivative by FFT took %.6f ms", time_used * 1000);
+    printf("\n\tf'(-PI) : %.10f + i %.10f",creal(dfdx[0]),cimag(dfdx[0]));
+
+
 
     start = omp_get_wtime();
-    for (i = 0; i < 1000; i++) dxCyclic(n, f, dx, dfdxdiff);
+    for (i = 0; i < 1000; i++) dxFD(n, f, dx, dfdx);
     time_used = ((double) (omp_get_wtime() - start)) / 1000;
-    
-    printf("\n\n\tDerivative by differences took %.6f ms", time_used * 1000);
 
-    for (i = 0; i < n; i ++)
-        cints[i] = conj(f[i]) * dfdxdiff[i];
+    printf("\n\nDerivative by differences took %.6f ms", time_used * 1000);
+    printf("\n\tf'(-PI) : %.10f + i %.10f",creal(dfdx[0]),cimag(dfdx[0]));
 
-    printf("\n\n\tFFT - DIFF: %.14lf\n", cimag(Csimps(n, cints, dx)) / 2);
-
-
-
-    /*                          ***********                          */
-    /*                          RECORD DATA                          */
-    /*                          ***********                          */
 
 
     free(x);
     free(f);
     free(freal);
     free(dfdx);
-    free(dfdxdiff);
-    free(cints);
-    free(rints);
 
-    printf("\n");
+    printf("\n\n");
     return 0;
 }

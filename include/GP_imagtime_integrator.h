@@ -7,7 +7,7 @@
 #include "tridiagonal_solver.h"
 #include "iterative_solver.h"
 #include "matrix_operations.h"
-#include "calculus.h"
+#include "GP_functional.h"
 #include "rk4.h"
 
 

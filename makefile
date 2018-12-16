@@ -14,11 +14,12 @@ obj_linalg = array_memory.o 	  \
 
 
 
-obj_gp = $(obj_linalg) \
-		 calculus.o    \
-		 NewtonCG.o    \
-		 rk4.o         \
+obj_gp = $(obj_linalg)            \
+		 calculus.o               \
+		 NewtonCG.o               \
+		 rk4.o                    \
 		 linear_potential.o       \
+		 GP_functional.o          \
 		 GP_realtime_integrator.o \
 		 GP_imagtime_integrator.o
 
@@ -44,11 +45,12 @@ linalg_header = include/array.h 			 \
 
 
 
-gp_header = $(linalg_header) 	\
-			include/calculus.h  \
-			include/NewtonCG.h  \
-			include/rk4.h		\
+gp_header = $(linalg_header) 	             \
+			include/calculus.h               \
+			include/NewtonCG.h               \
+			include/rk4.h		             \
 		 	include/linear_potential.h       \
+			include/GP_functional.h          \
 			include/GP_realtime_integrator.h \
 			include/GP_imagtime_integrator.h
 
@@ -65,16 +67,18 @@ mctdhb_header = $(linalg_header) 	    	    \
 
 
 
-# Main program
-# ************
+
+   # ------------------------------------------------------------------ #
+
+                         ###     EXECUTABLES     ###
+
+   # ------------------------------------------------------------------ #
 
 
 
 GP_timepropagate : libgp.a exe/GP_timepropagate.c $(gp_header)
-	icc -o GP_timepropagate exe/GP_timepropagate.c   \
-		-L${MKLROOT}/lib/intel64                     \
-		-lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core \
-		-lm -qopenmp                                 \
+	icc -o GP_timepropagate exe/GP_timepropagate.c -L${MKLROOT}/lib/intel64 \
+		-lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core -lm -qopenmp \
 		-L./lib -I./include -lgp -O3
 
 
@@ -82,10 +86,8 @@ GP_timepropagate : libgp.a exe/GP_timepropagate.c $(gp_header)
 
 
 mu_steady : libgp.a exe/mu_steady.c $(gp_header)
-	icc -o mu_steady exe/mu_steady.c                    \
-		-L${MKLROOT}/lib/intel64                        \
-		-lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core    \
-		-lm -qopenmp                                    \
+	icc -o mu_steady exe/mu_steady.c -L${MKLROOT}/lib/intel64 \
+		-lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core -lm -qopenmp \
 		-L./lib -I./include -lgp -O3
 
 
@@ -93,10 +95,8 @@ mu_steady : libgp.a exe/mu_steady.c $(gp_header)
 
 
 MCTDHB_time : libmctdhb.a exe/MCTDHB_time.c include/MCTDHB_integrator.h
-	icc -o MCTDHB_time exe/MCTDHB_time.c			 \
-		-L${MKLROOT}/lib/intel64                     \
-		-lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core \
-		-lm -qopenmp                                 \
+	icc -o MCTDHB_time exe/MCTDHB_time.c -L${MKLROOT}/lib/intel64 \
+		-lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core -lm -qopenmp \
 		-L./lib -lmctdhb -O3
 
 
@@ -104,7 +104,7 @@ MCTDHB_time : libmctdhb.a exe/MCTDHB_time.c include/MCTDHB_integrator.h
 
 
 # Libraries to be linked
-# **********************
+# ----------------------
 
 libgp.a : $(obj_gp)
 	ar rcs libgp.a $(obj_gp)
@@ -121,12 +121,10 @@ libmctdhb.a : $(obj_mctdhb)
 
 
 # Object files to the library
-# ***************************
+# ---------------------------
 
 array_memory.o : src/array_memory.c
 	icc -c -O3 src/array_memory.c
-
-
 
 
 
@@ -135,13 +133,9 @@ array_operations.o : src/array_operations.c
 
 
 
-
-
 matrix_operations.o : src/matrix_operations.c
 	icc -c -O3 -qopenmp -lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core -lgomp \
-	src/matrix_operations.c
-
-
+		src/matrix_operations.c
 
 
 
@@ -150,12 +144,8 @@ rmatrix_operations.o : src/rmatrix_operations.c
 
 
 
-
-
 tridiagonal_solver.o : src/tridiagonal_solver.c
 	icc -c -O3 -qopenmp src/tridiagonal_solver.c
-
-
 
 
 
@@ -169,39 +159,14 @@ linear_potential.o : src/linear_potential.c
 
 
 
-
-
-GP_realtime_integrator.o : src/GP_realtime_integrator.c
-	icc -c -O3 -qopenmp                              \
-		-lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core \
-		src/GP_realtime_integrator.c
-
-
-
-
-
-GP_imagtime_integrator.o : src/GP_imagtime_integrator.c
-	icc -c -O3 -qopenmp                              \
-		-lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core \
-		src/GP_imagtime_integrator.c
-
-
-
-
-
 rk4.o : src/rk4.c
 	icc -c -O3 -qopenmp src/rk4.c
 
 
 
-
-
 calculus.o : src/calculus.c
-	icc -c -O3 -qopenmp                              \
-		-lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core \
+	icc -c -O3 -qopenmp -lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core \
 		src/calculus.c
-
-
 
 
 
@@ -209,6 +174,21 @@ NewtonCG.o : src/NewtonCG.c
 	icc -c -O3 -qopenmp src/NewtonCG.c
 
 
+
+GP_functional.o : src/GP_functional.c
+	icc -c -O3 -qopenmp src/GP_functional.c
+
+
+
+GP_realtime_integrator.o : src/GP_realtime_integrator.c
+	icc -c -O3 -qopenmp -lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core \
+		src/GP_realtime_integrator.c
+
+
+
+GP_imagtime_integrator.o : src/GP_imagtime_integrator.c
+	icc -c -O3 -qopenmp -lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core \
+		src/GP_imagtime_integrator.c
 
 
 
@@ -218,12 +198,8 @@ MCTDHB_integrator.o : src/MCTDHB_integrator.c
 
 
 
-
-
 MCTDHB_configurations.o : src/MCTDHB_configurations.c
 	icc -c -O3 -qopenmp src/MCTDHB_configurations.c
-
-
 
 
 
@@ -232,12 +208,8 @@ MCTDHB_observables.o : src/MCTDHB_observables.c
 
 
 
-
-
 MCTDHB_datatype.o : src/MCTDHB_datatype.c
 	icc -c -O3 src/MCTDHB_datatype.c
-
-
 
 
 

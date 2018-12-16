@@ -6,42 +6,83 @@
 
 void SetupHo (int Morb, int Mpos, Cmatrix Omat, double dx, double a2,
      double complex a1, Rarray V, Cmatrix Ho )
-{   // Setup matrix elements of onebody hamiltonian part
+{
+
+/** Configure one-body hamiltonian matrix elements in chosen orbital basis
+  * of Multi-Configuration
+  *
+  * Output parameter : Ho
+  *
+  * REMIND FOR DIRAC DELTA BARRIER POTENTIAL
+  *
+  * The potential part V must then be integrated by trapezium/rectangle
+  * rule. Therefore erase V[i] part contribution in the looping. Change
+  * the following line that define a matrix element of Ho :
+  *
+  * part = Csimps(M,toInt,dx);
+  * for (i = 0; i < M; i++) part += dx * V[k] * conj(Omat[i][k]) * Omat[j][k];
+  *
+  * This shall work for a numerical implementation like 1 / dx
+  *
+**/
+
 
     int i,
         j,
         k;
 
-    Carray ddxi  = carrDef(Mpos);
-    Carray ddxj  = carrDef(Mpos);
-    Carray toInt = carrDef(Mpos);
+
+
+    double complex
+        part;
+
+
+
+    Carray
+        ddxi  = carrDef(Mpos),
+        ddxj  = carrDef(Mpos),
+        toInt = carrDef(Mpos);
+
+
 
     for (i = 0; i < Morb; i++)
     {
-        dxCyclic(Mpos, Omat[i], dx, ddxi);
+
+        dxFD(Mpos,Omat[i],dx,ddxi);
+
         for (j = i + 1; j < Morb; j++)
         {
-            dxCyclic(Mpos, Omat[j], dx, ddxj);
+
+            dxFD(Mpos,Omat[j],dx,ddxj);
+
             for (k = 0; k < Mpos; k++)
             {
-                toInt[k] = - a2 * conj(ddxi[k]) * ddxj[k]    \
-                           + a1 * conj(Omat[i][k]) * ddxj[k] \
-                           + V[k] * conj(Omat[i][k]) * Omat[j][k];
+                part = - a2 * conj(ddxi[k]) * ddxj[k];
+                part = part + a1 * conj(Omat[i][k]) * ddxj[k];
+                part = part + V[k] * conj(Omat[i][k]) * Omat[j][k];
+                toInt[k] = part;
             }
-            Ho[i][j] = Csimps(Mpos, toInt, dx);
-            Ho[j][i] = conj(Ho[i][j]);
+
+            part = Csimps(Mpos,toInt,dx);
+            Ho[i][j] = part;
+            Ho[j][i] = conj(part);
+
         }
 
         for (k = 0; k < Mpos; k++)
         {
-            toInt[k] = - a2 * conj(ddxi[k]) * ddxi[k]    \
-                       + a1 * conj(Omat[i][k]) * ddxi[k] \
-                       + V[k] * conj(Omat[i][k]) * Omat[i][k];
+            part = - a2 * conj(ddxi[k]) * ddxi[k];
+            part = part + a1 * conj(Omat[i][k]) * ddxi[k];
+            part = part + V[k] * conj(Omat[i][k]) * Omat[i][k];
+            toInt[k] = part;
         }
-        Ho[i][i] = creal(Csimps(Mpos, toInt, dx));
+
+        part = Csimps(Mpos,toInt,dx);
+        Ho[i][i] = creal(part);
     }
 
     free(ddxi); free(ddxj); free(toInt);
+
 }
 
 
@@ -52,18 +93,29 @@ void SetupHint (int Morb, int Mpos, Cmatrix Omat, double dx, double g,
      Carray Hint)
 {   // Matrix elements of twobody hamiltonian part
 
+
     int i,
         k,
         s,
         q,
         l,
-        M = Morb,
-        M2 = Morb * Morb,
-        M3 = Morb * Morb * Morb;
+        M,
+        M2,
+        M3;
 
-    double complex Integral;
 
-    Carray toInt = carrDef(Mpos);
+    double complex
+        Integral;
+
+
+    Carray
+        toInt;
+
+    M  = Morb;
+    M2 = M * M;
+    M3 = M * M2;
+
+    toInt = carrDef(Mpos);
 
     for (k = 0; k < Morb; k++)
     {
@@ -73,12 +125,15 @@ void SetupHint (int Morb, int Mpos, Cmatrix Omat, double dx, double g,
             {
                 for (l = q; l < Morb; l++)
                 {
+
                     for (i = 0; i < Mpos; i++)
                     {
                         toInt[i] = conj(Omat[k][i] * Omat[s][i]) * \
                                    Omat[q][i] * Omat[l][i];
                     }
+
                     Integral = g * Csimps(Mpos, toInt, dx);
+
                     Hint[k + s * M + q * M2 + l * M3] = Integral;
                     Hint[k + s * M + l * M2 + q * M3] = Integral;
                     Hint[s + k * M + q * M2 + l * M3] = Integral;
@@ -89,6 +144,7 @@ void SetupHint (int Morb, int Mpos, Cmatrix Omat, double dx, double g,
     }
 
     free(toInt);
+
 }
 
 
@@ -154,6 +210,7 @@ double complex Energy (MCTDHBsetup mc, Cmatrix Orb, Carray C)
     cmatFree(Morb, Ho);
 
     return (w + z / 2);
+
 }
 
 
@@ -179,13 +236,18 @@ double complex KinectE (int Morb, int Mpos, Cmatrix Omat, double dx, double a2,
 
 
     carrFill(Mpos, 0, toInt);
+
     for (i = 0; i < Morb; i++)
     {
-        dxCyclic(Mpos, Omat[i], dx, ddxi);
+
+        dxFD(Mpos, Omat[i], dx, ddxi);
+
         for (j = 0; j < Morb; j++)
         {
+
             r = rho[i][j];
-            dxCyclic(Mpos, Omat[j], dx, ddxj);
+            dxFD(Mpos, Omat[j], dx, ddxj);
+
             for (k = 0; k < Mpos; k++)
             {
                 toInt[k] = toInt[k] - a2 * r * conj(ddxi[k]) * ddxj[k];
@@ -265,6 +327,7 @@ double complex InteractingE(int Morb, int Mpos, Cmatrix Omat, double dx, double 
 
 
     carrFill(Mpos, 0, toInt);
+
     for (k = 0; k < Morb; k++)
     {
 
@@ -278,13 +341,14 @@ double complex InteractingE(int Morb, int Mpos, Cmatrix Omat, double dx, double 
                 {
 
                     r = rho[k + s * M + q * M2 + l * M3];
+
                     for (i = 0; i < Mpos; i++)
                     {
                         toInt[i] += r * conj(Omat[k][i] * Omat[s][i]) * \
                         Omat[l][i] * Omat[q][i];
                     }
 
-                }   // Take advantage of the symmetry k/s and q/l
+                }
             }
         }
     }

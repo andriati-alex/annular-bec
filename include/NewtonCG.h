@@ -6,8 +6,7 @@
 #endif
 
 #include <limits.h>
-#include "calculus.h"
-#include "array_memory.h"
+#include "GP_functional.h"
 #include "iterative_solver.h"
 #include "rmatrix_operations.h"
 

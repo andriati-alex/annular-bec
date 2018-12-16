@@ -17,13 +17,13 @@
    REQUIRED FILES
    --------------------------------------------------------------------------
 
-   (1)  setup/MC_fileId_orb.dat
+   (1)  setup/prefix_orb.dat
 
         Text file with a matrix where the k-th column represent the k-th
         orbital. Thus the rows represent the values of these orbitals in
         discretized positions and each column is then an orbital.
 
-   (2)  setup/MC_fileId_eq.dat
+   (2)  setup/prefix_eq.dat
 
         A text file within the values of equation coefficients organized
         by columns, separeted by spaces:
@@ -34,7 +34,7 @@
 
         Each line is used as one possible setup to find a ground state
 
-   (3)  setup/MC_fileId_config.dat
+   (3)  setup/prefix_config.dat
 
         A text file with position/time domain information over  which
         the orbitals and coefficients were generated. The numbers are
@@ -48,21 +48,26 @@
         Col 5 - dt (may vary along lines)
         Col 6 - # of time-steps (may vary along lines)
 
+   (4)  job.conf
 
+        A text file containing information about weather time is  imaginary
+        or real, the boundary conditions, prefix of input and output files,
+        as well as the method employed and number of executions to work out
 
+        The lines starting with # are ignored, treated as comments, to keep
+        useful annotations about the execution. Any other character used to
+        start a line is interpreted as data to be read  and  recorded. Thus
+        lines that do not start with # must be given in the following order
 
-
-   COMMAND LINE ARGUMENTS
-   --------------------------------------------------------------------------
-
-   time_domain cyclic fileId_in FileId_out method(optional) Nstates(optional)
-
-        time_domain -> real/Real/imag/Imag
-        cyclic      -> 1 or 0 (boolean)
-        fileId_in   -> Name to look up for files
-        fileId_out  -> name of file to write results
-        method      -> Method to solve (default 1)
-        Nstates     -> Find Ground state for multiple parameters (default 1)
+        (4.1) string - 'imag' or 'real' define type of integration
+        (4.2) string - Name of linear potential(trap)
+        (4.3) boolean int - 1 for periodic and 0 for zero boundary
+        (4.4) string - input files prefix
+        (4.5) string - output files prefix
+        (4.6) positive int - method Id
+        (4.7) positive int - Number of jobs to be done
+        (4.8) boolean int - 1 to use the same initial condition for all jobs
+              0 to adopt progressive initial conditions among executions
 
 
 
@@ -70,38 +75,25 @@
 
    OBSERVATIONS
    --------------------------------------------------------------------------
-   PS: method, if given, must be :
 
-            1 Finite differences Crank-Nicolson with Sherman-Morrison
-            2 Finite differences Crank-Nicolson with LU-decomposition
-            3 Fast-Fourier Transform to compute derivatives
-
-   Nstates is the number of lines in _config.dat and _eq.dat files
+   The number of jobs must lie in 1 up to the number  of  lines in
+   _config.dat and _eq.dat files, each  line  defining  parameters
    to run multiple imaginary propagation  for  different  equation
    parameters set. Even if the file has several lines and  Nstates
-   is not defined, the program will run once for the fisrt line. A
-   reasonable step for the varying parameters must be chosen since
-   the program take the initial orbitals those from  the  previous
-   propagation. If some parameter vary abruptely  then this choice
-   may not be the ideal and problems in convergence are likely  to
-   occur.
+   is equal one,  the program will run once for the fisrt line.
 
    NOTE THAT  # OF ORBITALS AND POSITION DOMAIN DISCRETIZATION ARE
    NOT ALLOWED TO CHANGE BETWEEN LINES.
 
-   Every line the # of particles change, then the file '_coef.dat'
-   is the opened again to read the coefficients. The program then
+   If in line the # of particles change, then the file '_coef.dat'
+   is then opened again to read the coefficients. The program then
    assume the new vector of coefficients is concatenated to   the
    previous one. For example, if the # of particles change  three
-   times among the lines in _conf.dat file, lets say N1 N2 and N3
+   times among the lines in _conf.dat file, lets say N1 N2 and N3,
    thus is read from the file  NC( N1 , Morb ) elements taken  as
    initial condition, and when it changes to N2 the program  read
    more NC( N2 , Morb ) elements from the file taken again as the
    new initial condition and so on.
-
-   If the # of particles does not vary between two lines then the
-   new initial conditions is taken as the last one, just like  is
-   done for orbitals explained above
 
 
 
@@ -110,16 +102,7 @@
    CALL
    --------------------------------------------------------------------------
 
-   ./MCTDHB_time time_domain cyclic fileId_in fileId_out
-   ./MCTDHB_time time_domain cyclic fileId_in fileId_out method
-   ./MCTDHB_time time_domain cyclic fileId_in fileId_out method Nstates
-
-
-
-
-
-   OUTPUT FILES
-   --------------------------------------------------------------------------
+   ./MCTDHB_time > convergence_log.txt
 
 
 
@@ -132,7 +115,10 @@
 
 
 void TimePrint(double t)
-{   // format and print time in days / hours / minutes
+{
+    
+    // format and print time in days / hours / minutes
+
     int
         tt = (int) t,
         days  = 0,
@@ -153,6 +139,20 @@ void TimePrint(double t)
 
 
 
+void ReachNewLine(FILE * f)
+{
+
+    // Read until get new line in a opened file.
+
+    char
+        sentinel;
+
+    while (1)
+    {
+        fscanf(f, "%c", &sentinel);
+        if (sentinel == '\n' || sentinel == EOF) return;
+    }
+}
 
 
 
@@ -160,7 +160,11 @@ void TimePrint(double t)
 
 
 
-void SaveConf(char timeinfo, char fnameIn [], char fnameOut [], int Nlines)
+
+
+
+void SaveConf(char timeinfo, char fnameIn [], char fnameOut [], char Vname [],
+     int Nlines)
 {
 
     int
@@ -183,7 +187,6 @@ void SaveConf(char timeinfo, char fnameIn [], char fnameOut [], int Nlines)
         imag;
 
     char
-        Vname[30],
         fname [120];
 
     FILE
@@ -191,7 +194,7 @@ void SaveConf(char timeinfo, char fnameIn [], char fnameOut [], int Nlines)
         * eqFileIn,
         * confFileOut;
 
-    strcpy(fname, "setup/MC_");
+    strcpy(fname, "input/");
     strcat(fname, fnameIn);
     strcat(fname, "_conf.dat");
 
@@ -199,10 +202,10 @@ void SaveConf(char timeinfo, char fnameIn [], char fnameOut [], int Nlines)
     if (confFileIn == NULL) // impossible to open file
     {
         printf("\n\n\tERROR: impossible to open file %s\n", fname);
-        return;
+        exit(EXIT_FAILURE);
     }
 
-    strcpy(fname, "setup/MC_");
+    strcpy(fname, "input/");
     strcat(fname, fnameIn);
     strcat(fname, "_eq.dat");
 
@@ -210,10 +213,10 @@ void SaveConf(char timeinfo, char fnameIn [], char fnameOut [], int Nlines)
     if (eqFileIn == NULL) // impossible to open file
     {
         printf("\n\n\tERROR: impossible to open file %s\n", fname);
-        return;
+        exit(EXIT_FAILURE);
     }
     
-    strcpy(fname, "../mctdhb_data/");
+    strcpy(fname, "output/");
     strcat(fname, fnameOut);
 
     if (timeinfo == 'r' || timeinfo == 'R')
@@ -225,15 +228,17 @@ void SaveConf(char timeinfo, char fnameIn [], char fnameOut [], int Nlines)
     if (confFileOut == NULL) // impossible to open file
     {
         printf("\n\n\tERROR: impossible to open file %s\n", fname);
-        return;
+        exit(EXIT_FAILURE);
     }
-    
+
     // Read data and write in out file (transfer)
+
+    fprintf(confFileOut, "# Trap : %s\n", Vname);
 
     for (i = 0; i < Nlines; i++)
     {
-        k = fscanf(eqFileIn, "%lf %lf %lf %s %lf %lf %lf",
-                   &a2, &imag, &g, Vname, &p1, &p2, &p3);
+        k = fscanf(eqFileIn, "%lf %lf %lf %lf %lf %lf",
+                   &a2, &imag, &g, &p1, &p2, &p3);
 
         k = fscanf(confFileIn, "%d %d %d %lf %lf %lf %d",
                    &Npar, &Morb, &Mdx, &xi, &xf, &dt, &N);
@@ -243,7 +248,7 @@ void SaveConf(char timeinfo, char fnameIn [], char fnameOut [], int Nlines)
 
         fprintf(confFileOut, "%.15lf %.15lf %.15lf ", a2, imag, g);
 
-        fprintf(confFileOut, "%s %.15lf %.15lf %.15lf", Vname, p1, p2, p3);
+        fprintf(confFileOut, "%.15lf %.15lf %.15lf", p1, p2, p3);
 
         fprintf(confFileOut, "\n");
     }
@@ -262,7 +267,7 @@ void SaveConf(char timeinfo, char fnameIn [], char fnameOut [], int Nlines)
 
 
 MCTDHBsetup SetupData(FILE * paramFile, FILE * confFile, Rarray x,
-            double * dt, int * N)
+            double * dt, int * N, char Vname [])
 {
 
     int
@@ -270,9 +275,6 @@ MCTDHBsetup SetupData(FILE * paramFile, FILE * confFile, Rarray x,
         Mdx,
         Npar,
         Morb;
-
-    char
-        Vname[30];
 
     double
         p1,
@@ -314,8 +316,8 @@ MCTDHBsetup SetupData(FILE * paramFile, FILE * confFile, Rarray x,
     // Setup Equation parameters
     // -------------------------
 
-    k = fscanf(paramFile, "%lf %lf %lf %s %lf %lf %lf",
-               &a2, &imag, &inter, Vname, &p1, &p2, &p3);
+    k = fscanf(paramFile, "%lf %lf %lf %lf %lf %lf",
+               &a2, &imag, &inter, &p1, &p2, &p3);
 
     GetPotential(Mdx + 1, Vname, x, V, p1, p2, p3);
 
@@ -340,14 +342,6 @@ int main(int argc, char * argv[])
     omp_set_num_threads(omp_get_max_threads() / 2);
     mkl_set_num_threads(omp_get_max_threads() / 2);
 
-
-    if (argc < 5 || argc > 7)
-    {
-        printf("\nInvalid Number of command line arguments, ");
-        printf("expected: 4,5 or 6.\n\n");
-        return -1;
-    }
-
     /* ==================================================================== *
      *                                                                      *
      *                      VARIABLES AND WHAT THEY DO                      *
@@ -360,42 +354,63 @@ int main(int argc, char * argv[])
         l,
         s;
 
+
+
     int
-        N,    // # of time steps to evolve the system
-        Mdx,  // # of divisions in space (# of points - 1)
-        Npar, // # of particles
-        Morb, // # of orbitals
-        cyclic,
-        Nlines,
-        method;
+        N,      // # of time steps to evolve the system
+        Mdx,    // # of divisions in space (# of points - 1)
+        Npar,   // # of particles
+        Morb,   // # of orbitals
+        cyclic, // boundary information
+        Nlines, // # of jobs to be executed
+        method, // integration method
+        resetinit;
+
+
 
     double
-        start, // trigger to measure time
-        end,   // trigger to finish time per execution
-        time_used, // total time used
+        start,      // trigger to measure time
+        end,        // trigger to finish time per execution
+        time_used,  // total time used
         dx,
         xi,
-        xf,    // Domain of orbitals [xi, xf]
+        xf,    // Domain of orbitals [xi, xf] in steps of dx
         dt,    // time step (both for real and imaginary)  
         real,  // real part of read data from file
         imag,  // imag part of read data from file
-        check, // to check norm
+        check, // check norm/orthogonality
         * x;   // discretized positions
 
+
+
     double complex
-        checkDiag; // To check norm
+        checkDiag;
+
+
 
     char
-        timeinfo,
-        strnum[30],
-        fname[120];
-    
-    FILE // pointer to file opened
-        * E_file,
-        * coef_file,
-        * orb_file,
-        * confFile,
-        * paramFile;
+        c, // sentinel character to jump comment lines
+        timeinfo,       // 'i' or 'r' for imag/real time evolution
+        potname[50],    // Trap/linear potential
+        strnum[30],     // conversion of integer to string
+        infname[120],   // file name prefix of input data
+        outfname[120],  // file name prefix of output data
+        fname[120];     // general manipulation to open files by name
+
+
+
+    FILE
+        * job_file,  // Contains essential information to perform the job
+                     // with time info (imag/real), boundary info,  input
+                     // and output file names to record  results,  method
+                     // number and number of integrations to be done.
+        * E_file,    // Output energy values for each integration done.
+        * coef_file, // File with initial coefficients data.
+        * orb_file,  // initial orbitals data.
+        * confFile,  // # of particles/orbitals and domain info.
+        * paramFile; // Equation parameters of hamiltonian.
+
+
 
     Carray
         C,      // Coeficients of superposition of Fock states
@@ -403,8 +418,12 @@ int main(int argc, char * argv[])
         vir,    // virial at each time step (should be zero)
         E;      // Energy at each time step evolved
 
+
+
     Cmatrix
         Orb;    // Orb[k][j] give the value of k-th orbital at position j
+
+
 
     MCTDHBsetup
         mc;
@@ -422,7 +441,71 @@ int main(int argc, char * argv[])
                           CONFIGURE TYPE OF INTEGRATION
        ==================================================================== */
 
-    timeinfo = argv[1][0]; // character i for imaginary or r for real time
+    job_file = fopen("job.conf", "r");
+    
+    if (job_file == NULL) // impossible to open file
+    {
+        printf("\n\n\tERROR: impossible to open file %s\n", "job.conf");
+        return -1;
+    }
+
+    i = 1;
+
+    while ( (c  = getc(job_file)) != EOF)
+    {
+
+        // jump comment line
+        if (c == '#') { ReachNewLine(job_file); continue; }
+        else          { fseek(job_file, -1, SEEK_CUR);    }
+
+        switch (i)
+        {
+            case 1:
+                fscanf(job_file, "%s", fname);
+                timeinfo = fname[0];
+                i = i + 1;
+                break;
+            case 2:
+                fscanf(job_file, "%s", potname);
+                i = i + 1;
+                break;
+            case 3:
+                fscanf(job_file, "%d", &cyclic);
+                i = i + 1;
+                break;
+            case 4:
+                fscanf(job_file, "%s", infname);
+                i = i + 1;
+                break;
+            case 5:
+                fscanf(job_file, "%s", outfname);
+                i = i + 1;
+                break;
+            case 6:
+                fscanf(job_file, "%d", &method);
+                i = i + 1;
+                break;
+            case 7:
+                fscanf(job_file, "%d", &Nlines);
+                i = i + 1;
+                break;
+            case 8:
+                fscanf(job_file, "%d", &resetinit);
+                i = i + 1;
+                break;
+        }
+
+        ReachNewLine(job_file);
+
+    }
+
+    fclose(job_file);
+
+    if (i < 9)
+    {
+        printf("\nNot enough parameters passed in job.conf file.\n\n");
+        exit(EXIT_FAILURE);
+    }
 
     if (timeinfo != 'r' && timeinfo != 'R')
     {
@@ -433,19 +516,11 @@ int main(int argc, char * argv[])
         }
     }
 
-    sscanf(argv[2], "%d", &cyclic);
-
-    if (argc > 5) { sscanf(argv[5], "%d", &method); }
-    else          { method = 1;                     }
-
     if (method != 1 && method != 2 && method != 3)
     {
         printf("\n\n\tInvalid method Id ! Valid: 1 or 2 or 3\n\n");
         return -1;
     }
-
-    if (argc == 7) { sscanf(argv[6], "%d", &Nlines); }
-    else           { Nlines = 1;                     }
 
     // Print what it is going to do
     printf("\n\nMethod chosen : %d - ", method);
@@ -477,7 +552,7 @@ int main(int argc, char * argv[])
 
     printf("\n\n\n");
     printf("=========================================================\n\n");
-    printf("Using MC_%s setup files to configure integrator\n\n", argv[3]);
+    printf("Using %s setup files to configure integrator\n\n", infname);
     printf("=========================================================\n\n");
 
 
@@ -485,8 +560,8 @@ int main(int argc, char * argv[])
     // Read number of discrete positions in spatial domain
     // ---------------------------------------------------
 
-    strcpy(fname, "setup/MC_");
-    strcat(fname, argv[3]);
+    strcpy(fname, "input/");
+    strcat(fname, infname);
     strcat(fname, "_conf.dat");
 
     printf("\n\nLooking for %s", fname);
@@ -521,7 +596,7 @@ int main(int argc, char * argv[])
 
 
     // Record the setup file to further analisys
-    SaveConf(timeinfo, argv[3], argv[4], Nlines);
+    SaveConf(timeinfo, infname, outfname, potname, Nlines);
 
 
 
@@ -536,16 +611,16 @@ int main(int argc, char * argv[])
                          OPEN FILES TO SETUP THE PROBLEM
        ==================================================================== */
 
-    strcpy(fname, "setup/MC_");
-    strcat(fname, argv[3]);
+    strcpy(fname, "input/");
+    strcat(fname, infname);
     strcat(fname, "_conf.dat");
 
     confFile = fopen(fname, "r");
 
 
 
-    strcpy(fname, "setup/MC_");
-    strcat(fname, argv[3]);
+    strcpy(fname, "input/");
+    strcat(fname, infname);
     strcat(fname, "_eq.dat");
 
     printf("\nLooking for %s", fname);
@@ -563,8 +638,8 @@ int main(int argc, char * argv[])
 
 
 
-    strcpy(fname, "setup/MC_");
-    strcat(fname, argv[3]);
+    strcpy(fname, "input/");
+    strcat(fname, infname);
     strcat(fname, "_orb.dat");
 
     printf("\nLooking for %s ", fname);
@@ -582,8 +657,8 @@ int main(int argc, char * argv[])
 
 
 
-    strcpy(fname, "setup/MC_");
-    strcat(fname, argv[3]);
+    strcpy(fname, "input/");
+    strcat(fname, infname);
     strcat(fname, "_coef.dat");
 
     printf("\nLooking for %s ", fname);
@@ -603,8 +678,8 @@ int main(int argc, char * argv[])
 
     // open file to write energy values
     // ----------------------------------------------------------------
-    strcpy(fname, "../mctdhb_data/");
-    strcat(fname, argv[4]);
+    strcpy(fname, "output/");
+    strcat(fname, outfname);
     strcat(fname, "_energy_imagtime.dat");
 
     E_file = fopen(fname, "w");
@@ -628,7 +703,7 @@ int main(int argc, char * argv[])
            READ DATA TO SETUP EQUATION PARAMETERS AND INITIAL CONDITIONS
        ==================================================================== */
 
-    mc = SetupData(paramFile, confFile, x, &dt, &N);
+    mc = SetupData(paramFile, confFile, x, &dt, &N, potname);
 
     Morb = mc->Morb;
     Npar = mc->Npar;
@@ -758,19 +833,17 @@ int main(int argc, char * argv[])
 
     E   = carrDef(N + 1); // to store energy
     vir = carrDef(N + 1); // check consistency by Virial Theorem
-
+    
+    // Estimate energy by diagonalization Restrict the number of iterations
+    // in lanczos routine to avoid massive memory usage. Try to use 200
+    // iterations unless either it exceeds half of the dimension of
+    // configuration space or if it exceeds a memory Threshold.
+    
     if ( dt > 5 * dx * dx && method < 3)
     {
         printf("\n\nWARNING : time-step too large to maintain stability");
         printf(" in finite-differences methods.\n\n");
     }
-
-
-
-    // Estimate energy by diagonalization Restrict the number of iterations
-    // in lanczos routine to avoid massive memory usage. Try to use 200
-    // iterations unless either it exceeds half of the dimension of
-    // configuration space or if it exceeds a memory Threshold.
 
     if (200 * NC(Npar, Morb) < 5E7)
     {
@@ -807,15 +880,6 @@ int main(int argc, char * argv[])
 
 
 
-    // Test if final time is good
-    if ( N * dt < 15 / creal(E[0]) )
-    {
-        printf("\n\n\n\t!   WARNING : Final step(%.3lf) too small   !", N*dt);
-        printf("\n\nTry N * dt > %.3lf\n\n", 17 / creal(E[0]));
-    }
-
-
-
 
 
 
@@ -833,8 +897,8 @@ int main(int argc, char * argv[])
     printf("=========================================================\n\n");
 
     // setup filename to record solution
-    strcpy(fname, "../mctdhb_data/");
-    strcat(fname, argv[4]);
+    strcpy(fname, "output/");
+    strcat(fname, outfname);
     strcat(fname, "_line-1");
 
     switch (method)
@@ -885,8 +949,8 @@ int main(int argc, char * argv[])
 
         // Record Coeficients Data
 
-        strcpy(fname, "../mctdhb_data/");
-        strcat(fname, argv[4]);
+        strcpy(fname, "output/");
+        strcat(fname, outfname);
         strcat(fname, "_line-1");
         strcat(fname, "_coef_imagtime.dat");
 
@@ -921,13 +985,18 @@ int main(int argc, char * argv[])
 
 
 
-
 /** If either the _conf.dat or _eq.dat file have more  than  one  line
     and the Nlines parameter is greater than 1 it read the next config
-    from files. **/
+    from files to perform another time integration
+**/
 
     for (i = 1; i < Nlines; i++)
     {
+
+        printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
+        printf("***************************************");
+        printf("***************************************");
+        printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
 
         // number of line reading in _conf.dat and _eq.dat files
         sprintf(strnum, "%d", i + 1);
@@ -936,7 +1005,7 @@ int main(int argc, char * argv[])
         EraseMCTDHBdata(mc);
 
         // setup new parameters
-        mc = SetupData(paramFile, confFile, x, &dt, &N);
+        mc = SetupData(paramFile, confFile, x, &dt, &N, potname);
 
         if (Npar != mc->Npar)
         {
@@ -955,9 +1024,53 @@ int main(int argc, char * argv[])
                 l = fscanf(coef_file, " (%lf%lfj)", &real, &imag);
                 C[k] = real + I * imag;
             }
+        } else
+        {
+
+            // The number of particles has not changed Although it will
+            // read again if is required to reset initial conditions.
+
+            if (resetinit)
+            {
+                fclose(coef_file);
+
+                strcpy(fname, "input/");
+                strcat(fname, infname);
+                strcat(fname, "_coef.dat");
+
+                coef_file = fopen(fname, "r");
+
+                for (k = 0; k < NC(Npar, Morb); k++)
+                {
+                    l = fscanf(coef_file, " (%lf%lfj)", &real, &imag);
+                    C[k] = real + I * imag;
+                }
+            }
         }
 
-        // Use orbitals from previous result
+        // If restart = True(1) use the same initial orbitals for all jobs
+        if (resetinit)
+        {
+            strcpy(fname, "input/");
+            strcat(fname, infname);
+            strcat(fname, "_orb.dat");
+
+            printf("\nReseted initial conditions.\n");
+
+            orb_file = fopen(fname, "r");
+
+            for (k = 0; k < Mdx + 1; k++)
+            {
+                for (s = 0; s < Morb; s++)
+                {
+                    l = fscanf(orb_file, " (%lf%lfj) ", &real, &imag);
+                    Orb[s][k] = real + I * imag;
+                }
+            }
+
+            // orbitals are not read again
+            fclose(orb_file);
+        }
 
 
 
@@ -1068,13 +1181,6 @@ int main(int argc, char * argv[])
             }
         }
 
-        // Test if final time is good
-        if ( N * dt < 15 / creal(E[0]) )
-        {
-            printf("\n\n\n\t! WARNING : Final step(%.3lf) too small !", N*dt);
-            printf("\n\nTry N * dt > %.3lf\n\n", 17 / creal(E[0]));
-        }
-
 
 
         /* ================================================================
@@ -1087,8 +1193,8 @@ int main(int argc, char * argv[])
         printf("=======================================================\n\n");
 
         // setup filename to store solution
-        strcpy(fname, "../mctdhb_data/");
-        strcat(fname, argv[4]);
+        strcpy(fname, "output/");
+        strcat(fname, outfname);
         strcat(fname, "_line-");
         strcat(fname, strnum);
 
@@ -1143,8 +1249,8 @@ int main(int argc, char * argv[])
 
             // Record Coeficients Data
 
-            strcpy(fname, "../mctdhb_data/");
-            strcat(fname, argv[4]);
+            strcpy(fname, "output/");
+            strcat(fname, outfname);
             strcat(fname, "_line-");
             strcat(fname, strnum);
             strcat(fname, "_coef_imagtime.dat");

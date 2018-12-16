@@ -8,37 +8,66 @@
 #include "array_memory.h"
 #include "array_operations.h"
 
-void Ortonormalize(int Mfun, int Mpos, double dx, Cmatrix F);
 
-// Renormalize f such that || f || = norm
-void renormalize(int n, Carray f, double dx, double norm);
 
-/* DERIVATIVES AND INTEGRATION ROUTINES */
 
-double complex Csimps(int n, Carray f, double dx);
 
-double Rsimps(int n, Rarray f, double dx);
+/* DIFFERENTIATION AND INTEGRATION ROUTINES
+ * ------------------------------------------------------------------------
+ *
+ * Input parameters
+ *
+ *      size_of_f is the number of discretized points the domain is divided
+ *
+ *      f is the vector with function values at discretized points
+ *
+ *      dx is the size of grid step
+ *
+ * Output parameter:
+ *
+ *      dfdx for functions that compute derivative
+ *
+ * ------------------------------------------------------------------------ */
 
-void dxFFT(int n, Carray f, double dx, Carray dfdx);
-/* Automatically periodic boundary due to use of FFT */
+double complex Csimps(int size_of_f, Carray f, double dx);
 
-void dxCyclic(int n, Carray f, double dx, Carray dfdx);
-/* Compute using finite centered differences with periodic boundary */
+double Rsimps(int size_of_f, Rarray f, double dx);
 
-double complex Functional(int M, double dx, double a2, double complex a1,
-                          double inter, Rarray V, Carray f);
+double complex Ctrapezium(int n, Carray f, double dx);
 
-void applyL0(int n, Carray f, double dx, double a2, double complex a1, 
-             Rarray V, double inter, double mu, Carray L0f);
+double Rtrapezium(int n, Rarray f, double dx);
 
-double complex GPkinect(int M, double a2, double complex a1, double dx,
-               Carray psi);
+void dxFFT(int size_of_f, Carray f, double dx, Carray dfdx);
 
-double complex GPtrap(int M, Rarray V, double dx, Carray psi);
+void dxFD(int size_of_f, Carray f, double dx, Carray dfdx);
 
-double GPinter(int M, double g, double dx, Carray psi);
 
-double complex GPvirial(int M, double a2, double complex a1, double g,
-               Rarray V, double dx, Carray psi);
+
+
+
+/* NORMALIZATION AND ORTHOGONALIZATION
+ * ------------------------------------------------------------------------
+ *
+ * Input parameters
+ *
+ *      size_of_f is the number of discretized points the domain is divided
+ *
+ *      dx is the size of grid step
+ *
+ *      norm is the new norm demanded
+ *
+ * Output parameter:
+ *
+ *      f ended up multiplied by a scaling factor to normalize to 'norm'
+ *
+ *      F matrix contains functions represented by rows where columns are
+ *      the discretized positions. End up with rows(functions) orthogonal
+ *      to each other and with unit norm.
+ *
+ * ------------------------------------------------------------------------ */
+
+void renormalize(int size_of_f, Carray f, double dx, double norm);
+
+void Ortonormalize(int N_rows, int N_cols, double dx, Cmatrix F);
 
 #endif
