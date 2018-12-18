@@ -20,7 +20,7 @@ void SetupHo (int Morb, int Mpos, Cmatrix Omat, double dx, double a2,
   * the following line that define a matrix element of Ho :
   *
   * part = Csimps(M,toInt,dx);
-  * for (i = 0; i < M; i++) part += dx * V[k] * conj(Omat[i][k]) * Omat[j][k];
+  * for (k = 0; k < M; k++) part += dx * V[k] * conj(Omat[i][k]) * Omat[j][k];
   *
   * This shall work for a numerical implementation like 1 / dx
   *

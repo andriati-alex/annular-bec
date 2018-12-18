@@ -1540,7 +1540,7 @@ int MC_IMAG_RK4_FFTRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
         printf("           %15.7E", creal(virial[i+1]));
 
         j = i - 99;
-        if (j > 0 fabs( creal(E[i+1] - E[j]) / creal(E[j]) ) < 1E-11 )
+        if (j > 0 && fabs( creal(E[i+1] - E[j]) / creal(E[j]) ) < 1E-11 )
         {
 
             p = DftiFreeDescriptor(&desc);
