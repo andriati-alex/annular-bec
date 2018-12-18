@@ -48,7 +48,7 @@ lc = np.complex256;
 
 
 
-def FourierLocModes(x, a, c, n):
+def HarmonicTrap(x, a, c, n):
     n = int(n);
     S = BrightSoliton(x, a, c);
     # generate random numbers in the range [-0.5, 0.5]
@@ -79,17 +79,15 @@ def BrightSoliton(x, a, c):
 
 
 
-def NBrightSoliton(x, a, c):
-    numerator = a * np.exp(0.5j * c * x * np.sqrt(2), dtype=lc);
-    denominator = np.cosh(a * x / np.sqrt(2), dtype=lf);
-    return numerator / denominator / np.sqrt(2 * np.sqrt(2) * a);
+def NormBrightSoliton(x, a, c):
+    BS = BrightSoliton(x, a, c);
+    return BS / np.sqrt( simps( abs(S)**2, dx = x[1] - x[0] ) );
 
 
 
 
 
-def DarkSolitonModes(x, a, b, c, n):
-    # periodic frequency modes
+def Ring(x, a, b, c, n):
     n = int(n);
     k = np.arange(1, n + 1) * 2 * np.pi / (x[-1] - x[0]);
     t = (np.random.random(int(n)) - 0.5);
@@ -107,6 +105,21 @@ def DarkSolitonModes(x, a, b, c, n):
 
 
 
+def RingBarrier(x, a, omega, n):
+    n = int(n);
+    c = (x[-1] - x[0]) / 10;
+    freq = 2 * np.pi / (x[-1] - x[0]);
+    t = (np.random.random(int(n)) - 0.5) / 0.5;
+    S = (1 - np.exp( - abs(x / c) + 1.0j * x * freq) / a);
+    for m in range(1, n):
+        k = m + 1;
+        S = S + np.exp(1.0j*freq*omega*x)*np.sin(m*freq*x)*t[m]/(k*k);
+    return S / np.sqrt( simps(abs(S)**2, dx = x[1] - x[0] ) );
+
+
+
+
+
 #              Domain discretization parameters               #
 #              --------------------------------               #
 
@@ -116,8 +129,8 @@ def DarkSolitonModes(x, a, b, c, n):
 
 x1 = lf(sys.argv[1]);
 x2 = lf(sys.argv[2]);
-M  = int(sys.argv[3]);
-Id = int(sys.argv[4]);
+M = int(sys.argv[3]);
+fname = sys.argv[4];
 
 Params = [];
 for i in range(5, len(sys.argv)): Params.append(lf(sys.argv[i]));
@@ -130,25 +143,22 @@ dx = (x2 - x1) / M;
 
 
 
-if   (Id == 1):
-    out = NBrightSoliton(x, *Params);
-    Id_name = 'BrightSoliton';
-elif (Id == 2):
-    out = FourierLocModes(x, *Params)
-    Id_name = 'NoiseBright';
-else :
-    out = DarkSolitonModes(x, *Params)
-    Id_name = 'NoiseDark';
+if   (fname == 'BrightSoliton') :     out = BrightSoliton(x, *Params);
+elif (fname == 'NormBrightSoliton') : out = NormBrightSoliton(x, *Params);
+elif (fname == 'HarmonicTrap') :      out = HarmonicTrap(x, *Params)
+elif (fname == 'Ring') :              out = Ring(x, *Params)
+elif (fname == 'RingBarrier') :       out = RingBarrier(x, *Params)
+else : raise IOError('\n\nInitial function name not implemented.\n\n');
 
 
 
 
 
-folder = str(Path.home()) + '/AndriatiLibrary/annular-bec/setup/GP_';
+folder = str(Path.home()) + '/AndriatiLibrary/annular-bec/input/GP';
 
-np.savetxt(folder + Id_name + '_init.dat', out, fmt='%.15E');
+np.savetxt(folder + fname + '_init.dat', out.T, fmt='%.15E');
 
-f = open(folder + Id_name + '_domain.dat', "w");
+f = open(folder + fname + '_domain.dat', "w");
 
 f.write("%.15f %.15f %d" % (x1, x2, M));
 

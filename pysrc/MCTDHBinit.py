@@ -75,7 +75,7 @@ def renormalize(f, dx): return f / sqrt( simps(abs(f)**2, dx = dx) );
 
 
 
-def Hermite(Morb, x, S, omega):
+def HarmonicTrap(Morb, x, S, omega):
     phase = (np.random.random(Morb) - 0.5) * 2 * pi;
     for n in range(Morb):
         her = ss.eval_hermite(n, sqrt(omega) * x);
@@ -101,7 +101,7 @@ def RingBarrier(Morb, x, S, omega):
 
 
 
-def AngularMom(Morb, x, S):
+def Ring(Morb, x, S):
     """
     Setup matrix S with eigenstates of  angular  momentum  in ascending
     if the # of orbitals(Morb) is odd. Odd orbitals have minus signs of
@@ -121,39 +121,7 @@ def AngularMom(Morb, x, S):
 
 
 
-def NoiseAngular(Morb, x, S, k):
-    """
-    Setup matrix 'S' with superposition of 'k' pairs of degenerated angular
-    momentum eigenstates, i.e, the plus with the minus sign,  using  random
-    number for the coefficient to do the combination.
-    -----------------------------------------------------------------------
-
-    x    = array of discretized position domain
-    Morb = # of orbitals
-    """
-
-    phase = 0 + 0j;
-    # n is used to index the random numbers
-    n = 0;
-    # Random phase and amplitude
-    c = (np.random.random(2 * k * Morb) - 0.5) / 0.1;
-    for i in range(Morb):
-        for l in range(k):
-            # add k pairs of angular momentum
-            n = 2 * l + 2 * i * k;
-            # positive angular quantum number
-            phase = np.exp(- 1.0j * ( (i*k + l) * x + c[n]), dtype=lc);
-            S[i,:] += c[n] * phase;
-            # negative angular quantum number
-            phase = np.exp(+ 1.0j * ( (i*k + l) * x + c[n + 1]), dtype=lc);
-            S[i,:] += c[n + 1] * phase;
-        S[i,:] = renormalize(S[i,:], x[1] - x[0]);
-
-
-
-
-
-def ThermalCoef(Npar, Morb, beta, C):
+def ThermalCoef(Npar, Morb, C):
     """
     Consider the energy proportional to the square  of  orbital  number
     and them consider a thermal-like distribution  with  the fock-state
@@ -170,6 +138,8 @@ def ThermalCoef(Npar, Morb, beta, C):
     nc = mc.NC(Npar, Morb);
     v = np.empty(Morb, dtype=np.int32); # Fock vector for each coefficient
     phase = np.exp(2 * pi * 1.0j * (np.random.random(nc) - 0.5));
+
+    beta = 2.0;
 
     for l in range(nc):
         mc.IndexToFock(l, Npar, Morb, v);
@@ -196,12 +166,12 @@ def ThermalCoef(Npar, Morb, beta, C):
 
 ###################      Read command line options      ####################
 
-Npar = int(sys.argv[1]);   # Number of Particles
-Morb = int(sys.argv[2]);   # Number of orbitals
-xi   = float(sys.argv[3]); # initial position
-xf   = float(sys.argv[4]); # final position
-Mdiv = int(sys.argv[5]);   # Number of divisions slices in domain
-Id   = int(sys.argv[6]);   # function to generate Id
+Npar  = int(sys.argv[1]);   # Number of Particles
+Morb  = int(sys.argv[2]);   # Number of orbitals
+xi    = float(sys.argv[3]); # initial position
+xf    = float(sys.argv[4]); # final position
+Mdiv  = int(sys.argv[5]);   # Number of divisions slices in domain
+fname = sys.argv[6];   # function to generate Id
 
 params = []; # extra parameters to pass to the function
 for i in range(7, len(sys.argv)): params.append( lf(sys.argv[i]) );
@@ -217,31 +187,27 @@ x  = np.linspace(xi, xf, Mdiv + 1);
 dx = (xf - xi) / Mdiv;
 
 Orb = np.zeros([Morb, x.size], dtype=lc);  # orbitals
+
 C = np.zeros(mc.NC(Npar, Morb), dtype=lc); # coeficients
 
-if   (Id == 1) :
+ThermalCoef(Npar, Morb, C);
 
-    Id_name = 'AngularMom-' + str(Npar) + '-' + str(Morb);
-    AngularMom(Morb, x, Orb);
-    ThermalCoef(Npar, Morb, params[0], C);
+if   (fname == 'HarmonicTrap') :
 
-elif (Id == 2) :
+    Id_name = 'MCHarmonicTrap-' + str(Npar) + '-' + str(Morb);
+    HarmonicTrap(Morb, x, Orb, params[0]);
 
-    Id_name = 'NoiseAngular-' + str(Npar) + '-' + str(Morb);
-    NoiseAngular(Morb, x, Orb, int(params[1]));
-    ThermalCoef(Npar, Morb, params[0], C);
+elif (fname == 'Ring') :
 
-elif (Id == 3) :
+    Id_name = 'MCRing-' + str(Npar) + '-' + str(Morb);
+    Ring(Morb, x, Orb);
 
-    Id_name = 'hermite-' + str(Npar) + '-' + str(Morb);
-    Hermite(Morb, x, Orb, params[1]);
-    ThermalCoef(Npar, Morb, params[0], C);
+elif (fname == 'RingBarrier') :
 
-elif (Id == 4) :
+    Id_name = 'MCRingBarrier-' + str(Npar) + '-' + str(Morb);
+    RingBarrier(Morb, x, Orb, params[0]);
 
-    Id_name = 'ringbarrier-' + str(Npar) + '-' + str(Morb);
-    RingBarrier(Morb, x, Orb, params[1]);
-    ThermalCoef(Npar, Morb, params[0], C);
+else : raise IOError('\n\nInitial function name not implemented.\n\n');
 
 
 
@@ -249,7 +215,7 @@ elif (Id == 4) :
 
 #################              Record Data              ###################
 
-folder = str(Path.home()) + '/AndriatiLibrary/annular-bec/setup/MC_'; 
+folder = str(Path.home()) + '/AndriatiLibrary/annular-bec/input/';
 
 np.savetxt(folder + Id_name + '_orb.dat', Orb.T, fmt='%.15E');
 np.savetxt(folder + Id_name + '_coef.dat', C.T, fmt='%.15E');

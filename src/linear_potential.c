@@ -31,4 +31,7 @@ void GetPotential(int M, char name [], Rarray x, Rarray V,
         rarrFill(M, 0, V);
         return;
     }
+
+    printf("\n\nERROR: Potential '%s' not implemented\n\n", name);
+    exit(EXIT_FAILURE);
 }

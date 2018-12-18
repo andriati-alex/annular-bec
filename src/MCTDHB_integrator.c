@@ -1415,6 +1415,7 @@ int MC_IMAG_RK4_FFTRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
 
     int i,
+        j,
         k,
         m,
         nc = MC->nc,
@@ -1538,7 +1539,8 @@ int MC_IMAG_RK4_FFTRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
         printf("\n\t%6d           %15.7E", i + 1, creal(E[i + 1]));
         printf("           %15.7E", creal(virial[i+1]));
 
-        if ( fabs( creal(E[i + 1] - E[i]) / creal(E[i]) ) < 5E-11 )
+        j = i - 99;
+        if (j > 0 fabs( creal(E[i+1] - E[j]) / creal(E[j]) ) < 1E-11 )
         {
 
             p = DftiFreeDescriptor(&desc);
@@ -1634,6 +1636,7 @@ int MC_IMAG_RK4_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
 
     int i,
+        j,
         k,
         nc = MC->nc,
         Mpos = MC->Mpos,
@@ -1750,8 +1753,9 @@ int MC_IMAG_RK4_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
         printf("\n\t%6d           %15.7E", i + 1, creal(E[i + 1]));
         printf("           %15.7E", creal(virial[i+1]));
-        
-        if ( fabs( creal(E[i + 1] - E[i]) / creal(E[i]) ) < 5E-11 )
+
+        j = i - 99;
+        if (j > 0 && fabs( creal(E[i+1] - E[j]) / creal(E[j]) ) < 1E-11)
         {
 
             CCSFree(cnmat);
@@ -1848,6 +1852,7 @@ int MC_IMAG_RK4_CNLURK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
 
 
     int i,
+        j,
         k,
         nc = MC->nc,
         Mpos = MC->Mpos,
@@ -1967,7 +1972,8 @@ int MC_IMAG_RK4_CNLURK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
         
         
         
-        if ( fabs( creal(E[i + 1] - E[i]) / creal(E[i]) ) < 5E-11 )
+        j = i - 99;
+        if (j > 0 && fabs( creal(E[i+1] - E[j]) / creal(E[j]) ) < 1E-11)
         {
 
             CCSFree(cnmat);
