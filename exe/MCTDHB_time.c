@@ -442,7 +442,7 @@ int main(int argc, char * argv[])
        ==================================================================== */
 
     job_file = fopen("job.conf", "r");
-    
+
     if (job_file == NULL) // impossible to open file
     {
         printf("\n\n\tERROR: impossible to open file %s\n", "job.conf");

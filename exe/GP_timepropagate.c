@@ -106,11 +106,27 @@
  *
  * ========================================================================= */
 
+void ReachNewLine(FILE * f)
+{
+
+    // Read until get new line in a opened file.
+
+    char
+        sentinel;
+
+    while (1)
+    {
+        fscanf(f, "%c", &sentinel);
+        if (sentinel == '\n' || sentinel == EOF) return;
+    }
+}
 
 
 
 
-void SaveConf(char timeinfo, char fnameIn [], char fnameOut [], int Nlines)
+
+void SaveConf(char timeinfo, char fnameIn [], char fnameOut [], char Vname [],
+     int Nlines)
 {
 
     int
@@ -131,7 +147,6 @@ void SaveConf(char timeinfo, char fnameIn [], char fnameOut [], int Nlines)
         imag;
 
     char
-        Vname [30],
         fname [120];
 
     FILE
@@ -139,7 +154,7 @@ void SaveConf(char timeinfo, char fnameIn [], char fnameOut [], int Nlines)
         * eqFileIn,
         * confFileOut;
 
-    strcpy(fname, "setup/GP_");
+    strcpy(fname, "input/");
     strcat(fname, fnameIn);
     strcat(fname, "_domain.dat");
 
@@ -147,10 +162,10 @@ void SaveConf(char timeinfo, char fnameIn [], char fnameOut [], int Nlines)
     if (confFileIn == NULL) // impossible to open file
     {
         printf("\n\n\tERROR: impossible to open file %s\n", fname);
-        return;
+        exit(EXIT_FAILURE);
     }
 
-    strcpy(fname, "setup/GP_");
+    strcpy(fname, "input/");
     strcat(fname, fnameIn);
     strcat(fname, "_eq.dat");
 
@@ -158,10 +173,10 @@ void SaveConf(char timeinfo, char fnameIn [], char fnameOut [], int Nlines)
     if (eqFileIn == NULL) // impossible to open file
     {
         printf("\n\n\tERROR: impossible to open file %s\n", fname);
-        return;
+        exit(EXIT_FAILURE);
     }
 
-    strcpy(fname, "../gp_data/");
+    strcpy(fname, "output/");
     strcat(fname, fnameOut);
 
     if (timeinfo == 'r' || timeinfo == 'R')
@@ -173,15 +188,17 @@ void SaveConf(char timeinfo, char fnameIn [], char fnameOut [], int Nlines)
     if (confFileOut == NULL) // impossible to open file
     {
         printf("\n\n\tERROR: impossible to open file %s\n", fname);
-        return;
+        exit(EXIT_FAILURE);
     }
-    
+
     // Read data and write in out file (transfer)
+
+    fprintf(confFileOut, "# potential : %s\n", Vname);
 
     for (i = 0; i < Nlines; i++)
     {
-        k = fscanf(eqFileIn, "%lf %lf %lf %s %lf %lf %lf",
-                   &a2, &imag, &g, Vname, &p1, &p2, &p3);
+        k = fscanf(eqFileIn, "%lf %lf %lf %lf %lf %lf",
+                   &a2, &imag, &g, &p1, &p2, &p3);
 
         k = fscanf(confFileIn, "%lf %lf %d %lf %d",
                    &xi, &xf, &Mdx, &dt, &N);
@@ -190,8 +207,8 @@ void SaveConf(char timeinfo, char fnameIn [], char fnameOut [], int Nlines)
                 Mdx, xi, xf, dt, N);
 
         fprintf(confFileOut, "%.15lf %.15lf %.15lf ", a2, imag, g);
-        
-        fprintf(confFileOut, "%s %.15lf %.15lf %.15lf", Vname, p1, p2, p3);
+
+        fprintf(confFileOut, "%.15lf %.15lf %.15lf", p1, p2, p3);
 
         fprintf(confFileOut, "\n");
     }
@@ -205,7 +222,8 @@ void SaveConf(char timeinfo, char fnameIn [], char fnameOut [], int Nlines)
 
 
 void SetupParams(FILE * paramFile, FILE * confFile, Rarray x, double * a2,
-     double complex * a1, double * g, Rarray V, double * dt, int * N)
+     double complex * a1, double * g, char Vname [], Rarray V,
+     double * dt, int * N)
 {
 
 /** Read line by line of _domain file and _eq to setup a new integration **/
@@ -213,9 +231,6 @@ void SetupParams(FILE * paramFile, FILE * confFile, Rarray x, double * a2,
     int
         k,
         Mdx;
-
-    char
-        Vname[30];
 
     double
         p1,
@@ -236,13 +251,12 @@ void SetupParams(FILE * paramFile, FILE * confFile, Rarray x, double * a2,
     // Setup Equation parameters
     // -------------------------
 
-    k = fscanf(paramFile, "%lf %lf %lf %s %lf %lf %lf",
-        a2, &imag, g, Vname, &p1, &p2, &p3);
+    k = fscanf(paramFile,"%lf %lf %lf %lf %lf %lf",a2,&imag,g,&p1,&p2,&p3);
 
     * a1 = 0 + imag * I;
-    
+
     GetPotential(Mdx + 1, Vname, x, V, p1, p2, p3);
-    
+
     printf("\n\nConfiguration Done\n");
 
 }
@@ -278,7 +292,8 @@ int main(int argc, char * argv[])
         Nlines, // # of initial data to evolve
         trash,  // returned values from scanf (unused)
         cyclic, // boolean-like to set boundary conditions
-        method; // method of integrator
+        method, // method of integrator
+        resetinit;
 
 
 
@@ -304,14 +319,19 @@ int main(int argc, char * argv[])
 
 
     char
+        c,
         timeinfo,
         fname[100], // name to look for files with parameters
-        strnum[30]; // string of # of execution
+        strnum[30], // string of # of execution
+        potname[50],
+        infname[100],
+        outfname[100];
 
 
 
     FILE
         * domain_file,
+        * job_file,
         * orb_file,
         * eq_file,
         * E_file;
@@ -326,40 +346,78 @@ int main(int argc, char * argv[])
 
 
 
-    // Check if there is the right number of command line arguments
-    // ------------------------------------------------------------
-    if (argc < 5 || argc > 7)
+    job_file = fopen("job.conf", "r");
+
+    if (job_file == NULL) // impossible to open file
     {
-        printf("\nInvalid number of command line arguments, ");
-        printf("expected at least 5 and at most 6.\n\n");
-        return -1;
+        printf("\n\n\tERROR: impossible to open file %s\n", "job.conf");
+        exit(EXIT_FAILURE);
     }
-    // ------------------------------------------------------------
+
+    i = 1;
+
+    while ( (c  = getc(job_file)) != EOF)
+    {
+
+        // jump comment line
+        if (c == '#') { ReachNewLine(job_file); continue; }
+        else          { fseek(job_file, -1, SEEK_CUR);    }
+
+        switch (i)
+        {
+            case 1:
+                fscanf(job_file, "%s", fname);
+                timeinfo = fname[0];
+                i = i + 1;
+                break;
+            case 2:
+                fscanf(job_file, "%s", potname);
+                i = i + 1;
+                break;
+            case 3:
+                fscanf(job_file, "%d", &cyclic);
+                i = i + 1;
+                break;
+            case 4:
+                fscanf(job_file, "%s", infname);
+                i = i + 1;
+                break;
+            case 5:
+                fscanf(job_file, "%s", outfname);
+                i = i + 1;
+                break;
+            case 6:
+                fscanf(job_file, "%d", &method);
+                i = i + 1;
+                break;
+            case 7:
+                fscanf(job_file, "%d", &Nlines);
+                i = i + 1;
+                break;
+            case 8:
+                fscanf(job_file, "%d", &resetinit);
+                i = i + 1;
+                break;
+        }
+
+        ReachNewLine(job_file);
+
+    }
+
+    fclose(job_file);
 
 
 
 
-
-    // Read data from command line arguments
-    // ----------------------------------------------------------------
-
-    timeinfo = argv[1][0]; // character i for imaginary or r for real time
 
     if (timeinfo != 'r' && timeinfo != 'R')
     {
         if (timeinfo != 'i' && timeinfo != 'I')
         {
-            printf("\n\n\tInvalid first argument.\n");
-            return -1;
+            printf("\n\n\tInvalid type of propagation.\n");
+            exit(EXIT_FAILURE);
         }
     }
-
-    sscanf(argv[2], "%d", &cyclic);
-    if (argc > 5) { sscanf(argv[5], "%d", &method); }
-    else          { method = 1;                     }
-    if (argc > 6) { sscanf(argv[6], "%d", &Nlines); }
-    else          { Nlines = 1;                     }
-    // ----------------------------------------------------------------
 
 
 
@@ -377,8 +435,8 @@ int main(int argc, char * argv[])
 
     // search and read file with values of domain
     // ----------------------------------------------------------------
-    strcpy(fname, "setup/GP_");
-    strcat(fname, argv[3]);
+    strcpy(fname, "input/");
+    strcat(fname, infname);
     strcat(fname, "_domain.dat");
 
     printf("\nLooking for %s", fname);
@@ -388,7 +446,7 @@ int main(int argc, char * argv[])
     if (domain_file == NULL)
     {
         printf("\n\n\tERROR: impossible to open file %s\n\n", fname);
-        return -1;
+        exit(EXIT_FAILURE);
     } else
     {
         printf(" ... Found !\n");
@@ -398,9 +456,9 @@ int main(int argc, char * argv[])
 
     fclose(domain_file);
     // ----------------------------------------------------------------
-    
-    
-    
+
+
+
     // Setup discretized positions and potential
     // ----------------------------------------------------------------
     dx = (x2 - x1) / M;
@@ -414,7 +472,8 @@ int main(int argc, char * argv[])
 
     // write configuration parameters to files
     // ----------------------------------------------------------------
-    SaveConf(timeinfo, argv[3], argv[4], Nlines);
+
+    SaveConf(timeinfo, infname, outfname, potname, Nlines);
 
 
 
@@ -427,7 +486,7 @@ int main(int argc, char * argv[])
 
     /*  ===============================================================
      
-                    LET FILES OPEN TO EXECUTION LIST OF JOBS
+                   LET FILES OPENNED TO EXECUTE LIST OF JOBS
      
         ===============================================================  */
 
@@ -435,8 +494,8 @@ int main(int argc, char * argv[])
 
     // open file with values of equation parameters
     // ----------------------------------------------------------------
-    strcpy(fname, "setup/GP_");
-    strcat(fname, argv[3]);
+    strcpy(fname, "input/");
+    strcat(fname, infname);
     strcat(fname, "_eq.dat");
 
     printf("\nLooking for %s", fname);
@@ -458,8 +517,8 @@ int main(int argc, char * argv[])
 
     // open file with values of domain
     // ----------------------------------------------------------------
-    strcpy(fname, "setup/GP_");
-    strcat(fname, argv[3]);
+    strcpy(fname, "input/");
+    strcat(fname, infname);
     strcat(fname, "_domain.dat");
 
     domain_file = fopen(fname, "r");
@@ -475,8 +534,8 @@ int main(int argc, char * argv[])
 
     // open file with values of initial condition
     // ----------------------------------------------------------------
-    strcpy(fname, "setup/GP_");
-    strcat(fname, argv[3]);
+    strcpy(fname, "input/");
+    strcat(fname, infname);
     strcat(fname, "_init.dat");
 
     printf("\nLooking for %s", fname);
@@ -495,9 +554,9 @@ int main(int argc, char * argv[])
     
     // open file to write energy values
     // ----------------------------------------------------------------
-    strcpy(fname, "../gp_data/");
-    strcat(fname, argv[4]);
-    strcat(fname, "_energy_imagtime.dat");
+    strcpy(fname, "output/");
+    strcat(fname, outfname);
+    strcat(fname, "_energy.dat");
 
     E_file = fopen(fname, "w");
 
@@ -509,7 +568,7 @@ int main(int argc, char * argv[])
 
 
 
-    SetupParams(eq_file, domain_file, x, &a2, &a1, &inter, V, &dt, &N);
+    SetupParams(eq_file,domain_file,x,&a2,&a1,&inter,potname,V,&dt,&N);
 
 
 
@@ -533,7 +592,7 @@ int main(int argc, char * argv[])
         trash = fscanf(orb_file, " (%lf%lfj)", &real, &imag);
         S[i] = real + I * imag;
     }
-    
+
     if (timeinfo == 'i' || timeinfo == 'I') fclose(orb_file);
 
     printf("\nGot Initial condition. Calling time evolution routine\n");
@@ -553,8 +612,6 @@ int main(int argc, char * argv[])
      
         ===============================================================  */
 
-
-
     start = omp_get_wtime();
 
 
@@ -563,8 +620,8 @@ int main(int argc, char * argv[])
         SepLine();
         printf("\nDoing real time integration  #%d\n\n", 1);
 
-        strcpy(fname, "../gp_data/");
-        strcat(fname, argv[4]);
+        strcpy(fname, "output/");
+        strcat(fname, outfname);
         strcat(fname, "_line-1_function_realtime.dat");
         switch (method)
         {
@@ -663,16 +720,14 @@ int main(int argc, char * argv[])
 
 
 
-    printf("\nRecording data ...\n");
-
     if (timeinfo == 'i' || timeinfo == 'I')
     {
-        strcpy(fname, "../gp_data/");
-        strcat(fname, argv[4]);
+        strcpy(fname, "output/");
+        strcat(fname, outfname);
         strcat(fname, "_line-1_orb_imagtime.dat");
 
         carr_txt(fname, M + 1, S);
-        
+
         /*
         strcpy(fname, "../gp_data/");
         strcat(fname, argv[4]);
@@ -690,7 +745,7 @@ int main(int argc, char * argv[])
     for ( i = 1; i < Nlines; i ++)
     {
 
-        printf("\n\n\n\n\n");
+        printf("\n\n\n\n\n\n\n\n");
 
         // number of line reading in _conf.dat and _eq.dat files
         sprintf(strnum, "%d", i + 1);
@@ -699,7 +754,7 @@ int main(int argc, char * argv[])
         free(E);
 
         // read new parameters(one more line) to do another time propagation
-        SetupParams(eq_file, domain_file, x, &a2, &a1, &inter, V, &dt, &N);
+        SetupParams(eq_file,domain_file,x,&a2,&a1,&inter,potname,V,&dt,&N);
 
         E = carrDef(N + 1); // energy to record progress of convergence
 
@@ -715,6 +770,32 @@ int main(int argc, char * argv[])
                 S[j] = real + I * imag;
             }
         }
+        else
+        {
+
+            // Set the same initial condition for all executions if
+            // resetinit is True for imaginary time propagation
+
+            if (resetinit)
+            {
+
+                strcpy(fname, "input/");
+                strcat(fname, infname);
+                strcat(fname, "_init.dat");
+
+                printf("\nUsing the same initial condition");
+
+                orb_file = fopen(fname, "r");
+
+                for (j = 0; j < M + 1; j++)
+                {
+                    trash = fscanf(orb_file, " (%lf%lfj)", &real, &imag);
+                    S[j] = real + I * imag;
+                }
+
+                fclose(orb_file);
+            }
+        }
 
 
 
@@ -727,8 +808,8 @@ int main(int argc, char * argv[])
             SepLine();
             printf("\nDoing real time integration  #%d \n\n", i + 1);
 
-            strcpy(fname, "../gp_data/");
-            strcat(fname, argv[4]);
+            strcpy(fname, "output/");
+            strcat(fname, outfname);
             strcat(fname, "_line-");
             strcat(fname, strnum);
             strcat(fname, "_orb_realtime.dat");
@@ -737,34 +818,34 @@ int main(int argc, char * argv[])
             {
                 case 1:
                     GPCNSMRK4(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S,
-                    fname, 10);
+                    fname, 20);
                     time_used = (double) (omp_get_wtime() - start);
                     printf("\nTime taken to solve(RK4 nonlinear CN-SM linear)");
                     printf(" : %.3f seconds\n", time_used);
                     break;
                 case 2:
                     GPFFTRK4(M + 1, N, dx, dt, a2, a1, inter, V, S,
-                    fname, 10);
+                    fname, 20);
                     time_used = (double) (omp_get_wtime() - start);
                     printf("\nTime taken to solve(RK4 nonlinear / FFT linear)");
                     printf(" : %.3f seconds\n", time_used);
                     break;
                 case 3:
                     GPCNSM(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S,
-                    fname, 10);
+                    fname, 20);
                     time_used = (double) (omp_get_wtime() - start);
                     printf("\nTime taken to solve(Crank-Nicolson-SM)");
                     printf(" : %.3f seconds\n", time_used);
                     break;
                 case 4:
                     GPCNLU(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S,
-                    fname, 10);
+                    fname, 20);
                     time_used = (double) (omp_get_wtime() - start);
                     printf("\nTime taken to solve(Crank-Nicolson-LU)");
                     printf(" : %.3f seconds\n", time_used);
                     break;
                 case 5:
-                    GPFFT(M + 1, N, dx, dt, a2, a1, inter, V, S, fname, 10);
+                    GPFFT(M + 1, N, dx, dt, a2, a1, inter, V, S, fname, 20);
                     time_used = (double) (omp_get_wtime() - start);
                     printf("\nTime taken to solve(FFT)");
                     printf(" : %.3f seconds\n", time_used);
@@ -826,8 +907,8 @@ int main(int argc, char * argv[])
 
         if (timeinfo == 'i' || timeinfo == 'I')
         {
-            strcpy(fname, "../gp_data/");
-            strcat(fname, argv[4]);
+            strcpy(fname, "output/");
+            strcat(fname, outfname);
             strcat(fname, "_line-");
             strcat(fname, strnum);
             strcat(fname, "_orb_imagtime.dat");
