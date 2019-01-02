@@ -98,6 +98,8 @@ double complex InteractingE (int Morb, int Mpos, Cmatrix Omat, double dx,
 
 double complex VirialResidue(MCTDHBsetup mc, Cmatrix Orb, Carray C);
 
+double MCMeanQuadraticR(MCTDHBsetup mc, Cmatrix Orb, Carray C);
+
 
 
 #endif

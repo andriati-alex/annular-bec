@@ -278,12 +278,12 @@ void dxFD(int n, Carray f, double dx, Carray dfdx)
 {
 
 /** Compute derivative of a function in n discretized positions with
- *  periodic boundary conditions, that is f[n-1] = f[0]. Use Finite-
- *  Differences(FD) to do the job
- *
- *  Output parameter : dfdx
- *
- **/
+  * periodic boundary conditions, that is f[n-1] = f[0]. Use Finite-
+  * Differences(FD) to do the job
+  *
+  * Output parameter : dfdx
+  *
+**/
 
     int
         i;
@@ -307,5 +307,77 @@ void dxFD(int n, Carray f, double dx, Carray dfdx)
     {
         dfdx[i] = ( f[i-2] - f[i+2] + 8 * (f[i+1] - f[i-1]) ) * r;
     }
+
+}
+
+
+
+
+
+double MeanQuadraticR(int n, Carray f, double dx)
+{
+
+/** Compute Mean Square value of normalized complex function/distribution **/
+
+    int
+        i;
+
+    double
+        r;
+
+    Rarray
+        ToInt;
+
+    ToInt = rarrDef(n);
+
+    r = - dx * (n - 1) * 0.5; // First discretized point of domain
+
+    for (i = 0; i < n; i ++)
+    {
+        ToInt[i] = (creal(f[i])*creal(f[i]) + cimag(f[i])*cimag(f[i])) * r * r;
+        r = r + dx;
+    }
+
+    r = sqrt(Rsimps(n, ToInt, dx));
+
+    free(ToInt);
+
+    return r;
+
+}
+
+
+
+
+
+double complex SquaredRampl(int n, Carray f, Carray g, double dx)
+{
+
+/** Compute < f | r^2 | g > **/
+
+    int
+        i;
+
+    double complex
+        r;
+
+    Carray
+        ToInt;
+
+    ToInt = carrDef(n);
+
+    r = - dx * (n - 1) * 0.5; // First discretized point of domain
+
+    for (i = 0; i < n; i ++)
+    {
+        ToInt[i] = conj(f[i]) * g[i] * r * r;
+        r = r + dx;
+    }
+
+    r = Csimps(n, ToInt, dx);
+
+    free(ToInt);
+
+    return r;
 
 }

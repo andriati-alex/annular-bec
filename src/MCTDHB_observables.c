@@ -407,3 +407,47 @@ double complex VirialResidue(MCTDHBsetup mc, Cmatrix Orb, Carray C)
     return (2 * potential - 2 * kinect - interacting);
 
 }
+
+
+
+
+
+double MCMeanQuadraticR(MCTDHBsetup mc, Cmatrix Orb, Carray C)
+{
+    int
+        i,
+        j,
+        Npar = mc->Npar,
+        Morb = mc->Morb,
+        M = mc->Mpos;
+
+    double complex
+        R2amp,
+        R2;
+
+    double
+        r,
+        dx = mc->dx;
+    
+    Cmatrix
+        rho = cmatDef(Morb, Morb);
+    
+    OBrho(Npar, Morb, mc->NCmat, mc->IF, C, rho);
+
+    R2 = 0;
+
+    for (i = 0; i < Morb; i++)
+    {
+        R2 = R2 + rho[i][i] * SquaredRampl(M,Orb[i],Orb[i],dx);
+        for (j = i + 1; j < Morb; j++)
+        {
+            R2amp = rho[i][j] * SquaredRampl(M,Orb[i],Orb[j],dx);
+            R2 = R2 + R2amp + conj(R2amp);
+        }
+    }
+
+    cmatFree(Morb,rho);
+
+    return sqrt(creal(R2));
+
+}

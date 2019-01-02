@@ -73,6 +73,7 @@ int IGPFFT(int M, int N, double dx, double dT, double a2, double complex a1,
 
 
     double
+        R2,
         freq,       // frequencies in Fourier space
         norm,       // initial norm
         NormStep,   // to renormalize on each time-step
@@ -108,13 +109,15 @@ int IGPFFT(int M, int N, double dx, double dT, double a2, double complex a1,
     norm = sqrt(Rsimps(M, abs2, dx));
     E[0] = Functional(M, dx, a2, a1, inter / 2, V, S);
     vir = GPvirial(M, a2, a1, inter, V, dx, S);
+    R2 = MeanQuadraticR(M, S, dx);
     old_vir = vir;
     /* ------------------------------------------------------------------- */
-
-    printf("\n\n\t Nstep             Energy/particle           Virial");
+    
+    printf("\n\n\t Nstep         Energy/particle         Virial");
+    printf("               sqrt<R^2>");
     SepLine();
-    printf("\n\t%6d           %15.7E", 0, creal(E[0]));
-    printf("           %15.7E", creal(vir));
+    printf("\n\t%6d       %15.7E", 0, creal(E[0]));
+    printf("         %15.7E       %7.4lf", creal(vir), R2);
 
 
 
@@ -184,17 +187,21 @@ int IGPFFT(int M, int N, double dx, double dT, double a2, double complex a1,
         // Energy
         E[i + 1] = Functional(M, dx, a2, a1, inter / 2, V, S);
         vir = GPvirial(M, a2, a1, inter, V, dx, S);
-        printf("\n\t%6d           %15.7E", i + 1, creal(E[i + 1]));
-        printf("           %15.7E", creal(vir));
+        R2 = MeanQuadraticR(M, S, dx);
+
+        printf("\n\t%6d       %15.7E", i + 1, creal(E[i + 1]));
+        printf("         %15.7E       %7.4lf", creal(vir), R2);
 
 
 
-        if ( fabs( creal(vir - old_vir) / creal(old_vir) ) < 1E-10 )
+        if ( fabs( creal(vir - old_vir) / creal(old_vir) ) < 5E-11 )
         {
 
             // Enter here if Virial value has stabilized
 
-            if ( fabs( creal(E[i + 1] - E[i]) / creal(E[i]) ) < 1E-13 )
+            j = i - 199;
+
+            if (j > 0 && fabs(creal(E[i+1] - E[j]) / creal(E[j])) < 1E-12 )
             {
 
                 s = DftiFreeDescriptor(&desc);
@@ -267,6 +274,7 @@ int IGPCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
 
 
     double
+        R2,
         norm,       // initial norm
         NormStep,   // to renormalize at each time-step
         Idt = - dT; // factor that multiplies in split-step exponentials
@@ -306,13 +314,15 @@ int IGPCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
     norm = sqrt(Rsimps(M, abs2, dx));
     E[0] = Functional(M, dx, a2, a1, inter / 2, V, S);
     vir = GPvirial(M, a2, a1, inter, V, dx, S);
+    R2 = MeanQuadraticR(M, S, dx);
     old_vir = vir;
     /* ----------------------------------------------------- */
 
-    printf("\n\n\t Nstep             Energy/particle           Virial");
+    printf("\n\n\t Nstep         Energy/particle         Virial");
+    printf("               sqrt<R^2>");
     SepLine();
-    printf("\n\t%6d           %15.7E", 0, creal(E[0]));
-    printf("           %15.7E", creal(vir));
+    printf("\n\t%6d       %15.7E", 0, creal(E[0]));
+    printf("         %15.7E       %7.4lf", creal(vir), R2);
 
 
 
@@ -357,17 +367,21 @@ int IGPCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
         // Energy
         E[i + 1] = Functional(M, dx, a2, a1, inter / 2, V, S);
         vir = GPvirial(M, a2, a1, inter, V, dx, S);
-        printf("\n\t%6d           %15.7E", i + 1, creal(E[i + 1]));
-        printf("           %15.7E", creal(vir));
+        R2 = MeanQuadraticR(M, S, dx);
+
+        printf("\n\t%6d       %15.7E", i + 1, creal(E[i + 1]));
+        printf("         %15.7E       %7.4lf", creal(vir), R2);
 
 
 
-        if ( fabs( creal(vir - old_vir) / creal(old_vir) ) < 1E-10 )
+        if ( fabs( creal(vir - old_vir) / creal(old_vir) ) < 5E-11 )
         {
 
             // Enter here if Virial value has stabilized
 
-            if ( fabs( creal(E[i + 1] - E[i]) / creal(E[i]) ) < 1E-13 )
+            j = i - 199;
+
+            if (j > 0 && fabs(creal(E[i+1] - E[j]) / creal(E[j])) < 1E-12 )
             {
 
                 // Enter here if energy has stabilized. If that
@@ -442,6 +456,7 @@ int IGPCNLU(int M, int N, double dx, double dT, double a2, double complex a1,
         j;
 
     double
+        R2,
         norm,
         NormStep,   // to renormalize at each time-step
         Idt = - dT; // factor that multiplies in split-step exponentials
@@ -479,13 +494,15 @@ int IGPCNLU(int M, int N, double dx, double dT, double a2, double complex a1,
     norm = sqrt(Rsimps(M, abs2, dx));
     E[0] = Functional(M, dx, a2, a1, inter / 2, V, S);
     vir = GPvirial(M, a2, a1, inter, V, dx, S);
+    R2 = MeanQuadraticR(M, S, dx);
     old_vir = vir;
     /* ----------------------------------------------------- */
 
-    printf("\n\n\t Nstep             Energy/particle           Virial");
+    printf("\n\n\t Nstep         Energy/particle         Virial");
+    printf("               sqrt<R^2>");
     SepLine();
-    printf("\n\t%6d           %15.7E", 0, creal(E[0]));
-    printf("           %15.7E", creal(vir));
+    printf("\n\t%6d       %15.7E", 0, creal(E[0]));
+    printf("         %15.7E       %7.4lf", creal(vir), R2);
 
 
 
@@ -528,18 +545,21 @@ int IGPCNLU(int M, int N, double dx, double dT, double a2, double complex a1,
         // Energy
         E[i + 1] = Functional(M, dx, a2, a1, inter / 2, V, S);
         vir = GPvirial(M, a2, a1, inter, V, dx, S);
+        R2 = MeanQuadraticR(M, S, dx);
         
-        printf("\n\t%6d           %15.7E", i + 1, creal(E[i + 1]));
-        printf("           %15.7E", creal(vir));
+        printf("\n\t%6d       %15.7E", i + 1, creal(E[i + 1]));
+        printf("         %15.7E       %7.4lf", creal(vir), R2);
 
 
 
-        if ( fabs( creal(vir - old_vir) / creal(old_vir) ) < 1E-10 )
+        if ( fabs( creal(vir - old_vir) / creal(old_vir) ) < 5E-11 )
         {
 
             // Enter here if Virial value has stabilized
 
-            if ( fabs( creal(E[i + 1] - E[i]) / creal(E[i]) ) < 1E-13 )
+            j = i - 199;
+
+            if (j > 0 && fabs(creal(E[i+1] - E[j]) / creal(E[j])) < 1E-12 )
             {
 
                 free(stepexp);
@@ -668,7 +688,8 @@ int IGPCNSMRK4(int M, int N, double dx, double dT, double a2, double complex a1,
 
     double
         norm,     // initial norm to be kept constant
-        NormStep; // renorm each time step
+        NormStep, // renorm each time step
+        R2;       // Monitor sqrt of mean quadratic radius
 
 
     double complex
@@ -705,14 +726,16 @@ int IGPCNSMRK4(int M, int N, double dx, double dT, double a2, double complex a1,
     carrAbs2(M, S, abs2);
     norm = sqrt(Rsimps(M, abs2, dx));
     E[0] = Functional(M, dx, a2, a1, inter / 2, V, S);
+    R2 = MeanQuadraticR(M, S, dx);
     vir = GPvirial(M, a2, a1, inter, V, dx, S);
     old_vir = vir;
     /* ----------------------------------------------------- */
     
-    printf("\n\n\t Nstep             Energy/particle           Virial");
+    printf("\n\n\t Nstep         Energy/particle         Virial");
+    printf("               sqrt<R^2>");
     SepLine();
-    printf("\n\t%6d           %15.7E", 0, creal(E[0]));
-    printf("           %15.7E", creal(vir));
+    printf("\n\t%6d       %15.7E", 0, creal(E[0]));
+    printf("         %15.7E       %7.4lf", creal(vir), R2);
 
 
 
@@ -753,18 +776,21 @@ int IGPCNSMRK4(int M, int N, double dx, double dT, double a2, double complex a1,
         // Energy
         E[i + 1] = Functional(M, dx, a2, a1, inter / 2, V, S);
         vir = GPvirial(M, a2, a1, inter, V, dx, S);
+        R2 = MeanQuadraticR(M, S, dx);
 
-        printf("\n\t%6d           %15.7E", i + 1, creal(E[i + 1]));
-        printf("           %15.7E", creal(vir));
+        printf("\n\t%6d       %15.7E", i + 1, creal(E[i + 1]));
+        printf("         %15.7E       %7.4lf", creal(vir), R2);
 
 
 
-        if ( fabs( creal(vir - old_vir) / creal(old_vir) ) < 1E-10 )
+        if ( fabs( creal(vir - old_vir) / creal(old_vir) ) < 5E-11 )
         {
 
             // Enter here if Virial value has stabilized
 
-            if ( fabs( creal(E[i + 1] - E[i]) / creal(E[i]) ) < 1E-13 )
+            j = i - 199;
+
+            if (j > 0 && fabs(creal(E[i+1] - E[j]) / creal(E[j])) < 1E-12 )
             {
 
                 free(linpart);
@@ -850,6 +876,7 @@ int IGPFFTRK4(int M, int N, double dx, double dT, double a2, double complex a1,
 
 
     double
+        R2,
         freq,       // frequencies in Fourier space
         norm,       // initial norm
         NormStep,   // to renormalize on each time-step
@@ -890,13 +917,15 @@ int IGPFFTRK4(int M, int N, double dx, double dT, double a2, double complex a1,
     norm = sqrt(Rsimps(M, abs2, dx));
     E[0] = Functional(M, dx, a2, a1, inter / 2, V, S);
     vir = GPvirial(M, a2, a1, inter, V, dx, S);
+    R2 = MeanQuadraticR(M, S, dx);
     old_vir = vir;
     /* ------------------------------------------------------------------- */
     
-    printf("\n\n\t Nstep             Energy/particle           Virial");
+    printf("\n\n\t Nstep         Energy/particle         Virial");
+    printf("               sqrt<R^2>");
     SepLine();
-    printf("\n\t%6d           %15.7E", 0, creal(E[0]));
-    printf("           %15.7E", creal(vir));
+    printf("\n\t%6d       %15.7E", 0, creal(E[0]));
+    printf("         %15.7E       %7.4lf", creal(vir), R2);
 
 
 
@@ -960,18 +989,21 @@ int IGPFFTRK4(int M, int N, double dx, double dT, double a2, double complex a1,
         // Energy
         E[i + 1] = Functional(M, dx, a2, a1, inter / 2, V, S);
         vir = GPvirial(M, a2, a1, inter, V, dx, S);
+        R2 = MeanQuadraticR(M, S, dx);
         
-        printf("\n\t%6d           %15.7E", i + 1, creal(E[i + 1]));
-        printf("           %15.7E", creal(vir));
+        printf("\n\t%6d       %15.7E", i + 1, creal(E[i + 1]));
+        printf("         %15.7E       %7.4lf", creal(vir), R2);
 
 
 
-        if ( fabs( creal(vir - old_vir) / creal(old_vir) ) < 1E-10 )
+        if ( fabs( creal(vir - old_vir) / creal(old_vir) ) < 5E-11 )
         {
 
             // Enter here if Virial value has stabilized
 
-            if ( fabs( creal(E[i + 1] - E[i]) / creal(E[i]) ) < 1E-13 )
+            j = i - 199;
+
+            if (j > 0 && fabs(creal(E[i+1] - E[j]) / creal(E[j])) < 1E-12 )
             {
 
                 s = DftiFreeDescriptor(&desc);

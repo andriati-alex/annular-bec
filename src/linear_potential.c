@@ -32,6 +32,6 @@ void GetPotential(int M, char name [], Rarray x, Rarray V,
         return;
     }
 
-    printf("\n\nERROR: Potential '%s' not implemented\n\n", name);
+    printf("\n\n\n\nERROR: Potential '%s' not implemented\n\n", name);
     exit(EXIT_FAILURE);
 }

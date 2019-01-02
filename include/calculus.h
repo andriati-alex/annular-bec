@@ -70,4 +70,8 @@ void renormalize(int size_of_f, Carray f, double dx, double norm);
 
 void Ortonormalize(int N_rows, int N_cols, double dx, Cmatrix F);
 
+double MeanQuadraticR(int n, Carray f, double dx);
+
+double complex SquaredRampl(int n, Carray f, Carray g, double dx);
+
 #endif

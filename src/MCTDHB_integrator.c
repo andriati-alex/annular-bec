@@ -1410,7 +1410,8 @@ int MC_IMAG_RK4_FFTRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
     -----------
 
     Evolve half step linear part, then full step nonlinear part together
-    with coefficients and another half step linear part */
+    with coefficients and another half step linear part
+**/
 
 
 
@@ -1426,6 +1427,7 @@ int MC_IMAG_RK4_FFTRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
         p;
 
     double
+        R2,
         freq,
         Idt = - dT,
         dx = MC->dx,
@@ -1475,11 +1477,13 @@ int MC_IMAG_RK4_FFTRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
     // Store the initial guess energy
     E[0] = Energy(MC, Orb, C);
     virial[0] = VirialResidue(MC, Orb, C);
-
-    printf("\n\n\t Nstep             Energy/particle           Virial");
+    R2 = MCMeanQuadraticR(MC, Orb, C);
+    
+    printf("\n\n\t Nstep         Energy/particle         Virial");
+    printf("               sqrt<R^2>");
     SepLine();
-    printf("\n\t%6d           %15.7E", 0, creal(E[0]));
-    printf("           %15.7E", creal(virial[0]));
+    printf("\n\t%6d       %15.7E", 0, creal(E[0]));
+    printf("         %15.7E       %7.4lf", creal(virial[0]), R2);
 
 
 
@@ -1533,14 +1537,15 @@ int MC_IMAG_RK4_FFTRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
         // Store energy and virial residue to check ocnvergence
         E[i + 1] = Energy(MC, Orb, C);
         virial[i + 1] = VirialResidue(MC, Orb, C);
+        R2 = MCMeanQuadraticR(MC, Orb, C);
 
 
 
-        printf("\n\t%6d           %15.7E", i + 1, creal(E[i + 1]));
-        printf("           %15.7E", creal(virial[i+1]));
+        printf("\n\t%6d       %15.7E", i + 1, creal(E[i + 1]));
+        printf("         %15.7E       %7.4lf", creal(virial[i+1]), R2);
 
-        j = i - 99;
-        if (j > 0 && fabs( creal(E[i+1] - E[j]) / creal(E[j]) ) < 1E-11 )
+        j = i - 199;
+        if (j > 0 && fabs( creal(E[i+1] - E[j]) / creal(E[j]) ) < 7E-11)
         {
 
             p = DftiFreeDescriptor(&desc);
@@ -1631,7 +1636,9 @@ int MC_IMAG_RK4_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
     -----------
 
     Evolve half step linear part, then full step nonlinear part together
-    with coefficients and another half step linear part */
+    with coefficients and another half step linear part
+
+**/
 
 
 
@@ -1643,6 +1650,7 @@ int MC_IMAG_RK4_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
         Morb = MC->Morb;
 
     double
+        R2,
         dx = MC->dx,
         a2 = MC->a2,
         g = MC->inter,
@@ -1667,11 +1675,13 @@ int MC_IMAG_RK4_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
     // Store the initial guess energy
     E[0] = Energy(MC, Orb, C);
     virial[0] = VirialResidue(MC, Orb, C);
+    R2 = MCMeanQuadraticR(MC, Orb, C);
     
-    printf("\n\n\t Nstep             Energy/particle           Virial");
+    printf("\n\n\t Nstep         Energy/particle         Virial");
+    printf("               sqrt<R^2>");
     SepLine();
-    printf("\n\t%6d           %15.7E", 0, creal(E[0]));
-    printf("           %15.7E", creal(virial[0]));
+    printf("\n\t%6d       %15.7E", 0, creal(E[0]));
+    printf("         %15.7E       %7.4lf", creal(virial[0]), R2);
 
 
 
@@ -1748,14 +1758,15 @@ int MC_IMAG_RK4_CNSMRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
         // Store energy
         E[i + 1] = Energy(MC, Orb, C);
         virial[i + 1] = VirialResidue(MC, Orb, C);
+        R2 = MCMeanQuadraticR(MC, Orb, C);
 
 
 
-        printf("\n\t%6d           %15.7E", i + 1, creal(E[i + 1]));
-        printf("           %15.7E", creal(virial[i+1]));
+        printf("\n\t%6d       %15.7E", i + 1, creal(E[i + 1]));
+        printf("         %15.7E       %7.4lf", creal(virial[i+1]), R2);
 
-        j = i - 99;
-        if (j > 0 && fabs( creal(E[i+1] - E[j]) / creal(E[j]) ) < 1E-11)
+        j = i - 199;
+        if (j > 0 && fabs( creal(E[i+1] - E[j]) / creal(E[j]) ) < 7E-11)
         {
 
             CCSFree(cnmat);
@@ -1859,6 +1870,7 @@ int MC_IMAG_RK4_CNLURK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
         Morb = MC->Morb;
 
     double
+        R2,
         dx = MC->dx,
         a2 = MC->a2,
         g = MC->inter,
@@ -1883,11 +1895,13 @@ int MC_IMAG_RK4_CNLURK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
     // Store the initial guess energy
     E[0] = Energy(MC, Orb, C);
     virial[0] = VirialResidue(MC, Orb, C);
-
-    printf("\n\n\t Nstep             Energy/particle           Virial");
+    R2 = MCMeanQuadraticR(MC, Orb, C);
+    
+    printf("\n\n\t Nstep         Energy/particle         Virial");
+    printf("               sqrt<R^2>");
     SepLine();
-    printf("\n\t%6d           %15.7E", 0, creal(E[0]));
-    printf("           %15.7E", creal(virial[0]));
+    printf("\n\t%6d       %15.7E", 0, creal(E[0]));
+    printf("         %15.7E       %7.4lf", creal(virial[0]), R2);
 
 
 
@@ -1964,16 +1978,17 @@ int MC_IMAG_RK4_CNLURK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, Carray E,
         // Store energy
         E[i + 1] = Energy(MC, Orb, C);
         virial[i + 1] = VirialResidue(MC, Orb, C);
+        R2 = MCMeanQuadraticR(MC, Orb, C);
 
 
 
-        printf("\n\t%6d           %15.7E", i + 1, creal(E[i + 1]));
-        printf("           %15.7E", creal(virial[i+1]));
+        printf("\n\t%6d       %15.7E", i + 1, creal(E[i + 1]));
+        printf("         %15.7E       %7.4lf", creal(virial[i+1]), R2);
         
         
         
-        j = i - 99;
-        if (j > 0 && fabs( creal(E[i+1] - E[j]) / creal(E[j]) ) < 1E-11)
+        j = i - 199;
+        if (j > 0 && fabs( creal(E[i+1] - E[j]) / creal(E[j]) ) < 7E-11)
         {
 
             CCSFree(cnmat);
