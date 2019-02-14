@@ -7,113 +7,36 @@
 
 
 
-/* ======================================================================== */
-/* ======================== ALLOCATE MEMORY SECTION ======================= */
-/* ======================================================================== */
-
-
-
-// Allocate real vector
 Rarray rarrDef(int n);
+// Allocate real vector
 
-// Allocate complex vector
 Carray carrDef(int n);
+// Allocate complex vector
 
-// Allocate MKL's complex vector
 CMKLarray CMKLdef(int n);
+// Allocate MKL's complex vector
 
-// Allocate real matrix with m rows and n columns
 Rmatrix rmatDef(int m, int n);
+// Allocate real matrix with m rows and n columns
 
-// Allocate complex matrix with m rows and n columns
 Cmatrix cmatDef(int m, int n);
+// Allocate complex matrix with m rows and n columns
+
+CCSmat ccsmatDef(int n, int max_nonzeros);
+// Allocate CCS matrix structure with n rows
 
 
 
-/* ======================================================================== */
-/* ======================== RELEASE MEMORY SECTION ======================== */
-/* ======================================================================== */
-
-
-
-// Release allocated real vector
-void rarrFree(Rarray v);
-
-// Release allocated complex vector
-void carrFree(Carray v);
-
-// Release allocated real matrix with m rows
 void rmatFree(int m, Rmatrix M);
+// Release allocated real matrix with m rows
 
-// Release allocated complex matrix with m rows
 void cmatFree(int m, Cmatrix M);
+// Release allocated complex matrix with m rows
 
-// Relase CCS matrix
 void CCSFree(CCSmat M);
+// Relase CCS matrix
+
 void RCCSFree(RCCSmat M);
-
-
-
-/* ======================================================================== */
-/* ============================  PRINT SECTION ============================ */
-/* ======================================================================== */
-
-
-
-
-
-
-void SepLine();
-
-// Print in current screen(terminal)
-void cPrint(double complex z);
-
-void carrPrint(int n, Carray v);
-
-void rarrPrint(int n, Rarray v);
-
-void cmat_print(int m, int n, Cmatrix M);
-
-
-
-
-
-// Print array in a text  file  suitable  to
-// import with python using the name of file
-void carr_txt(char fname [], int M, Carray v);
-
-
-
-
-
-// Print array in a text  file  suitable  to
-// import with python using the name of file
-void rarr_txt(char fname [], int M, Rarray v);
-
-
-
-
-
-// Print matrix in a text file suitable to import with python
-// using the name of file. Skip some rows  or/and  columns if
-// row_step or/and col_step is not 1
-void cmat_txt(char fname [], int N, int row_step, int M, int col_step,
-     Cmatrix S);
-
-
-
-
-
-// Record an complex array along a  line  in  a file
-// using its pointer, suitable to import with python
-void RecordArray(FILE * f, int M, Carray v);
-
-
-
-
-
-// Record a complex matrix along a line as a row-major-order
-// in a file using its pointer. Use numpy format
-void RecordMatrixInLine(FILE * f, int M, Cmatrix A);
+// Relase CCS matrix with real entries
 
 #endif

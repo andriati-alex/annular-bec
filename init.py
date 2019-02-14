@@ -154,7 +154,7 @@ else : raise IOError('\n\nInitial function name not implemented.\n\n');
 
 
 
-folder = str(Path.home()) + '/AndriatiLibrary/annular-bec/input/GP';
+folder = str(Path.home()) + '/AndriatiLibrary/annular-bec/input/';
 
 np.savetxt(folder + fname + '_init.dat', out.T, fmt='%.15E');
 

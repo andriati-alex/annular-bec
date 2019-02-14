@@ -60,18 +60,14 @@ void dxFD(int size_of_f, Carray f, double dx, Carray dfdx);
  *
  *      f ended up multiplied by a scaling factor to normalize to 'norm'
  *
- *      F matrix contains functions represented by rows where columns are
- *      the discretized positions. End up with rows(functions) orthogonal
- *      to each other and with unit norm.
- *
  * ------------------------------------------------------------------------ */
 
 void renormalize(int size_of_f, Carray f, double dx, double norm);
 
-void Ortonormalize(int N_rows, int N_cols, double dx, Cmatrix F);
 
-double MeanQuadraticR(int n, Carray f, double dx);
 
-double complex SquaredRampl(int n, Carray f, Carray g, double dx);
+
+
+int NonVanishingId(int n, Carray f, double dx, double tol);
 
 #endif

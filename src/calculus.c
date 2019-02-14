@@ -1,4 +1,4 @@
-#include "../include/calculus.h"
+#include "calculus.h"
 
 
 
@@ -173,51 +173,6 @@ void renormalize(int n, Carray f, double dx, double norm)
 
 
 
-void Ortonormalize(int Mfun, int Mpos, double dx, Cmatrix F)
-{
-
-/** Given F[k][:] with the k-th funciion of the basis, that is
-  * columns enumerate discretized positions and lines the func
-  * orthonomalize the set using Gram-Schimdt method
-**/
-
-    int
-        i,
-        j,
-        k;
-
-    Carray
-        toInt = carrDef(Mpos);
-
-    renormalize(Mpos,F[0],dx,1.0);
-
-    for (i = 1; i < Mfun; i++)
-    {
-
-        for (j = 0; j < i; j++)
-        {
-            // The projection are integrals of the product below
-
-            for (k = 0; k < Mpos; k++) toInt[k] = conj(F[j][k]) * F[i][k];
-
-            // Iterative Gram-Schmidt (see wikipedia)
-
-            for (k = 0; k < Mpos; k++)
-                F[i][k] = F[i][k] - Csimps(Mpos,toInt,dx) * F[j][k];
-        }
-
-        // normalized to unit the new vector
-
-        renormalize(Mpos, F[i], dx, 1.0);
-    }
-
-    free(toInt);
-}
-
-
-
-
-
 void dxFFT(int n, Carray f, double dx, Carray dfdx)
 {
 
@@ -260,7 +215,7 @@ void dxFFT(int n, Carray f, double dx, Carray dfdx)
     for (i = 0; i < N; i++) {
         if (i <= (N - 1) / 2) { freq = (2 * PI * i) / Ndx;       }
         else                  { freq = (2 * PI * (i - N)) / Ndx; }
-        dfdx[i] *= freq * I;
+        dfdx[i] = dfdx[i] * freq * I;
     }
 
     s = DftiComputeBackward(desc, dfdx);
@@ -314,70 +269,36 @@ void dxFD(int n, Carray f, double dx, Carray dfdx)
 
 
 
-double MeanQuadraticR(int n, Carray f, double dx)
+int NonVanishingId(int n, Carray f, double dx, double tol)
 {
 
-/** Compute Mean Square value of normalized complex function/distribution **/
+/** Given a simmetric distribution in a domain [xi,xf] with  xi = -xf
+  * return the index where it is non vanishing in terms  of  L2  norm
+  * of the chunk that has been integrated and then can be safely left
+  * out from the description up to a given 'tol'. Assumes || f || = 1
+  * and that n > 10 at least. The chunks have equal size of (n/25) 4%
+  * of the lenght of domain.
+**/
 
-    int
-        i;
+    int i;
 
-    double
-        r;
+    double chunkNorm;
 
-    Rarray
-        ToInt;
+    Rarray chunkAbs2;
 
-    ToInt = rarrDef(n);
+    i = 10;
 
-    r = - dx * (n - 1) * 0.5; // First discretized point of domain
+    chunkNorm = 1.0;
 
-    for (i = 0; i < n; i ++)
-    {
-        ToInt[i] = (creal(f[i])*creal(f[i]) + cimag(f[i])*cimag(f[i])) * r * r;
-        r = r + dx;
-    }
+    chunkAbs2 = rarrDef(n);
 
-    r = sqrt(Rsimps(n, ToInt, dx));
+    carrAbs2(n, f, chunkAbs2);
 
-    free(ToInt);
+    while(sqrt(Rsimps(i, chunkAbs2, dx)) < tol) i = i + (n / 25);
 
-    return r;
+    free(chunkAbs2);
 
-}
+    if (i == 10) return 0;
 
-
-
-
-
-double complex SquaredRampl(int n, Carray f, Carray g, double dx)
-{
-
-/** Compute < f | r^2 | g > **/
-
-    int
-        i;
-
-    double complex
-        r;
-
-    Carray
-        ToInt;
-
-    ToInt = carrDef(n);
-
-    r = - dx * (n - 1) * 0.5; // First discretized point of domain
-
-    for (i = 0; i < n; i ++)
-    {
-        ToInt[i] = conj(f[i]) * g[i] * r * r;
-        r = r + dx;
-    }
-
-    r = Csimps(n, ToInt, dx);
-
-    free(ToInt);
-
-    return r;
-
+    return i - (n / 25);
 }

@@ -1,9 +1,9 @@
 #include <string.h>
 #include <stdio.h>
 #include <math.h>
-#include "../include/GP_realtime_integrator.h"
-#include "../include/GP_imagtime_integrator.h"
-#include "../include/linear_potential.h"
+#include "realtime_integrator.h"
+#include "imagtime_integrator.h"
+#include "linear_potential.h"
 
 
 
@@ -105,6 +105,10 @@
  *      (5) N
  *
  * ========================================================================= */
+
+
+
+
 
 void ReachNewLine(FILE * f)
 {
@@ -617,7 +621,7 @@ int main(int argc, char * argv[])
 
     if (timeinfo == 'r' || timeinfo == 'R')
     {
-        SepLine();
+        sepline();
         printf("\nDoing real time integration  #%d\n\n", 1);
 
         strcpy(fname, "output/");
@@ -626,34 +630,34 @@ int main(int argc, char * argv[])
         switch (method)
         {
             case 1:
-                GPCNSMRK4(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S,
+                SSCNRK4(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S,
                 fname, 20);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(RK4 nonlinear CN-SM linear)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
             case 2:
-                GPFFTRK4(M + 1, N, dx, dt, a2, a1, inter, V, S, fname, 20);
+                SSFFTRK4(M + 1, N, dx, dt, a2, a1, inter, V, S, fname, 20);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(RK4 nonlinear / FFT linear)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
             case 3:
-                GPCNSM(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S,
+                SSCNSM(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S,
                 fname, 20);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(Crank-Nicolson-SM)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
             case 4:
-                GPCNLU(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S,
+                SSCNLU(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S,
                 fname, 20);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(Crank-Nicolson-LU)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
             case 5:
-                GPFFT(M + 1, N, dx, dt, a2, a1, inter, V, S, fname, 20);
+                SSFFT(M + 1, N, dx, dt, a2, a1, inter, V, S, fname, 20);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(FFT)");
                 printf(" : %.3f seconds\n", time_used);
@@ -671,36 +675,36 @@ int main(int argc, char * argv[])
 
     if (timeinfo == 'i' || timeinfo == 'I')
     {
-        SepLine();
+        sepline();
         printf("\nDoing imaginary time integration #%d\n\n", 1);
         switch (method)
         {
             case 1:
-                N = IGPCNSMRK4(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S, E);
+                N = ISSCNRK4(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S, E);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(RK4 nonlinear/CN-SM linear)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
             case 2:
-                N = IGPFFTRK4(M + 1, N, dx, dt, a2, a1, inter, V, S, E);
+                N = ISSFFTRK4(M + 1, N, dx, dt, a2, a1, inter, V, S, E);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(RK4 nonlinear/FFT linear)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
             case 3:
-                N = IGPCNSM(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S, E);
+                N = ISSCNSM(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S, E);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(Crank-Nicolson-SM)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
             case 4:
-                N = IGPCNLU(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S, E);
+                N = ISSCNLU(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S, E);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(Crank-Nicolson-LU)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
             case 5:
-                N = IGPFFT(M + 1, N, dx, dt, a2, a1, inter, V, S, E);
+                N = ISSFFT(M + 1, N, dx, dt, a2, a1, inter, V, S, E);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(FFT)");
                 printf(" : %.3f seconds\n", time_used);
@@ -805,7 +809,7 @@ int main(int argc, char * argv[])
 
         if (timeinfo == 'r' || timeinfo == 'R')
         {
-            SepLine();
+            sepline();
             printf("\nDoing real time integration  #%d \n\n", i + 1);
 
             strcpy(fname, "output/");
@@ -817,35 +821,35 @@ int main(int argc, char * argv[])
             switch (method)
             {
                 case 1:
-                    GPCNSMRK4(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S,
+                    SSCNRK4(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S,
                     fname, 20);
                     time_used = (double) (omp_get_wtime() - start);
                     printf("\nTime taken to solve(RK4 nonlinear CN-SM linear)");
                     printf(" : %.3f seconds\n", time_used);
                     break;
                 case 2:
-                    GPFFTRK4(M + 1, N, dx, dt, a2, a1, inter, V, S,
+                    SSFFTRK4(M + 1, N, dx, dt, a2, a1, inter, V, S,
                     fname, 20);
                     time_used = (double) (omp_get_wtime() - start);
                     printf("\nTime taken to solve(RK4 nonlinear / FFT linear)");
                     printf(" : %.3f seconds\n", time_used);
                     break;
                 case 3:
-                    GPCNSM(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S,
+                    SSCNSM(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S,
                     fname, 20);
                     time_used = (double) (omp_get_wtime() - start);
                     printf("\nTime taken to solve(Crank-Nicolson-SM)");
                     printf(" : %.3f seconds\n", time_used);
                     break;
                 case 4:
-                    GPCNLU(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S,
+                    SSCNLU(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S,
                     fname, 20);
                     time_used = (double) (omp_get_wtime() - start);
                     printf("\nTime taken to solve(Crank-Nicolson-LU)");
                     printf(" : %.3f seconds\n", time_used);
                     break;
                 case 5:
-                    GPFFT(M + 1, N, dx, dt, a2, a1, inter, V, S, fname, 20);
+                    SSFFT(M + 1, N, dx, dt, a2, a1, inter, V, S, fname, 20);
                     time_used = (double) (omp_get_wtime() - start);
                     printf("\nTime taken to solve(FFT)");
                     printf(" : %.3f seconds\n", time_used);
@@ -863,39 +867,39 @@ int main(int argc, char * argv[])
 
         if (timeinfo == 'i' || timeinfo == 'I')
         {
-            SepLine();
+            sepline();
             printf("\nDoing imaginary time integration  #%d\n\n", i + 1);
             switch (method)
             {
                 case 1:
-                    N = IGPCNSMRK4(M + 1, N, dx, dt, a2, a1, inter, V,
+                    N = ISSCNRK4(M + 1, N, dx, dt, a2, a1, inter, V,
                         cyclic, S, E);
                     time_used = (double) (omp_get_wtime() - start);
                     printf("\nTime taken to solve(RK4 nonlinear/CN-SM linear)");
                     printf(" : %.3f seconds\n", time_used);
                     break;
                 case 2:
-                    N = IGPFFTRK4(M + 1, N, dx, dt, a2, a1, inter, V, S, E);
+                    N = ISSFFTRK4(M + 1, N, dx, dt, a2, a1, inter, V, S, E);
                     time_used = (double) (omp_get_wtime() - start);
                     printf("\nTime taken to solve(RK4 nonlinear/FFT linear)");
                     printf(" : %.3f seconds\n", time_used);
                     break;
                 case 3:
-                    N = IGPCNSM(M + 1, N, dx, dt, a2, a1, inter, V,
+                    N = ISSCNSM(M + 1, N, dx, dt, a2, a1, inter, V,
                         cyclic, S, E);
                     time_used = (double) (omp_get_wtime() - start);
                     printf("\nTime taken to solve(Crank-Nicolson-SM)");
                     printf(" : %.3f seconds\n", time_used);
                     break;
                 case 4:
-                    N = IGPCNLU(M + 1, N, dx, dt, a2, a1, inter, V,
+                    N = ISSCNLU(M + 1, N, dx, dt, a2, a1, inter, V,
                         cyclic, S, E);
                     time_used = (double) (omp_get_wtime() - start);
                     printf("\nTime taken to solve(Crank-Nicolson-LU)");
                     printf(" : %.3f seconds\n", time_used);
                     break;
                 case 5:
-                    N = IGPFFT(M + 1, N, dx, dt, a2, a1, inter, V, S, E);
+                    N = ISSFFT(M + 1, N, dx, dt, a2, a1, inter, V, S, E);
                     time_used = (double) (omp_get_wtime() - start);
                     printf("\nTime taken to solve(FFT)");
                     printf(" : %.3f seconds\n", time_used);

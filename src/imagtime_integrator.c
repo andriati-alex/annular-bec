@@ -1,4 +1,4 @@
-#include "../include/GP_imagtime_integrator.h"
+#include "imagtime_integrator.h"
 
 
 
@@ -51,12 +51,16 @@
 
 
 
-int IGPFFT(int M, int N, double dx, double dT, double a2, double complex a1,
+int ISSFFT(int M, int N, double dx, double dT, double a2, double complex a1,
     double inter, Rarray V, Carray S, Carray E)
-{   // Evolve the wave-function given an initial condition in S
-    // on pure imaginary time to converge to an energy minimum.
-    // Use FFT to compute derivatives on  linear  part  of  PDE
-    // hence the boundary is required to be periodic
+{
+
+/** Evolve the wave-function given an initial condition in S
+  * on pure imaginary time to converge to an energy minimum.
+  * Use FFT to compute derivatives on  linear  part  of  PDE
+  * hence the boundary is required to be periodic. Apply the
+  * Split-Step technique to separate derivatives  part  from
+  * potential one. **/
 
 
 
@@ -64,9 +68,9 @@ int IGPFFT(int M, int N, double dx, double dT, double a2, double complex a1,
         i,
         j,
         m = M - 1;
-    
-    
-    
+
+
+
     MKL_LONG
         s;
 
@@ -88,7 +92,6 @@ int IGPFFT(int M, int N, double dx, double dT, double a2, double complex a1,
 
 
 
-
     Rarray
         abs2 = rarrDef(M), // abs square of wave function
         out  = rarrDef(M); // hold linear and nonlinear potential
@@ -103,19 +106,19 @@ int IGPFFT(int M, int N, double dx, double dT, double a2, double complex a1,
 
 
 
-    /* Initialize the norm and energy of initial guess
+    /* Initialize Observables to check at each time-step
      * ------------------------------------------------------------------- */
     carrAbs2(M, S, abs2);
     norm = sqrt(Rsimps(M, abs2, dx));
-    E[0] = Functional(M, dx, a2, a1, inter / 2, V, S);
-    vir = GPvirial(M, a2, a1, inter, V, dx, S);
+    E[0] = Energy(M, dx, a2, a1, inter, V, S);
+    vir = Virial(M, a2, a1, inter, V, dx, S);
     R2 = MeanQuadraticR(M, S, dx);
     old_vir = vir;
     /* ------------------------------------------------------------------- */
     
     printf("\n\n\t Nstep         Energy/particle         Virial");
     printf("               sqrt<R^2>");
-    SepLine();
+    sepline();
     printf("\n\t%6d       %15.7E", 0, creal(E[0]));
     printf("         %15.7E       %7.4lf", creal(vir), R2);
 
@@ -185,8 +188,8 @@ int IGPFFT(int M, int N, double dx, double dT, double a2, double complex a1,
         for (j = 0; j < M; j++) S[j] = NormStep * S[j];
 
         // Energy
-        E[i + 1] = Functional(M, dx, a2, a1, inter / 2, V, S);
-        vir = GPvirial(M, a2, a1, inter, V, dx, S);
+        E[i + 1] = Energy(M, dx, a2, a1, inter, V, S);
+        vir = Virial(M, a2, a1, inter, V, dx, S);
         R2 = MeanQuadraticR(M, S, dx);
 
         printf("\n\t%6d       %15.7E", i + 1, creal(E[i + 1]));
@@ -213,7 +216,7 @@ int IGPFFT(int M, int N, double dx, double dT, double a2, double complex a1,
                 free(abs2);
                 free(out);
 
-                SepLine();
+                sepline();
                     
                 printf("\nProcess ended before because \n");
                 printf("\n\t1. Energy stop decreasing  \n");
@@ -239,7 +242,7 @@ int IGPFFT(int M, int N, double dx, double dT, double a2, double complex a1,
         old_vir = vir;
     }
 
-    SepLine();
+    sepline();
     printf("\nProcess ended without achieving");
     printf(" stability and/or accuracy\n\n");
 
@@ -264,7 +267,7 @@ int IGPFFT(int M, int N, double dx, double dT, double a2, double complex a1,
 
 
 
-int IGPCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
+int ISSCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
     double inter, Rarray V, int cyclic, Carray S, Carray E)
 {
 
@@ -312,15 +315,15 @@ int IGPCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
      * ----------------------------------------------------- */
     carrAbs2(M, S, abs2);
     norm = sqrt(Rsimps(M, abs2, dx));
-    E[0] = Functional(M, dx, a2, a1, inter / 2, V, S);
-    vir = GPvirial(M, a2, a1, inter, V, dx, S);
+    E[0] = Energy(M, dx, a2, a1, inter, V, S);
+    vir = Virial(M, a2, a1, inter, V, dx, S);
     R2 = MeanQuadraticR(M, S, dx);
     old_vir = vir;
     /* ----------------------------------------------------- */
 
     printf("\n\n\t Nstep         Energy/particle         Virial");
     printf("               sqrt<R^2>");
-    SepLine();
+    sepline();
     printf("\n\t%6d       %15.7E", 0, creal(E[0]));
     printf("         %15.7E       %7.4lf", creal(vir), R2);
 
@@ -365,8 +368,8 @@ int IGPCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
         for (j = 0; j < M; j++) S[j] = NormStep * S[j];
         
         // Energy
-        E[i + 1] = Functional(M, dx, a2, a1, inter / 2, V, S);
-        vir = GPvirial(M, a2, a1, inter, V, dx, S);
+        E[i + 1] = Energy(M, dx, a2, a1, inter, V, S);
+        vir = Virial(M, a2, a1, inter, V, dx, S);
         R2 = MeanQuadraticR(M, S, dx);
 
         printf("\n\t%6d       %15.7E", i + 1, creal(E[i + 1]));
@@ -396,7 +399,7 @@ int IGPCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
                 free(rhs);
                 CCSFree(cnmat);
 
-                SepLine();
+                sepline();
                 
                 printf("\nProcess ended before because \n");
                 printf("\n\t1. Energy stop decreasing  \n");
@@ -423,7 +426,7 @@ int IGPCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
 
     }
     
-    SepLine();
+    sepline();
     printf("\nProcess ended without achieving");
     printf(" stability and/or accuracy\n\n");
 
@@ -448,9 +451,10 @@ int IGPCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
 
 
 
-int IGPCNLU(int M, int N, double dx, double dT, double a2, double complex a1,
+int ISSCNLU(int M, int N, double dx, double dT, double a2, double complex a1,
     double inter, Rarray V, int cyclic, Carray S, Carray E)
 {
+
     unsigned int
         i,
         j;
@@ -492,15 +496,15 @@ int IGPCNLU(int M, int N, double dx, double dT, double a2, double complex a1,
      * ----------------------------------------------------- */
     carrAbs2(M, S, abs2);
     norm = sqrt(Rsimps(M, abs2, dx));
-    E[0] = Functional(M, dx, a2, a1, inter / 2, V, S);
-    vir = GPvirial(M, a2, a1, inter, V, dx, S);
+    E[0] = Energy(M, dx, a2, a1, inter, V, S);
+    vir = Virial(M, a2, a1, inter, V, dx, S);
     R2 = MeanQuadraticR(M, S, dx);
     old_vir = vir;
     /* ----------------------------------------------------- */
 
     printf("\n\n\t Nstep         Energy/particle         Virial");
     printf("               sqrt<R^2>");
-    SepLine();
+    sepline();
     printf("\n\t%6d       %15.7E", 0, creal(E[0]));
     printf("         %15.7E       %7.4lf", creal(vir), R2);
 
@@ -543,8 +547,8 @@ int IGPCNLU(int M, int N, double dx, double dT, double a2, double complex a1,
         for (j = 0; j < M; j++) S[j] = NormStep * S[j];
         
         // Energy
-        E[i + 1] = Functional(M, dx, a2, a1, inter / 2, V, S);
-        vir = GPvirial(M, a2, a1, inter, V, dx, S);
+        E[i + 1] = Energy(M, dx, a2, a1, inter, V, S);
+        vir = Virial(M, a2, a1, inter, V, dx, S);
         R2 = MeanQuadraticR(M, S, dx);
         
         printf("\n\t%6d       %15.7E", i + 1, creal(E[i + 1]));
@@ -571,7 +575,7 @@ int IGPCNLU(int M, int N, double dx, double dT, double a2, double complex a1,
                 free(rhs);
                 CCSFree(cnmat);
                 
-                SepLine();
+                sepline();
 
                 printf("\nProcess ended before because \n");
                 printf("\n\t1. Energy stop decreasing  \n");
@@ -598,7 +602,7 @@ int IGPCNLU(int M, int N, double dx, double dT, double a2, double complex a1,
 
     }
 
-    SepLine();
+    sepline();
     printf("\nProcess ended without achieving");
     printf(" stability and/or accuracy\n\n");
 
@@ -630,8 +634,12 @@ int IGPCNLU(int M, int N, double dx, double dT, double a2, double complex a1,
     =====================================================================  */
 
 void NonLinearIDDT(int M, double t, Carray Psi, Carray inter, Carray Dpsi)
-{   // The Right-Hand-Side of derivative of non-linear part
-    // As a extra argument take the interaction strength
+{
+
+/** The Right-Hand-Side of derivative of non-linear part as a extra
+  * argument take the interaction strength in inter[0]. Used in the
+  * general implementation of fourth order Runge-Kutta routine. Use
+  * to evolve the nonlinear part **/
 
     int i;
 
@@ -649,9 +657,13 @@ void NonLinearIDDT(int M, double t, Carray Psi, Carray inter, Carray Dpsi)
 
 
 void NonLinearVIDDT(int M, double t, Carray Psi, Carray FullPot, Carray Dpsi)
-{   // The Right-Hand-Side of derivative of non-linear and linear  potential
-    // part. As a extra argument take the interaction strength in FullPot[0]
-    // and the linear potential computed at position i in FullPot[i + 1]
+{
+
+/** The Right-Hand-Side of derivative of non-linear part with the
+  * trap potential. As an extra argument  take  the  interaction
+  * strength in FullPot[0] and the trap potential in discretized
+  * position in FullPot[k] with k > 0. Used in the general implementation
+  * of fourth order Runge-Kutta routine. Used to evolve the nonlinear part **/
 
     int i;
 
@@ -675,11 +687,13 @@ void NonLinearVIDDT(int M, double t, Carray Psi, Carray FullPot, Carray Dpsi)
 
 
 
-int IGPCNSMRK4(int M, int N, double dx, double dT, double a2, double complex a1,
+int ISSCNRK4(int M, int N, double dx, double dT, double a2, double complex a1,
     double inter, Rarray V, int cyclic, Carray S, Carray E)
-{   // Evolve Gross-Pitaevskii using 4-th order Runge-Kutta
-    // to deal with nonlinear  part.  Solve  Crank-Nicolson
-    // linear system with Sherman-Morrison formula
+{
+
+/** Evolve Gross-Pitaevskii using 4-th order Runge-Kutta
+  * to deal with nonlinear  part.  Solve  Crank-Nicolson
+  * linear system with Sherman-Morrison formula      **/
 
 
     int i,
@@ -725,15 +739,15 @@ int IGPCNSMRK4(int M, int N, double dx, double dT, double a2, double complex a1,
      * ----------------------------------------------------- */
     carrAbs2(M, S, abs2);
     norm = sqrt(Rsimps(M, abs2, dx));
-    E[0] = Functional(M, dx, a2, a1, inter / 2, V, S);
+    E[0] = Energy(M, dx, a2, a1, inter, V, S);
     R2 = MeanQuadraticR(M, S, dx);
-    vir = GPvirial(M, a2, a1, inter, V, dx, S);
+    vir = Virial(M, a2, a1, inter, V, dx, S);
     old_vir = vir;
     /* ----------------------------------------------------- */
     
     printf("\n\n\t Nstep         Energy/particle         Virial");
     printf("               sqrt<R^2>");
-    SepLine();
+    sepline();
     printf("\n\t%6d       %15.7E", 0, creal(E[0]));
     printf("         %15.7E       %7.4lf", creal(vir), R2);
 
@@ -774,8 +788,8 @@ int IGPCNSMRK4(int M, int N, double dx, double dT, double a2, double complex a1,
         for (j = 0; j < M; j++) S[j] = NormStep * S[j];
 
         // Energy
-        E[i + 1] = Functional(M, dx, a2, a1, inter / 2, V, S);
-        vir = GPvirial(M, a2, a1, inter, V, dx, S);
+        E[i + 1] = Energy(M, dx, a2, a1, inter, V, S);
+        vir = Virial(M, a2, a1, inter, V, dx, S);
         R2 = MeanQuadraticR(M, S, dx);
 
         printf("\n\t%6d       %15.7E", i + 1, creal(E[i + 1]));
@@ -801,7 +815,7 @@ int IGPCNSMRK4(int M, int N, double dx, double dT, double a2, double complex a1,
                 free(rhs);
                 CCSFree(cnmat);
 
-                SepLine();
+                sepline();
 
                 printf("\nProcess ended before because \n");
                 printf("\n\t1. Energy stop decreasing  \n");
@@ -829,7 +843,7 @@ int IGPCNSMRK4(int M, int N, double dx, double dT, double a2, double complex a1,
 
     }
     
-    SepLine();
+    sepline();
     printf("\nProcess ended without achieving");
     printf(" stability and/or accuracy\n\n");
 
@@ -853,13 +867,15 @@ int IGPCNSMRK4(int M, int N, double dx, double dT, double a2, double complex a1,
 
 
 
-int IGPFFTRK4(int M, int N, double dx, double dT, double a2, double complex a1,
+int ISSFFTRK4(int M, int N, double dx, double dT, double a2, doublec a1,
     double inter, Rarray V, Carray S, Carray E)
-{   // Evolve the wave-function given an initial condition in S
-    // on pure imaginary time to converge to an energy minimum.
-    // Use FFT to compute derivatives on  linear  part  of  PDE
-    // hence the boundary is required to be periodic. Nonlinear
-    // part is solved by 4th order Runge-Kutta
+{
+
+/** Evolve the wave-function given an initial condition in S
+  * on pure imaginary time to converge to an energy minimum.
+  * Use FFT to compute derivatives on  linear  part  of  PDE
+  * hence the boundary is required to be periodic. Nonlinear
+  * part is solved by 4th order Runge-Kutta              **/
 
 
 
@@ -915,15 +931,15 @@ int IGPFFTRK4(int M, int N, double dx, double dT, double a2, double complex a1,
      * ------------------------------------------------------------------- */
     carrAbs2(M, S, abs2);
     norm = sqrt(Rsimps(M, abs2, dx));
-    E[0] = Functional(M, dx, a2, a1, inter / 2, V, S);
-    vir = GPvirial(M, a2, a1, inter, V, dx, S);
+    E[0] = Energy(M, dx, a2, a1, inter, V, S);
+    vir = Virial(M, a2, a1, inter, V, dx, S);
     R2 = MeanQuadraticR(M, S, dx);
     old_vir = vir;
     /* ------------------------------------------------------------------- */
     
     printf("\n\n\t Nstep         Energy/particle         Virial");
     printf("               sqrt<R^2>");
-    SepLine();
+    sepline();
     printf("\n\t%6d       %15.7E", 0, creal(E[0]));
     printf("         %15.7E       %7.4lf", creal(vir), R2);
 
@@ -987,8 +1003,8 @@ int IGPFFTRK4(int M, int N, double dx, double dT, double a2, double complex a1,
         for (j = 0; j < M; j++) S[j] = NormStep * S[j];
 
         // Energy
-        E[i + 1] = Functional(M, dx, a2, a1, inter / 2, V, S);
-        vir = GPvirial(M, a2, a1, inter, V, dx, S);
+        E[i + 1] = Energy(M, dx, a2, a1, inter, V, S);
+        vir = Virial(M, a2, a1, inter, V, dx, S);
         R2 = MeanQuadraticR(M, S, dx);
         
         printf("\n\t%6d       %15.7E", i + 1, creal(E[i + 1]));
@@ -1015,7 +1031,7 @@ int IGPFFTRK4(int M, int N, double dx, double dT, double a2, double complex a1,
                 free(argRK4);
                 free(FullPot);
                 
-                SepLine();
+                sepline();
 
                 printf("\nProcess ended before because \n");
                 printf("\n\t1. Energy stop decreasing  \n");
@@ -1044,7 +1060,7 @@ int IGPFFTRK4(int M, int N, double dx, double dT, double a2, double complex a1,
 
     }
     
-    SepLine();
+    sepline();
     printf("\nProcess ended without achieving");
     printf(" stability and/or accuracy\n\n");
 

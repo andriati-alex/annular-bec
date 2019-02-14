@@ -1,4 +1,4 @@
-#include "../include/GP_functional.h"
+#include "functional.h"
 
 
 
@@ -71,8 +71,8 @@ void applyL0(int n, Carray f, double dx, double a2, double complex a1,
 
 
 
-double complex Functional(int M, double dx, double a2, double complex a1,
-               double inter, Rarray V, Carray f)
+doublec Functional(int M, double dx, double a2, doublec a1, double inter,
+        Rarray V, Carray f)
 {
 
 /** Gross-Pitaesvkii functional that yield both energy and chemical
@@ -142,8 +142,7 @@ double complex Functional(int M, double dx, double a2, double complex a1,
 
 
 
-double complex GPkinect(int M, double a2, double complex a1, double dx,
-               Carray psi)
+doublec KinectE(int M, double a2, doublec a1, double dx, Carray psi)
 {
 
     int k;
@@ -157,10 +156,7 @@ double complex GPkinect(int M, double a2, double complex a1, double dx,
 
     dxFD(M,psi,dx,ddx);
 
-    for (k = 0; k < M; k++)
-    {
-        toInt[k] =  - a2 * conj(ddx[k]) * ddx[k];
-    }
+    for (k = 0; k < M; k++) toInt[k] = - a2 * conj(ddx[k]) * ddx[k];
 
     r = Csimps(M,toInt,dx);
 
@@ -174,7 +170,7 @@ double complex GPkinect(int M, double a2, double complex a1, double dx,
 
 
 
-double complex GPtrap(int M, Rarray V, double dx, Carray psi)
+doublec TrapE(int M, Rarray V, double dx, Carray psi)
 {
 
     int k;
@@ -202,7 +198,7 @@ double complex GPtrap(int M, Rarray V, double dx, Carray psi)
 
 
 
-double GPinter(int M, double g, double dx, Carray psi)
+double InterE(int M, double g, double dx, Carray psi)
 {
 
     int k;
@@ -229,17 +225,37 @@ double GPinter(int M, double g, double dx, Carray psi)
 
 
 
-double complex GPvirial(int M, double a2, double complex a1, double g,
-               Rarray V, double dx, Carray psi)
+doublec Energy(int M, double dx, double a2, doublec a1, double inter,
+        Rarray V, Carray f)
+{
+    return Functional(M, dx, a2, a1, inter / 2, V, f);
+}
+
+
+
+
+
+doublec Chem(int M, double dx, double a2, doublec a1, double inter,
+        Rarray V, Carray f)
+{
+    return Functional(M, dx, a2, a1, inter, V, f);
+}
+
+
+
+
+
+doublec Virial(int M, double a2, doublec a1, double g, Rarray V,
+        double dx, Carray psi)
 {
     double complex
         kin,
         pot,
         ntr;
 
-    kin = GPkinect(M,a2,a1,dx,psi);
-    pot = GPtrap(M,V,dx,psi);
-    ntr = GPinter(M,g,dx,psi);
+    kin = KinectE(M,a2,a1,dx,psi);
+    pot = TrapE(M,V,dx,psi);
+    ntr = InterE(M,g,dx,psi);
 
     return ( 2 * pot - 2 * kin - ntr );
 }

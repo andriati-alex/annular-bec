@@ -9,6 +9,8 @@
     #include <omp.h>
 #endif
 
+
+
 double cond(int n, Carray upper, Carray lower, Carray mid);
 double errBack(int n, Carray upper, Carray lower, Carray mid);
 /* Compute condition number u
@@ -108,7 +110,7 @@ void triCyclicSM(int n, Carray upper, Carray lower, Carray mid,
 
 
 /* Real tridiagonal matrix solver to aid in real pre-conditioned CG  */
-void rtriDiag(int n, Rarray upper, Rarray lower, Rarray mid, Rarray RHS,
-              Rarray ans);
+void realtri(int n, Rarray upper, Rarray lower, Rarray mid, Rarray RHS,
+             Rarray ans);
 
 #endif

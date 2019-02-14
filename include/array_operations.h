@@ -10,12 +10,6 @@
 
 
 
-/*          ***********************************************          */
-/*                 SETUP VALUES IN VECTOR COMPONENTS                 */
-/*          ***********************************************          */
-
-
-
 // Fill the elements of an array with number z(complex) or x(real)
 void carrFill(int n, double complex z, Carray v);
 void rarrFill(int n, double x, Rarray v);
@@ -28,35 +22,37 @@ void carrCopy(int n, Carray from, Carray to);
 void rarrCopy(int n, Rarray from, Rarray to);
 
 // Convert array datatypes
-void fromMKL(int n, CMKLarray a, Carray b);
-void fromCarray(int n, Carray b, CMKLarray a);
+void MKL2Carray(int n, CMKLarray a, Carray b);
+void Carray2MKL(int n, Carray b, CMKLarray a);
 
 
 
-/*          ***********************************************          */
-/*                   BASIC OPERATIONS ELEMENT-WISE                   */
-/*          ***********************************************          */
+/*          ***********************************************
+
+                     BASIC OPERATIONS ELEMENT-WISE
+
+            ***********************************************          */
 
 
 
 // Real part vector
-void carrRPart(int n, Carray v, Rarray vreal);
+void carrRealPart(int n, Carray v, Rarray vreal);
 
 // Imaginary part vector
-void carrIPart(int n, Carray v, Rarray vimag);
+void carrImagPart(int n, Carray v, Rarray vimag);
 
-// Each position conjugation
+// Element-wise conjugation
 void carrConj(int n, Carray v, Carray v_conj);
 
-// Each position addition
+// Element-wise addition
 void carrAdd(int n, Carray v1, Carray v2, Carray v);
 void rarrAdd(int n, Rarray v1, Rarray v2, Rarray v);
 
-// convention v1 - v2
+// Element-wise subtraction. convention v1 - v2
 void carrSub(int n, Carray v1, Carray v2, Carray v);
 void rarrSub(int n, Rarray v1, Rarray v2, Rarray v);
 
-// Each position product
+// Element-wise product
 void carrMultiply(int n, Carray v1, Carray v2, Carray v);
 void rarrMultiply(int n, Rarray v1, Rarray v2, Rarray v);
 
@@ -91,9 +87,11 @@ void renormalizeVector(int n, Carray v, double norm);
 
 
 
-/*          ***********************************************          */
-/*                             FUNCTIONALS                           */
-/*          ***********************************************          */
+/*          ***********************************************
+
+                               FUNCTIONALS
+
+            ***********************************************          */
 
 
 
@@ -101,7 +99,7 @@ void renormalizeVector(int n, Carray v, double norm);
 double complex carrDot(int n, Carray v1, Carray v2);
 
 // Product and sum elements. Convention <v1, v2>
-double complex carrDot2(int n, Carray v1, Carray v2);
+double complex unconj_carrDot(int n, Carray v1, Carray v2);
 
 double rarrDot(int n, Rarray v1, Rarray v2);
 
@@ -117,9 +115,11 @@ double rarrReduction(int n, Rarray v);
 
 
 
-/*          ***********************************************          */
-/*                   FUNCTION COMPUTED ELEMENT-WISE                  */
-/*          ***********************************************          */
+/*          ***********************************************
+
+                     FUNCTION COMPUTED ELEMENT-WISE
+
+            ***********************************************          */
 
 
 

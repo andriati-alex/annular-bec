@@ -5,7 +5,6 @@
     #include <omp.h>
 #endif
 
-#include "array.h"
 #include "array_memory.h"
 #include "array_operations.h"
 
@@ -47,7 +46,12 @@ void cmatFillTri(int n, Carray upper, Carray mid, Carray lower, Cmatrix M);
 
 
 
-CCSmat triToCCS(int n, Carray upper, Carray lower, Carray mid);
+void setValueCCS(int n, int i, int j, int col, double complex z, CCSmat M);
+/*        Set a value in the i row and original column number col        */
+
+
+
+CCSmat tri2CCS(int n, Carray upper, Carray lower, Carray mid);
 /* Fill a Sparse Matrix in Compressed Column Storage format from a tridiagonal
  * ***************************************************************************
  *
@@ -57,33 +61,28 @@ CCSmat triToCCS(int n, Carray upper, Carray lower, Carray mid);
 
 
 
-CCSmat CyclicToCCS(int n, Carray upper, Carray lower, Carray mid);
+CCSmat cyclic2CCS(int n, Carray upper, Carray lower, Carray mid);
 /*      Fill in CCS format given tridiagonal cyclic system      */
-
-
-
-void setValueCCS(int n, int i, int j, int col, double complex z, CCSmat M);
-/*        Set a value in the i row and original column number col        */
-
-
-
-CCSmat emptyCCS(int n, int max_nonzeros);
-/*    Initialize an empty CCS matrix   */
 
 
 
 void RowMajor(int m, int n, Cmatrix M, Carray v);
 /* Store Matrix M(m x n) in a vector v using Row Major scheme */
 
-CCSmat CNmat(int M, double dx, double complex dt, double a2,
-     double complex a1, double inter, Rarray V, int cyclic,
-     Carray upper, Carray lower, Carray mid);
+
+
+CCSmat CNmat(int M, double dx, doublec dt, double a2, doublec a1, double inter,
+       Rarray V, int cyclic, Carray upper, Carray lower, Carray mid);
+
+
 
 
 
 /*          **********************************************          */
 /*          MATRIX-VECTOR AND MATRIX-MATRIX MULTIPLICATION          */
 /*          **********************************************          */
+
+
 
 
 
@@ -98,8 +97,19 @@ void cmatvec(int m, int n, Cmatrix M, Carray v, Carray ans);
 
 
 
-void CCSvec(int n, Carray vals, int * restrict cols, int m, Carray vec,
-            Carray ans);
+void cmatmat(int m, int n, int l, Cmatrix M, Cmatrix A, Cmatrix ans);
+/* General Matrix Matrix multiplication: M . A = ans
+ * *************************************************
+ *
+ *  M has m(lines) by n(columns)
+ *  A has n(lines) by l(columns)
+ *  ans has m(lines) by l(columns)
+ *
+ * *************************************************/
+
+
+
+void CCSvec(int n, Carray vals, int * cols, int m, Carray vec, Carray ans);
 /* Matrix(in CCS format) vector multiplication
  * 
  * Given CCSmat A the arguments taken are
@@ -112,57 +122,12 @@ void CCSvec(int n, Carray vals, int * restrict cols, int m, Carray vec,
 
 
 
-void cmatmat(int m, int n, int l, Cmatrix M, Cmatrix A, Cmatrix ans);
-/* General Matrix Matrix multiplication: M . A = ans
- * *************************************************
- *
- *  M has m(lines) by n(columns)
- *  A has n(lines) by l(columns)
- *  ans has m(lines) by l(columns)
- *
- * *************************************************/
+void RCCSvec(int n, Rarray vals, int * cols, int m, Rarray vec, Rarray ans);
+
+
 
 int HermitianInv(int M, Cmatrix A, Cmatrix A_inv);
 /* Invert an hermitian matrix */
 
-
-
-/*          ***********************************************          */
-/*          DETERMINANT AND INVERSION OF TRIDIAGONAL SYSTEM          */
-/*          ***********************************************          */
-
-
-
-double complex detTrik(int n, Carray upper, Carray lower, Carray mid);
-/* Use recursion to compute determinant of block submatrix of tridiagonal
- *
- * Starting from the first row and column take k rows and columns to
- * define another square matrix and compute its determinant
- *
- * **********************************************************************/
-
-
-
-Carray detTri(int n, Carray upper, Carray lower, Carray mid);
-/* Take a block submatrix k by k and store its determinant in k-component */
-
-
-
-Carray phiTri(int n, Carray upper, Carray lower, Carray mid);
-/* Backwards determinant. Useful to compute inverse of tridiagonal matrix */
-
-
-
-void invTri(int n, Carray upper, Carray lower, Carray mid, Cmatrix ans);
-/* Compute the inverse of tridiagonal matrix
- * *****************************************
- *
- * detTri stores all theta components from 
- * determinant recurrence phiTri is a kind 
- * of backward determinant recurrence.
- * Search tridiagonal matrices in Wikipedia 
- * for implementation details.
- *
- * *****************************************/
 
 #endif

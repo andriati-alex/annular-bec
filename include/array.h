@@ -4,6 +4,8 @@
 #include <complex.h>
 #include <mkl.h>
 
+
+
 /* DATATYPES OF THE PACKAGE
  * *********************************************************
  *
@@ -17,7 +19,7 @@
  * Important Details
  * =================
  *
- * Pointers declared with restrict keyword suppose no 
+ * Pointers declared with  keyword suppose no 
  * aliasing between pointers. For this you can't pass
  * the same pointer in two different arguments of the 
  * routines.  Moreover this procedure is suitable for
@@ -45,11 +47,19 @@
 
 
 
+
+
 /************************ Constants ***********************/
 
 #define LAPACK_ROW_MAJOR 101
 #define LAPACK_COL_MAJOR 102
 #define PI 3.141592653589793
+
+
+
+/***************** Shortcut double complex ****************/
+
+typedef double complex doublec;
 
 
 
@@ -61,38 +71,40 @@ typedef MKL_Complex16 * CMKLarray;
 
 /***************** Real vector and matrix *****************/
 
-typedef double *  restrict Rarray;
-typedef double ** restrict Rmatrix;
+typedef double *  Rarray;
+typedef double ** Rmatrix;
 
 
 
 /**************** Complex vector and matrix ***************/
 
-typedef double complex *  restrict Carray;
-typedef double complex ** restrict Cmatrix;
+typedef double complex *  Carray;
+typedef double complex ** Cmatrix;
 
 
 
 /******* Compressed Column storage of an n x n Matrix *****/
 
-struct CCS{
-    int  m; // max number of non-zero elements in a same row
-	int * restrict col; // Column index of elemetns.
-	Carray vec;         // column oriented vector.
+struct CCS
+{
+    int  m;     // max number of non-zero elements in a same row
+	int * col;  // Column index of elemetns.
+	Carray vec; // column oriented vector.
 };
 
-typedef struct CCS * restrict CCSmat;
+typedef struct CCS *  CCSmat;
 
 
 
 /**** Compressed Column storage of an n x n Real Matrix ****/
 
-struct RCCS{
-    int  m; // max number of non zero elements in a same row
-	int * restrict col; // Column index of elemetns.
-	Rarray vec;         // column oriented vector.
+struct RCCS
+{
+    int  m;     // max number of non zero elements in a same row
+	int * col;  // Column index of elemetns.
+	Rarray vec; // column oriented vector.
 };
 
-typedef struct RCCS * restrict RCCSmat;
+typedef struct RCCS * RCCSmat;
 
 #endif

@@ -1,22 +1,25 @@
-#ifndef _GP_imagtime_integrator_h
-#define _GP_imagtime_integrator_h
+#ifndef _realtime_integrator_h
+#define _realtime_integrator_h
 
 #include <mkl.h>
 #include <mkl_dfti.h>
 
 #include "tridiagonal_solver.h"
-#include "iterative_solver.h"
 #include "matrix_operations.h"
-#include "GP_functional.h"
+#include "array_operations.h"
+#include "observables.h"
+#include "inout.h"
 #include "rk4.h"
 
 
 
 
 
-/*                    *********************************                    */
-/*                    IMAGINARY TIME PROPAGATE ROUTINES                    */
-/*                    *********************************                    */
+/*  ======================================================================  *
+ *
+ *           REAL TIME INTEGRATOR ROUTINES FOR GROSS-PITAEVSKII
+ *
+ *  ======================================================================  */
 
 
 
@@ -25,8 +28,7 @@
 /* =======================================================================
  *
  *
- * MODULE OF FUNCTIONS THAT PROPAGATE THE GROSS-PITAEVSKII EQUATION
- * IN IMAGINARY TIME : t = - i T with T being real
+ * MODULE OF FUNCTIONS THAT INTEGRATE THE GROSS-PITAEVSKII EQUATION
  *
  *
  * i dS/dt = ( a2 (d^2/dx^2) + a1 (d/dx) + V(x) + inter |S|^2 ) S(x,t)
@@ -35,7 +37,7 @@
  * This module implement the mostly well know and used  integrators  to
  * the Gross-Pitaevskii(GP) equation. The routines are named as follows
  *
- *  - First 3 letters : IGP (from Gross-Pitaevskii)
+ *  - First 2 letters : GP (from Gross-Pitaevskii)
  *
  *  - Next letters : identify the methods
  *      (1) CN for Crank-Nicolson finite differences scheme
@@ -53,7 +55,6 @@
  *
  *  M is the number of discretized points (size of arrays)
  *  N is the number of time-steps to be propagated the initial condition
- *  E end up with the energy on every time-step
  *
  *  CN methods supports both cyclic and zero boundary condition as
  *  identified by the cyclic(boolean) parameter.
@@ -64,9 +65,8 @@
 
 
 
-
-int IGPCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
-    double inter, Rarray V, int cyclic, Carray S, Carray E);
+void SSCNSM(int M, int N, double dx, double dt, double a2, double complex a1,
+     double inter, Rarray V, int cyclic, Carray S, char fname[], int n);
 /* ---------------------------------------------------------
  * Crank-Nicolson with Sherman-Morrison to solve linear part
  * --------------------------------------------------------- */
@@ -75,8 +75,8 @@ int IGPCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
 
 
 
-int IGPCNLU(int M, int N, double dx, double dT, double a2, double complex a1,
-    double inter, Rarray V, int cyclic, Carray S, Carray E);
+void SSCNLU(int M, int N, double dx, double dt, double a2, double complex a1,
+     double inter, Rarray V, int cyclic, Carray S, char fname[], int n);
 /* ---------------------------------------------------------
  * Crank-Nicolson with LU decomposition to solve linear part
  * --------------------------------------------------------- */
@@ -85,8 +85,8 @@ int IGPCNLU(int M, int N, double dx, double dT, double a2, double complex a1,
 
 
 
-int IGPFFT(int M, int N, double dx, double dT, double a2, double complex a1,
-    double inter, Rarray V, Carray S, Carray E);
+void SSFFT(int M, int N, double dx, double dt, double a2, double complex a1,
+     double inter, Rarray V, Carray S, char fname[], int n);
 /* -------------------------------------------------------
  * Use MKL fourier tranform routine to compute derivatives
  * ------------------------------------------------------- */
@@ -95,7 +95,7 @@ int IGPFFT(int M, int N, double dx, double dT, double a2, double complex a1,
 
 
 
-void NonLinearIDDT(int M, double t, Carray Psi, Carray inter, Carray Dpsi);
+void NonLinearDDT(int M, double t, Carray Psi, Carray inter, Carray Dpsi);
 /* --------------------------------------------------------------------
  * Time-derivative from nonlinear part after split-step (called in RK4)
  * -------------------------------------------------------------------- */
@@ -104,7 +104,7 @@ void NonLinearIDDT(int M, double t, Carray Psi, Carray inter, Carray Dpsi);
 
 
 
-void NonLinearVIDDT(int M, double t, Carray Psi, Carray FullPot, Carray Dpsi);
+void NonLinearVDDT(int M, double t, Carray Psi, Carray FullPot, Carray Dpsi);
 /* ------------------------------------------------------------------------
  * Time-derivative from nonderivative part after split-step (called in RK4)
  * ------------------------------------------------------------------------ */
@@ -113,8 +113,8 @@ void NonLinearVIDDT(int M, double t, Carray Psi, Carray FullPot, Carray Dpsi);
 
 
 
-int IGPCNSMRK4(int M, int N, double dx, double dT, double a2, double complex a1,
-    double inter, Rarray V, int cyclic, Carray S, Carray E);
+void SSCNRK4(int M, int N, double dx, double dt, double a2, double complex a1,
+     double inter, Rarray V, int cyclic, Carray S, char fname [], int n);
 /* ---------------------------------------
  * Crank-Nicolson with Sherman-Morrison to
  * solve linear part and RK4 to  nonlinear
@@ -124,11 +124,14 @@ int IGPCNSMRK4(int M, int N, double dx, double dT, double a2, double complex a1,
 
 
 
-int IGPFFTRK4(int M, int N, double dx, double dT, double a2, double complex a1,
-    double inter, Rarray V, Carray S, Carray E);
-/* ------------------------------------------------------------
- * Use FFT to solve linear part and RK4 for nonderivatives part
- * ------------------------------------------------------------ */
+void SSFFTRK4(int M, int N, double dx, double dt, double a2, double complex a1,
+     double inter, Rarray V, Carray S, char fname[], int n);
+/* -----------------------------------------------------------
+ * Use FFT to solve derivative part and RK4 for potential part
+ * ----------------------------------------------------------- */
+
+
+
 
 
 void CFDS(int M, int N, double dx, double dt, double a2, double complex a1,

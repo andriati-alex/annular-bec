@@ -1,4 +1,4 @@
-#include "../include/GP_realtime_integrator.h"
+#include "realtime_integrator.h"
 
 
 
@@ -43,45 +43,16 @@
 
 
 
-void record_step(FILE * f, int M, Carray v)
-{
 
-//  Given an open file f write the complex array v in a line
-
-    int j;
-
-    for (j = 0; j < M; j ++)
-    {   
-        // write in a format suitable to import with numpy
-        if (cimag(v[j]) > 0)
-        {
-            fprintf(f, "(%.15E+%.15Ej) ", creal(v[j]), cimag(v[j]));
-        }
-        else
-        {
-            if (cimag(v[j]) == 0)
-                fprintf(f, "(%.15E+%.15Ej) ", creal(v[j]), 0.0);
-            else
-                fprintf(f, "(%.15E%.15Ej) ", creal(v[j]), cimag(v[j]));
-        }
-    }
-
-    fprintf(f, "\n");
-}
-
-
-
-
-
-void GPFFT(int M, int N, double dx, double dt, double a2, double complex a1,
+void SSFFT(int M, int N, double dx, double dt, double a2, double complex a1,
      double inter, Rarray V, Carray S, char fname[], int n)
 {
 
-//  Evolve the wave-function given an initial condition in S
-//  that is overwritten at each time-step.  The  results are
-//  recorded in a file named 'fname' on every 'n' steps. Use
-//  FFT to compute linear derivatives part of  PDE hence the
-//  boundary is consider to be periodic in the last position
+/** Evolve the wave-function given an initial condition in S
+  * that is overwritten at each time-step.  The  results are
+  * recorded in a file named 'fname' on every 'n' steps. Use
+  * FFT to compute linear derivatives part of  PDE hence the
+  * boundary is consider to be periodic in the last position **/
 
 
     // File to write every n step the time-step solution
@@ -94,13 +65,13 @@ void GPFFT(int M, int N, double dx, double dt, double a2, double complex a1,
     }
 
     // Record initial data as first line
-    record_step(out_data, M, S);
+    carr_inline(out_data, M, S);
 
 
     // Reader of screen printing
     printf("\n\n\n");
     printf("     step            Energy                   Norm");
-    SepLine();
+    sepline();
 
 
     int
@@ -173,14 +144,14 @@ void GPFFT(int M, int N, double dx, double dt, double a2, double complex a1,
         carrAbs2(M, S, abs2);
 
         // Print in screen to quality and progress control
-        E = Functional(M, dx, a2, a1, inter / 2, V, S);
+        E = Energy(M, dx, a2, a1, inter, V, S);
         printf(" \n  %7d          ", i);
         printf("%15.7E          ", creal(E));
         printf("%15.7E          ", Rsimps(M, abs2, dx));
 
 
 
-        // Apply exponential of potential together nonlinear part
+        // Apply exponential of potential together with nonlinear part
         rarrUpdate(M, V, inter, abs2, out);
         rcarrExp(M, Idt / 2, out, stepexp);
         carrMultiply(m, stepexp, S, forward_fft);
@@ -241,17 +212,17 @@ void GPFFT(int M, int N, double dx, double dt, double a2, double complex a1,
 
         // RECORD solution
 
-        if (k == n) { record_step(out_data, M, S); k = 1; }
+        if (k == n) { carr_inline(out_data, M, S); k = 1; }
         else        { k = k + 1;                          }
     }
 
     carrAbs2(M, S, abs2);
-    E = Functional(M, dx, a2, a1, inter / 2, V, S);
+    E = Energy(M, dx, a2, a1, inter, V, S);
     printf(" \n  %7d          ", N);
     printf("%15.7E          ", creal(E));
     printf("%15.7E          ", Rsimps(M, abs2, dx));
     
-    SepLine();
+    sepline();
 
     fclose(out_data);
 
@@ -270,17 +241,17 @@ void GPFFT(int M, int N, double dx, double dt, double a2, double complex a1,
 
 
 
-void GPCNLU(int M, int N, double dx, double dt, double a2, double complex a1,
+void SSCNLU(int M, int N, double dx, double dt, double a2, double complex a1,
      double inter, Rarray V, int cyclic, Carray S, char fname[], int n)
 {
 
-//  Evolve the wave-function given an initial condition  in S
-//  that is overwritten at each time-step.  The  results  are
-//  recorded in a file named 'fname' on every 'n' steps.  Use
-//  Crank-Nicolson discretization scheme to  compute   linear
-//  part of potential and derivatives of the PDE. 'Cyclic' is
-//  a boolean argument define  whether  the  boundary is zero
-//  or periodic on last position point.
+/** Evolve the wave-function given an initial condition  in S
+  * that is overwritten at each time-step.  The  results  are
+  * recorded in a file named 'fname' on every 'n' steps.  Use
+  * Crank-Nicolson discretization scheme to  compute   linear
+  * part of potential and derivatives of the PDE. 'Cyclic' is
+  * a boolean argument define  whether  the  boundary is zero
+  * or periodic on last position point.                   **/
 
 
     // File to write every n step the time-step solution
@@ -295,14 +266,14 @@ void GPCNLU(int M, int N, double dx, double dt, double a2, double complex a1,
     }
 
     // Record initial data as first line
-    record_step(out_data, M, S);
+    carr_inline(out_data, M, S);
     
     
     
     // Reader of screen printing
     printf("\n\n\n");
     printf("     step            Energy                   Norm");
-    SepLine();
+    sepline();
 
 
     unsigned int
@@ -368,7 +339,7 @@ void GPCNLU(int M, int N, double dx, double dt, double a2, double complex a1,
     else        { lower[M-2] = 0;                                        }
 
     // Store in CCS format
-    cnmat = CyclicToCCS(M - 1, upper, lower, mid);
+    cnmat = cyclic2CCS(M - 1, upper, lower, mid);
 
 
 
@@ -408,7 +379,7 @@ void GPCNLU(int M, int N, double dx, double dt, double a2, double complex a1,
         carrAbs2(M, S, abs2);
 
         // Print in screen to quality and progress control
-        E = Functional(M, dx, a2, a1, inter / 2, V, S);
+        E = Energy(M, dx, a2, a1, inter, V, S);
         printf(" \n  %7d          ", i);
         printf("%15.7E          ", creal(E));
         printf("%15.7E          ", Rsimps(M, abs2, dx));
@@ -463,18 +434,18 @@ void GPCNLU(int M, int N, double dx, double dt, double a2, double complex a1,
         carrMultiply(M, linpart, stepexp, S);
 
         // record data every n steps
-        if (k == n) { record_step(out_data, M, S); k = 1; }
+        if (k == n) { carr_inline(out_data, M, S); k = 1; }
         else        { k = k + 1;                          }
 
     }
 
     carrAbs2(M, S, abs2);
-    E = Functional(M, dx, a2, a1, inter / 2, V, S);
+    E = Energy(M, dx, a2, a1, inter, V, S);
     printf(" \n  %7d          ", N);
     printf("%15.7E          ", creal(E));
     printf("%15.7E          ", Rsimps(M, abs2, dx));
     
-    SepLine();
+    sepline();
 
     fclose(out_data);
 
@@ -493,17 +464,17 @@ void GPCNLU(int M, int N, double dx, double dt, double a2, double complex a1,
 
 
 
-void GPCNSM(int M, int N, double dx, double dt, double a2, double complex a1,
+void SSCNSM(int M, int N, double dx, double dt, double a2, double complex a1,
      double inter, Rarray V, int cyclic, Carray S, char fname [], int n)
 {
 
-//  Evolve the wave-function given an initial condition in S
-//  that is overwritten at each time-step.  The  results are
-//  recorded in a file named 'fname' on every 'n' steps. Use
-//  Crank-Nicolson discretization scheme to  compute  linear
-//  part of potential and derivatives of the PDE.   'Cyclic'
-//  is a boolean argument define  whether  the  boundary  is
-//  zero or periodic on last position point.
+/** Evolve the wave-function given an initial condition in S
+  * that is overwritten at each time-step.  The  results are
+  * recorded in a file named 'fname' on every 'n' steps. Use
+  * Crank-Nicolson discretization scheme to  compute  linear
+  * part of potential and derivatives of the PDE.   'Cyclic'
+  * is a boolean argument define  whether  the  boundary  is
+  * zero or periodic on last position point.             **/
 
 
     // File to write every n step the time-step solution
@@ -518,14 +489,14 @@ void GPCNSM(int M, int N, double dx, double dt, double a2, double complex a1,
     }
 
     // Record initial data as first line
-    record_step(out_data, M, S);
+    carr_inline(out_data, M, S);
     
     
     
     // Reader of screen printing
     printf("\n\n\n");
     printf("     step            Energy                   Norm");
-    SepLine();
+    sepline();
 
 
 
@@ -592,7 +563,7 @@ void GPCNSM(int M, int N, double dx, double dt, double a2, double complex a1,
     else        { lower[M-2] = 0;                                        }
 
     // Store in CCS format
-    cnmat = CyclicToCCS(M - 1, upper, lower, mid);
+    cnmat = cyclic2CCS(M - 1, upper, lower, mid);
 
 
 
@@ -632,7 +603,7 @@ void GPCNSM(int M, int N, double dx, double dt, double a2, double complex a1,
         carrAbs2(M, S, abs2);
 
         // Print in screen to quality and progress control
-        E = Functional(M, dx, a2, a1, inter / 2, V, S);
+        E = Energy(M, dx, a2, a1, inter, V, S);
         printf(" \n  %7d          ", i);
         printf("%15.7E          ", creal(E));
         printf("%15.7E          ", Rsimps(M, abs2, dx));
@@ -687,17 +658,17 @@ void GPCNSM(int M, int N, double dx, double dt, double a2, double complex a1,
         carrMultiply(M, linpart, stepexp, S);
 
         // record data every n steps
-        if (k == n) { record_step(out_data, M, S); k = 1; }
+        if (k == n) { carr_inline(out_data, M, S); k = 1; }
         else        { k = k + 1;                          }
     }
 
     carrAbs2(M, S, abs2);
-    E = Functional(M, dx, a2, a1, inter / 2, V, S);
+    E = Energy(M, dx, a2, a1, inter, V, S);
     printf(" \n  %7d          ", N);
     printf("%15.7E          ", creal(E));
     printf("%15.7E          ", Rsimps(M, abs2, dx));
     
-    SepLine();
+    sepline();
 
     fclose(out_data);
 
@@ -727,10 +698,12 @@ void GPCNSM(int M, int N, double dx, double dt, double a2, double complex a1,
 
 
 void NonLinearDDT(int M, double t, Carray Psi, Carray inter, Carray Dpsi)
-{   // The Right-Hand-Side of derivative of non-linear part is computed
-    // on Dpsi after used split-step technique. A function  to  be used
-    // on 4th order Runge-Kutta routine. The array of extra  parameters
-    // contains only one inter[0] with contact interaction strength.
+{
+
+/** The Right-Hand-Side of derivative of non-linear part is computed
+  * on Dpsi after used split-step technique. A function  to  be used
+  * on 4th order Runge-Kutta routine. The array of extra  parameters
+  * contains only one inter[0] with contact interaction strength. **/
 
     int i;
 
@@ -750,9 +723,11 @@ void NonLinearDDT(int M, double t, Carray Psi, Carray inter, Carray Dpsi)
 
 
 void NonLinearVDDT(int M, double t, Carray Psi, Carray FullPot, Carray Dpsi)
-{   // The Right-Hand-Side of derivative of non-linear and linear  potential
-    // part. As a extra argument take the interaction strength in FullPot[0]
-    // and the linear potential computed at position i in FullPot[i + 1]
+{
+
+/** The Right-Hand-Side of derivative of non-linear and linear  potential
+  * part. As a extra argument take the interaction strength in FullPot[0]
+  * and the linear potential computed at position i in FullPot[i + 1] **/
 
     int i;
 
@@ -771,10 +746,12 @@ void NonLinearVDDT(int M, double t, Carray Psi, Carray FullPot, Carray Dpsi)
 
 
 
-void GPCNSMRK4(int M, int N, double dx, double dt, double a2, double complex a1,
+void SSCNRK4(int M, int N, double dx, double dt, double a2, double complex a1,
      double inter, Rarray V, int cyclic, Carray S, char fname [], int n)
-{   // Evolve Gross-Pitaevskii using 4-th order Runge-Kutta to deal
-    // with nonlinear part and Crank-Nicolson  to  the  linear part
+{
+
+/** Evolve Gross-Pitaevskii using 4-th order Runge-Kutta to deal
+  * with nonlinear part and Crank-Nicolson to the linear part **/
 
 
     // File to write every n step the time-step solution
@@ -789,14 +766,14 @@ void GPCNSMRK4(int M, int N, double dx, double dt, double a2, double complex a1,
     }
 
     // Record initial data as first line
-    record_step(out_data, M, S);
+    carr_inline(out_data, M, S);
 
 
 
     // Reader of screen printing
     printf("\n\n\n");
     printf("     step            Energy                   Norm");
-    SepLine();
+    sepline();
 
 
 
@@ -860,7 +837,7 @@ void GPCNSMRK4(int M, int N, double dx, double dt, double a2, double complex a1,
     else        { lower[M-2] = 0;                                        }
 
     // Store in CCS format
-    cnmat = CyclicToCCS(M - 1, upper, lower, mid);
+    cnmat = cyclic2CCS(M - 1, upper, lower, mid);
 
 
 
@@ -899,7 +876,7 @@ void GPCNSMRK4(int M, int N, double dx, double dt, double a2, double complex a1,
         carrAbs2(M, S, abs2);
 
         // Print in screen to quality and progress control
-        E = Functional(M, dx, a2, a1, inter / 2, V, S);
+        E = Energy(M, dx, a2, a1, inter, V, S);
         printf(" \n  %7d          ", i);
         printf("%15.7E          ", creal(E));
         printf("%15.7E          ", Rsimps(M, abs2, dx));
@@ -919,17 +896,17 @@ void GPCNSMRK4(int M, int N, double dx, double dt, double a2, double complex a1,
 
 
         // record data every n steps
-        if (k == n) { record_step(out_data, M, S); k = 1; }
+        if (k == n) { carr_inline(out_data, M, S); k = 1; }
         else        { k = k + 1;                          }
     }
 
     carrAbs2(M, S, abs2);
-    E = Functional(M, dx, a2, a1, inter / 2, V, S);
+    E = Energy(M, dx, a2, a1, inter, V, S);
     printf(" \n  %7d          ", N);
     printf("%15.7E          ", creal(E));
     printf("%15.7E          ", Rsimps(M, abs2, dx));
 
-    SepLine();
+    sepline();
 
     fclose(out_data);
 
@@ -946,14 +923,16 @@ void GPCNSMRK4(int M, int N, double dx, double dt, double a2, double complex a1,
 
 
 
-void GPFFTRK4(int M, int N, double dx, double dt, double a2, double complex a1,
+void SSFFTRK4(int M, int N, double dx, double dt, double a2, double complex a1,
      double inter, Rarray V, Carray S, char fname[], int n)
-{   // Evolve the wave-function given an initial condition in S
-    // that is overwritten at each time-step.  The  results are
-    // recorded in a file named 'fname' on every 'n' steps. Use
-    // FFT to compute linear derivatives part of  PDE hence the
-    // boundary is consider to be periodic in the last position
-    // Solve nonlinear part using 4th order Runge-Kutta
+{
+
+/** Evolve the wave-function given an initial condition in S
+  * that is overwritten at each time-step.  The  results are
+  * recorded in a file named 'fname' on every 'n' steps. Use
+  * FFT to compute linear derivatives part of  PDE hence the
+  * boundary is consider to be periodic in the last position
+  * Solve nonlinear part using 4th order Runge-Kutta     **/
 
 
 
@@ -969,14 +948,14 @@ void GPFFTRK4(int M, int N, double dx, double dt, double a2, double complex a1,
     }
 
     // Record initial data as first line
-    record_step(out_data, M, S);
+    carr_inline(out_data, M, S);
 
 
 
     // Reader of screen printing
     printf("\n\n\n");
     printf("     step            Energy                   Norm");
-    SepLine();
+    sepline();
 
 
 
@@ -1058,7 +1037,7 @@ void GPFFTRK4(int M, int N, double dx, double dt, double a2, double complex a1,
         carrAbs2(M, S, abs2);
 
         // Print in screen to quality and progress control
-        E = Functional(M, dx, a2, a1, inter / 2, V, S);
+        E = Energy(M, dx, a2, a1, inter, V, S);
         printf(" \n  %7d          ", i);
         printf("%15.7E          ", creal(E));
         printf("%15.7E          ", Rsimps(M, abs2, dx));
@@ -1080,18 +1059,18 @@ void GPFFTRK4(int M, int N, double dx, double dt, double a2, double complex a1,
         RK4step(M, dt/2, 0, argRK4, FullPot, S, NonLinearVDDT);
 
         // record data every n steps
-        if (k == n) { record_step(out_data, M, S); k = 1; }
+        if (k == n) { carr_inline(out_data, M, S); k = 1; }
         else        { k = k + 1;                          }
 
     }
 
     carrAbs2(M, S, abs2);
-    E = Functional(M, dx, a2, a1, inter / 2, V, S);
+    E = Energy(M, dx, a2, a1, inter, V, S);
     printf(" \n  %7d          ", N);
     printf("%15.7E          ", creal(E));
     printf("%15.7E          ", Rsimps(M, abs2, dx));
 
-    SepLine();
+    sepline();
 
     fclose(out_data);
 
@@ -1118,14 +1097,6 @@ void CFDS(int M, int N, double dx, double dt, double a2, double complex a1,
      double inter, Rarray V, int cyclic, Carray S, char fname [], int n)
 {
 
-//  Evolve the wave-function given an initial condition in S
-//  that is overwritten at each time-step.  The  results are
-//  recorded in a file named 'fname' on every 'n' steps. Use
-//  Crank-Nicolson discretization scheme to  compute  linear
-//  part of potential and derivatives of the PDE.   'Cyclic'
-//  is a boolean argument define  whether  the  boundary  is
-//  zero or periodic on last position point.
-
 
     // File to write every n step the time-step solution
     FILE * out_data = fopen(fname, "w");
@@ -1139,14 +1110,14 @@ void CFDS(int M, int N, double dx, double dt, double a2, double complex a1,
     }
 
     // Record initial data as first line
-    record_step(out_data, M, S);
+    carr_inline(out_data, M, S);
 
 
 
     // Reader of screen printing
     printf("\n\n\n");
     printf("     step            Energy                   Norm");
-    SepLine();
+    sepline();
 
 
 
@@ -1156,6 +1127,7 @@ void CFDS(int M, int N, double dx, double dt, double a2, double complex a1,
         j,
         iter,
         condition;
+
 
 
     double
@@ -1219,7 +1191,7 @@ void CFDS(int M, int N, double dx, double dt, double a2, double complex a1,
     else        { lower[M-2] = 0;                                        }
 
     // Store in CCS format
-    cnmat = CyclicToCCS(M - 1, upper, lower, mid);
+    cnmat = cyclic2CCS(M - 1, upper, lower, mid);
 
 
 
@@ -1259,7 +1231,7 @@ void CFDS(int M, int N, double dx, double dt, double a2, double complex a1,
         carrAbs2(M, S, abs2);
 
         // Print in screen to quality and progress control
-        aux = Functional(M, dx, a2, a1, inter / 2, V, S);
+        aux = Energy(M, dx, a2, a1, inter, V, S);
         printf(" \n  %7d          ", i);
         printf("%15.7E          ", creal(aux));
         printf("%15.7E          ", Rsimps(M, abs2, dx));
@@ -1311,7 +1283,7 @@ void CFDS(int M, int N, double dx, double dt, double a2, double complex a1,
             condition = 0;
             for (j = 0; j  < M; j++)
             {
-                tol = 1E-9 * cabs(linpart[j]) + 1E-12;
+                tol = 1E-13 * cabs(linpart[j]) + 1E-13;
                 if (cabs(Sstep[j] - linpart[j]) > tol) condition = 1;
             }
 
@@ -1319,7 +1291,7 @@ void CFDS(int M, int N, double dx, double dt, double a2, double complex a1,
 
         }
 
-        // correct the main diagonal
+        // correct the main diagonal to do SSCN
         for (j = 0; j < M - 1; j ++)
         {
             mid[j] = I + a2 * dt / dx / dx - dt * V[j] / 2;
@@ -1328,18 +1300,18 @@ void CFDS(int M, int N, double dx, double dt, double a2, double complex a1,
         carrCopy(M, Sstep, S);
         
         // record data every n steps
-        if (k == n) { record_step(out_data, M, S); k = 1; }
+        if (k == n) { carr_inline(out_data, M, S); k = 1; }
         else        { k = k + 1;                          }
 
     }
 
     carrAbs2(M, S, abs2);
-    aux = Functional(M, dx, a2, a1, inter / 2, V, S);
+    aux = Energy(M, dx, a2, a1, inter, V, S);
     printf(" \n  %7d          ", N);
     printf("%15.7E          ", creal(aux));
     printf("%15.7E          ", Rsimps(M, abs2, dx));
 
-    SepLine();
+    sepline();
 
     fclose(out_data);
 

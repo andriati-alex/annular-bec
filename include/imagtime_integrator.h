@@ -1,24 +1,23 @@
-#ifndef _GP_realtime_integrator_h
-#define _GP_realtime_integrator_h
+#ifndef _imagtime_integrator_h
+#define _imagtime_integrator_h
 
 #include <mkl.h>
 #include <mkl_dfti.h>
 
 #include "tridiagonal_solver.h"
+#include "iterative_solver.h"
 #include "matrix_operations.h"
-#include "array_operations.h"
-#include "GP_functional.h"
+#include "observables.h"
+#include "inout.h"
 #include "rk4.h"
 
 
 
 
 
-/*  ======================================================================  *
- *
- *           REAL TIME INTEGRATOR ROUTINES FOR GROSS-PITAEVSKII
- *
- *  ======================================================================  */
+/*                    *********************************                    */
+/*                    IMAGINARY TIME PROPAGATE ROUTINES                    */
+/*                    *********************************                    */
 
 
 
@@ -27,7 +26,8 @@
 /* =======================================================================
  *
  *
- * MODULE OF FUNCTIONS THAT INTEGRATE THE GROSS-PITAEVSKII EQUATION
+ * MODULE OF FUNCTIONS THAT PROPAGATE THE GROSS-PITAEVSKII EQUATION
+ * IN IMAGINARY TIME : t = - i T with T being real
  *
  *
  * i dS/dt = ( a2 (d^2/dx^2) + a1 (d/dx) + V(x) + inter |S|^2 ) S(x,t)
@@ -36,7 +36,7 @@
  * This module implement the mostly well know and used  integrators  to
  * the Gross-Pitaevskii(GP) equation. The routines are named as follows
  *
- *  - First 2 letters : GP (from Gross-Pitaevskii)
+ *  - First 3 letters : IGP (from Gross-Pitaevskii)
  *
  *  - Next letters : identify the methods
  *      (1) CN for Crank-Nicolson finite differences scheme
@@ -54,6 +54,7 @@
  *
  *  M is the number of discretized points (size of arrays)
  *  N is the number of time-steps to be propagated the initial condition
+ *  E end up with the energy on every time-step
  *
  *  CN methods supports both cyclic and zero boundary condition as
  *  identified by the cyclic(boolean) parameter.
@@ -62,17 +63,11 @@
 
 
 
-void record_step(FILE * f, int M, Carray v);
-/* ------------------------------------------------------------
- * Record v array data (of size M) in a row of a openned file f
- * ------------------------------------------------------------ */
 
 
 
-
-
-void GPCNSM(int M, int N, double dx, double dt, double a2, double complex a1,
-     double inter, Rarray V, int cyclic, Carray S, char fname[], int n);
+int ISSCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
+    double inter, Rarray V, int cyclic, Carray S, Carray E);
 /* ---------------------------------------------------------
  * Crank-Nicolson with Sherman-Morrison to solve linear part
  * --------------------------------------------------------- */
@@ -81,8 +76,8 @@ void GPCNSM(int M, int N, double dx, double dt, double a2, double complex a1,
 
 
 
-void GPCNLU(int M, int N, double dx, double dt, double a2, double complex a1,
-     double inter, Rarray V, int cyclic, Carray S, char fname[], int n);
+int ISSCNLU(int M, int N, double dx, double dT, double a2, double complex a1,
+    double inter, Rarray V, int cyclic, Carray S, Carray E);
 /* ---------------------------------------------------------
  * Crank-Nicolson with LU decomposition to solve linear part
  * --------------------------------------------------------- */
@@ -91,8 +86,8 @@ void GPCNLU(int M, int N, double dx, double dt, double a2, double complex a1,
 
 
 
-void GPFFT(int M, int N, double dx, double dt, double a2, double complex a1,
-     double inter, Rarray V, Carray S, char fname[], int n);
+int ISSFFT(int M, int N, double dx, double dT, double a2, double complex a1,
+    double inter, Rarray V, Carray S, Carray E);
 /* -------------------------------------------------------
  * Use MKL fourier tranform routine to compute derivatives
  * ------------------------------------------------------- */
@@ -101,7 +96,7 @@ void GPFFT(int M, int N, double dx, double dt, double a2, double complex a1,
 
 
 
-void NonLinearDDT(int M, double t, Carray Psi, Carray inter, Carray Dpsi);
+void NonLinearIDDT(int M, double t, Carray Psi, Carray inter, Carray Dpsi);
 /* --------------------------------------------------------------------
  * Time-derivative from nonlinear part after split-step (called in RK4)
  * -------------------------------------------------------------------- */
@@ -110,7 +105,7 @@ void NonLinearDDT(int M, double t, Carray Psi, Carray inter, Carray Dpsi);
 
 
 
-void NonLinearVDDT(int M, double t, Carray Psi, Carray FullPot, Carray Dpsi);
+void NonLinearVIDDT(int M, double t, Carray Psi, Carray FullPot, Carray Dpsi);
 /* ------------------------------------------------------------------------
  * Time-derivative from nonderivative part after split-step (called in RK4)
  * ------------------------------------------------------------------------ */
@@ -119,8 +114,8 @@ void NonLinearVDDT(int M, double t, Carray Psi, Carray FullPot, Carray Dpsi);
 
 
 
-void GPCNSMRK4(int M, int N, double dx, double dt, double a2, double complex a1,
-     double inter, Rarray V, int cyclic, Carray S, char fname [], int n);
+int ISSCNRK4(int M, int N, double dx, double dT, double a2, double complex a1,
+    double inter, Rarray V, int cyclic, Carray S, Carray E);
 /* ---------------------------------------
  * Crank-Nicolson with Sherman-Morrison to
  * solve linear part and RK4 to  nonlinear
@@ -130,10 +125,11 @@ void GPCNSMRK4(int M, int N, double dx, double dt, double a2, double complex a1,
 
 
 
-void GPFFTRK4(int M, int N, double dx, double dt, double a2, double complex a1,
-     double inter, Rarray V, Carray S, char fname[], int n);
-/* -----------------------------------------------------------
- * Use FFT to solve derivative part and RK4 for potential part
- * ----------------------------------------------------------- */
+int ISSFFTRK4(int M, int N, double dx, double dT, double a2, double complex a1,
+    double inter, Rarray V, Carray S, Carray E);
+/* ------------------------------------------------------------
+ * Use FFT to solve linear part and RK4 for nonderivatives part
+ * ------------------------------------------------------------ */
+
 
 #endif
