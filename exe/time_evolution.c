@@ -129,95 +129,20 @@ void ReachNewLine(FILE * f)
 
 
 
-void SaveConf(char timeinfo, char fnameIn [], char fnameOut [], char Vname [],
-     int Nlines)
+void SaveConf(FILE * f, EqDataPkg EQ, double dt, double N)
 {
 
-    int
-        i,
-        N,
-        k,
-        Mdx;
+    double imag;
 
-    double
-        p1,
-        p2,
-        p3,
-        xi,
-        xf,
-        dt,
-        a2,
-        g,
-        imag;
+    imag = cimag(EQ->a1);
 
-    char
-        fname [120];
+    fprintf(f, "%d %.15lf %.15lf %.10lf %d ", EQ->Mpos, EQ->xi, EQ->xf, dt, N);
 
-    FILE
-        * confFileIn,
-        * eqFileIn,
-        * confFileOut;
+    fprintf(confFileOut, "%.15lf %.15lf %.15lf ", EQ->a2, imag, EQ->inter);
 
-    strcpy(fname, "input/");
-    strcat(fname, fnameIn);
-    strcat(fname, "_domain.dat");
+    fprintf(confFileOut, "%.15lf %.15lf %.15lf", EQ->p[0], EQ->p[1], EQ->p[2]);
 
-    confFileIn = fopen(fname, "r");
-    if (confFileIn == NULL) // impossible to open file
-    {
-        printf("\n\n\tERROR: impossible to open file %s\n", fname);
-        exit(EXIT_FAILURE);
-    }
-
-    strcpy(fname, "input/");
-    strcat(fname, fnameIn);
-    strcat(fname, "_eq.dat");
-
-    eqFileIn = fopen(fname, "r");
-    if (eqFileIn == NULL) // impossible to open file
-    {
-        printf("\n\n\tERROR: impossible to open file %s\n", fname);
-        exit(EXIT_FAILURE);
-    }
-
-    strcpy(fname, "output/");
-    strcat(fname, fnameOut);
-
-    if (timeinfo == 'r' || timeinfo == 'R')
-    { strcat(fname, "_conf_realtime.dat"); }
-    else
-    { strcat(fname, "_conf_imagtime.dat"); }
-
-    confFileOut = fopen(fname, "w");
-    if (confFileOut == NULL) // impossible to open file
-    {
-        printf("\n\n\tERROR: impossible to open file %s\n", fname);
-        exit(EXIT_FAILURE);
-    }
-
-    // Read data and write in out file (transfer)
-
-    fprintf(confFileOut, "# potential : %s\n", Vname);
-
-    for (i = 0; i < Nlines; i++)
-    {
-        k = fscanf(eqFileIn, "%lf %lf %lf %lf %lf %lf",
-                   &a2, &imag, &g, &p1, &p2, &p3);
-
-        k = fscanf(confFileIn, "%lf %lf %d %lf %d",
-                   &xi, &xf, &Mdx, &dt, &N);
-
-        fprintf(confFileOut, "%d %.15lf %.15lf %.15lf %d ",
-                Mdx, xi, xf, dt, N);
-
-        fprintf(confFileOut, "%.15lf %.15lf %.15lf ", a2, imag, g);
-
-        fprintf(confFileOut, "%.15lf %.15lf %.15lf", p1, p2, p3);
-
-        fprintf(confFileOut, "\n");
-    }
-
-    fclose(eqFileIn); fclose(confFileIn); fclose(confFileOut);
+    fprintf(confFileOut, "\n");
 
 }
 
@@ -225,9 +150,8 @@ void SaveConf(char timeinfo, char fnameIn [], char fnameOut [], char Vname [],
 
 
 
-void SetupParams(FILE * paramFile, FILE * confFile, Rarray x, double * a2,
-     double complex * a1, double * g, char Vname [], Rarray V,
-     double * dt, int * N)
+EqDataPkg SetupParams(FILE * paramFile, FILE * confFile,
+          char Vname[], double * dt, int * N,)
 {
 
 /** Read line by line of _domain file and _eq to setup a new integration **/
@@ -237,31 +161,27 @@ void SetupParams(FILE * paramFile, FILE * confFile, Rarray x, double * a2,
         Mdx;
 
     double
-        p1,
-        p2,
-        p3,
+        g,
+        a2,
         xi,
         xf,
-        dx,
-        imag;
+        imag,
+        p[3];
 
 
 
-    // Setup spatial and time domain
-    // -----------------------------
+    // Read spatial and time domain settings
+    // -------------------------------------
 
     k = fscanf(confFile, "%lf %lf %d %lf %d", &xi, &xf, &Mdx, dt, N);
 
-    // Setup Equation parameters
-    // -------------------------
+    // Read a line of numbers corresponding to equation parameters
+    // -----------------------------------------------------------
 
-    k = fscanf(paramFile,"%lf %lf %lf %lf %lf %lf",a2,&imag,g,&p1,&p2,&p3);
+    k = fscanf(paramFile,"%lf %lf %lf %lf %lf %lf", &a2, &imag, &g,
+        &p[0], &p[1], &p[2]);
 
-    * a1 = 0 + imag * I;
-
-    GetPotential(Mdx + 1, Vname, x, V, p1, p2, p3);
-
-    printf("\n\nConfiguration Done\n");
+    return PackEqData(Mdx + 1, xi, xf, a2, g, I * imag, Vname, p);
 
 }
 
@@ -304,21 +224,9 @@ int main(int argc, char * argv[])
     double
         start,      // start trigger to measure time
         time_used,  // end of section with time being measured
-        x1,         // lower bound of spacial domain
-        x2,         // upper bound of spacial domain
-        dx,         // spacial step
         dt,         // time step
-        a2,         // Coefficient of (d^2 / d x^2)
-        inter,      // interaction strength
         real,       // read real data from file
-        imag,       // read imaginary data from file
-        * V,        // Potential computed at discretized positions
-        * x;        // Array of discretized positions
-
-
-
-    double complex
-        a1;         // Coefficient of (d / dx)
+        imag;       // read imaginary data from file
 
 
 
@@ -345,6 +253,10 @@ int main(int argc, char * argv[])
     Carray
         S, // Starts with initial solution, ends with final time-step
         E; // Energy of the system on each time-step
+
+
+
+    EqDataPkg EQ;
 
 
 
@@ -427,62 +339,6 @@ int main(int argc, char * argv[])
 
 
 
-    /*  ===============================================================
-     
-               SETUP VALUES FROM FILES - FIXED FOR ALL EXECUTIONS
-     
-        ===============================================================  */
-
-
-
-
-
-    // search and read file with values of domain
-    // ----------------------------------------------------------------
-    strcpy(fname, "input/");
-    strcat(fname, infname);
-    strcat(fname, "_domain.dat");
-
-    printf("\nLooking for %s", fname);
-
-    domain_file = fopen(fname, "r");
-
-    if (domain_file == NULL)
-    {
-        printf("\n\n\tERROR: impossible to open file %s\n\n", fname);
-        exit(EXIT_FAILURE);
-    } else
-    {
-        printf(" ... Found !\n");
-    }
-
-    trash = fscanf(domain_file, "%lf %lf %d", &x1, &x2, &M);
-
-    fclose(domain_file);
-    // ----------------------------------------------------------------
-
-
-
-    // Setup discretized positions and potential
-    // ----------------------------------------------------------------
-    dx = (x2 - x1) / M;
-    x  = rarrDef(M + 1);
-    rarrFillInc(M + 1, x1, dx, x);
-    V  = rarrDef(M + 1);
-    S  = carrDef(M + 1); // solution
-    // ----------------------------------------------------------------
-
-
-
-    // write configuration parameters to files
-    // ----------------------------------------------------------------
-
-    SaveConf(timeinfo, infname, outfname, potname, Nlines);
-
-
-
-
-
 
 
 
@@ -532,6 +388,10 @@ int main(int argc, char * argv[])
         printf("\n\n\tERROR: impossible to open file %s\n\n", fname);
         return -1;
     }
+    else
+    {
+        printf(" ... Found !\n");
+    }
     // ----------------------------------------------------------------
 
 
@@ -555,7 +415,9 @@ int main(int argc, char * argv[])
     {
         printf(" ..... Found !\n");
     }
-    
+
+
+
     // open file to write energy values
     // ----------------------------------------------------------------
     strcpy(fname, "output/");
@@ -572,7 +434,34 @@ int main(int argc, char * argv[])
 
 
 
-    SetupParams(eq_file,domain_file,x,&a2,&a1,&inter,potname,V,&dt,&N);
+    // open file to write parameters of domain and equation
+    // ----------------------------------------------------------------
+    strcpy(fname, "output/");
+    strcat(fname, outfname);
+
+    if (timeinfo == 'i' || timeinfo == 'I')
+    {
+        strcat(fname, "_conf_imagtime.dat");
+    } else
+    {
+        strcat(fname, "_conf_realtime.dat");
+    }
+
+    job_file = fopen(fname, "w");
+
+    if (job_file == NULL)  // impossible to open file
+    {
+        printf("\n\n\tERROR: impossible to open file %s\n\n", fname);
+        return -1;
+    }
+
+    fprintf(job_file, "# Trap Id : %s\n", potname);
+
+
+
+    EQ = SetupParams(eq_file, domain_file, potname, &dt, &N);
+    M  = EQ->Mpos - 1;
+    S  = carrDef(M + 1); // solution at discretized positions
 
 
 
@@ -589,7 +478,7 @@ int main(int argc, char * argv[])
      
         ===============================================================  */
 
-    E = carrDef(N + 1); // energy to record progress of convergence
+    E = carrDef(N + 1); // energy at each time step
 
     for (i = 0; i < M + 1; i++)
     {
@@ -626,45 +515,41 @@ int main(int argc, char * argv[])
 
         strcpy(fname, "output/");
         strcat(fname, outfname);
-        strcat(fname, "_line-1_function_realtime.dat");
+        strcat(fname, "_line-1_orb_realtime.dat");
         switch (method)
         {
             case 1:
-                SSCNRK4(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S,
-                fname, 20);
+                SSCNRK4(EQ, N, dt, cyclic, S, fname, N / 1000);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(RK4 nonlinear CN-SM linear)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
             case 2:
-                SSFFTRK4(M + 1, N, dx, dt, a2, a1, inter, V, S, fname, 20);
+                SSFFTRK4(EQ, N, dt, S, fname, N / 1000);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(RK4 nonlinear / FFT linear)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
             case 3:
-                SSCNSM(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S,
-                fname, 20);
+                SSCNSM(EQ, N, dt, cyclic, S, fname, N / 1000);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(Crank-Nicolson-SM)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
             case 4:
-                SSCNLU(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S,
-                fname, 20);
+                SSCNLU(EQ, N, dt, cyclic, S, fname, N / 1000);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(Crank-Nicolson-LU)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
             case 5:
-                SSFFT(M + 1, N, dx, dt, a2, a1, inter, V, S, fname, 20);
+                SSFFT(EQ, N, dt, S, fname, N / 1000);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(FFT)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
             case 6:
-                CFDS(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S,
-                fname, 20);
+                CFDS(EQ, N, dt, cyclic, S, fname, N / 1000);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(CFDS)");
                 printf(" : %.3f seconds\n", time_used);
@@ -680,67 +565,48 @@ int main(int argc, char * argv[])
         switch (method)
         {
             case 1:
-                N = ISSCNRK4(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S, E);
+                N = ISSCNRK4(EQ, N, dt, cyclic, S, E);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(RK4 nonlinear/CN-SM linear)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
             case 2:
-                N = ISSFFTRK4(M + 1, N, dx, dt, a2, a1, inter, V, S, E);
+                N = ISSFFTRK4(EQ, N, dt, S, E);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(RK4 nonlinear/FFT linear)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
             case 3:
-                N = ISSCNSM(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S, E);
+                N = ISSCNSM(EQ, N, dt, cyclic, S, E);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(Crank-Nicolson-SM)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
             case 4:
-                N = ISSCNLU(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S, E);
+                N = ISSCNLU(EQ, N, dt, cyclic, S, E);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(Crank-Nicolson-LU)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
             case 5:
-                N = ISSFFT(M + 1, N, dx, dt, a2, a1, inter, V, S, E);
+                N = ISSFFT(EQ, N, dt, S, E);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(FFT)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
         }
-    }
 
-
-
-
-
-    /*  ===============================================================
-     
-                                   RECORD DATA
-     
-        ===============================================================  */
-
-
-
-    if (timeinfo == 'i' || timeinfo == 'I')
-    {
+        // Record data
         strcpy(fname, "output/");
         strcat(fname, outfname);
         strcat(fname, "_line-1_orb_imagtime.dat");
 
         carr_txt(fname, M + 1, S);
 
-        /*
-        strcpy(fname, "../gp_data/");
-        strcat(fname, argv[4]);
-        strcat(fname, "_line-1_E_imagtime.dat");
-
-        carr_txt(fname, N, E);
-        */
         fprintf(E_file, "%.10E\n", creal(E[N-1]));
     }
+
+    SaveConf(job_file, EQ, dt, N);
 
 
 
@@ -750,15 +616,16 @@ int main(int argc, char * argv[])
     {
 
         printf("\n\n\n\n\n\n\n\n");
+        
+        ReleaseEqDataPkg(EQ);
+
+        free(E);
 
         // number of line reading in _conf.dat and _eq.dat files
         sprintf(strnum, "%d", i + 1);
 
-        // free old solution
-        free(E);
-
         // read new parameters(one more line) to do another time propagation
-        SetupParams(eq_file,domain_file,x,&a2,&a1,&inter,potname,V,&dt,&N);
+        EQ = SetupParams(eq_file, domain_file, potname, &dt, &N);
 
         E = carrDef(N + 1); // energy to record progress of convergence
 
@@ -821,42 +688,37 @@ int main(int argc, char * argv[])
             switch (method)
             {
                 case 1:
-                    SSCNRK4(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S,
-                    fname, 20);
+                    SSCNRK4(EQ, N, dt, cyclic, S, fname, N / 1000);
                     time_used = (double) (omp_get_wtime() - start);
                     printf("\nTime taken to solve(RK4 nonlinear CN-SM linear)");
                     printf(" : %.3f seconds\n", time_used);
                     break;
                 case 2:
-                    SSFFTRK4(M + 1, N, dx, dt, a2, a1, inter, V, S,
-                    fname, 20);
+                    SSFFTRK4(EQ, N, dt, S, fname, N / 1000);
                     time_used = (double) (omp_get_wtime() - start);
                     printf("\nTime taken to solve(RK4 nonlinear / FFT linear)");
                     printf(" : %.3f seconds\n", time_used);
                     break;
                 case 3:
-                    SSCNSM(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S,
-                    fname, 20);
+                    SSCNSM(EQ, N, dt, cyclic, S, fname, N / 1000);
                     time_used = (double) (omp_get_wtime() - start);
                     printf("\nTime taken to solve(Crank-Nicolson-SM)");
                     printf(" : %.3f seconds\n", time_used);
                     break;
                 case 4:
-                    SSCNLU(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S,
-                    fname, 20);
+                    SSCNLU(EQ, N, dt, cyclic, S, fname, N / 1000);
                     time_used = (double) (omp_get_wtime() - start);
                     printf("\nTime taken to solve(Crank-Nicolson-LU)");
                     printf(" : %.3f seconds\n", time_used);
                     break;
                 case 5:
-                    SSFFT(M + 1, N, dx, dt, a2, a1, inter, V, S, fname, 20);
+                    SSFFT(EQ, N, dt, S, fname, N / 1000);
                     time_used = (double) (omp_get_wtime() - start);
                     printf("\nTime taken to solve(FFT)");
                     printf(" : %.3f seconds\n", time_used);
                     break;
                 case 6:
-                    CFDS(M + 1, N, dx, dt, a2, a1, inter, V, cyclic, S,
-                    fname, 20);
+                    CFDS(EQ, N, dt, cyclic, S, fname, N / 1000);
                     time_used = (double) (omp_get_wtime() - start);
                     printf("\nTime taken to solve(CFDS)");
                     printf(" : %.3f seconds\n", time_used);
@@ -872,45 +734,37 @@ int main(int argc, char * argv[])
             switch (method)
             {
                 case 1:
-                    N = ISSCNRK4(M + 1, N, dx, dt, a2, a1, inter, V,
-                        cyclic, S, E);
+                    N = ISSCNRK4(EQ, N, dt, cyclic, S, E);
                     time_used = (double) (omp_get_wtime() - start);
-                    printf("\nTime taken to solve(RK4 nonlinear/CN-SM linear)");
+                    printf("\nTime taken to solve(RK4 nonlinear/CN linear)");
                     printf(" : %.3f seconds\n", time_used);
                     break;
                 case 2:
-                    N = ISSFFTRK4(M + 1, N, dx, dt, a2, a1, inter, V, S, E);
+                    N = ISSFFTRK4(EQ, N, dt, S, E);
                     time_used = (double) (omp_get_wtime() - start);
                     printf("\nTime taken to solve(RK4 nonlinear/FFT linear)");
                     printf(" : %.3f seconds\n", time_used);
                     break;
                 case 3:
-                    N = ISSCNSM(M + 1, N, dx, dt, a2, a1, inter, V,
-                        cyclic, S, E);
+                    N = ISSCNSM(EQ, N, dt, cyclic, S, E);
                     time_used = (double) (omp_get_wtime() - start);
                     printf("\nTime taken to solve(Crank-Nicolson-SM)");
                     printf(" : %.3f seconds\n", time_used);
                     break;
                 case 4:
-                    N = ISSCNLU(M + 1, N, dx, dt, a2, a1, inter, V,
-                        cyclic, S, E);
+                    N = ISSCNLU(EQ, N, dt, cyclic, S, E);
                     time_used = (double) (omp_get_wtime() - start);
                     printf("\nTime taken to solve(Crank-Nicolson-LU)");
                     printf(" : %.3f seconds\n", time_used);
                     break;
                 case 5:
-                    N = ISSFFT(M + 1, N, dx, dt, a2, a1, inter, V, S, E);
+                    N = ISSFFT(EQ, N, dt, S, E);
                     time_used = (double) (omp_get_wtime() - start);
                     printf("\nTime taken to solve(FFT)");
                     printf(" : %.3f seconds\n", time_used);
                     break;
             }
-        }
-        
-        printf("\nRecording data ...\n");
 
-        if (timeinfo == 'i' || timeinfo == 'I')
-        {
             strcpy(fname, "output/");
             strcat(fname, outfname);
             strcat(fname, "_line-");
@@ -919,18 +773,11 @@ int main(int argc, char * argv[])
 
             carr_txt(fname, M + 1, S);
 
-            /*
-            strcpy(fname, "../gp_data/");
-            strcat(fname, argv[4]);
-            strcat(fname, "_line-");
-            strcat(fname, strnum);
-            strcat(fname, "_E_imagtime.dat");
-
-            carr_txt(fname, N, E);
-            */
-            
             fprintf(E_file, "%.10E\n", creal(E[N-1]));
+
         }
+
+        SaveConf(job_file, EQ, dt, N);
     }
 
 
@@ -939,14 +786,14 @@ int main(int argc, char * argv[])
 
     /* release memory
      * ------------------------------------------------------------------- */
+    fclose(job_file);
     fclose(eq_file);
     fclose(E_file);
     if (timeinfo == 'r' || timeinfo == 'R') fclose(orb_file);
     fclose(domain_file);
-    free(x);
-    free(V);
     free(S);
     free(E);
+    ReleaseEqDataPkg(EQ);
     /* ------------------------------------------------------------------- */
 
 

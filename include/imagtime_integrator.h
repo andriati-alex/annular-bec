@@ -10,6 +10,7 @@
 #include "observables.h"
 #include "inout.h"
 #include "rk4.h"
+#include "data_structure.h"
 
 
 

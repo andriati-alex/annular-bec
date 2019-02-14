@@ -49,14 +49,6 @@ EqDataPkg PackEqData(int Mpos,double xi,double xf,double a2,double inter,
 
 void ReleaseEqDataPkg (EqDataPkg gp)
 {
-    int i;
-
-    for (i = 0; i < gp->nc; i++) free(MC->IF[i]);
-    free(gp->IF);
-
-    for (i = 0; i <= gp->Npar; i++) free(MC->NCmat[i]);
-    free(gp->NCmat);
-
     free(gp->V);
     free(gp);
 }
