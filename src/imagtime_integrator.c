@@ -51,8 +51,7 @@
 
 
 
-int ISSFFT(int M, int N, double dx, double dT, double a2, double complex a1,
-    double inter, Rarray V, Carray S, Carray E)
+int ISSFFT(EqDataPkg EQ, int N, double dT, Carray S, Carray E)
 {
 
 /** Evolve the wave-function given an initial condition in S
@@ -67,7 +66,11 @@ int ISSFFT(int M, int N, double dx, double dT, double a2, double complex a1,
     int
         i,
         j,
-        m = M - 1;
+        M,
+        m;
+
+    m = EQ->Mpos - 1;
+    M = EQ->Mpos;
 
 
 
@@ -77,6 +80,10 @@ int ISSFFT(int M, int N, double dx, double dT, double a2, double complex a1,
 
 
     double
+        dx,
+        a2,
+        inter,
+        * V,
         R2,
         freq,       // frequencies in Fourier space
         norm,       // initial norm
@@ -86,6 +93,7 @@ int ISSFFT(int M, int N, double dx, double dT, double a2, double complex a1,
 
 
     double complex
+        a1,
         vir,
         old_vir,
         dt = - I  * dT; // pure imaginary time-step
@@ -103,6 +111,14 @@ int ISSFFT(int M, int N, double dx, double dT, double a2, double complex a1,
         stepexp = carrDef(M),     // Exponential of potential
         back_fft = carrDef(m),    // go back to position space
         forward_fft = carrDef(m); // go to frequency space
+
+
+
+    a2 = EQ->a2;
+    a1 = EQ->a1;
+    dx = EQ->dx;
+    inter = EQ->inter;
+    V = EQ->V;
 
 
 
@@ -267,16 +283,22 @@ int ISSFFT(int M, int N, double dx, double dT, double a2, double complex a1,
 
 
 
-int ISSCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
-    double inter, Rarray V, int cyclic, Carray S, Carray E)
+int ISSCNSM(EqDataPkg EQ, int N, double dT, int cyclic, Carray S, Carray E)
 {
 
     unsigned int
+        M,
         i,
         j;
 
+    M = EQ->Mpos;
+
 
     double
+        dx,
+        a2,
+        * V,
+        inter,
         R2,
         norm,       // initial norm
         NormStep,   // to renormalize at each time-step
@@ -284,6 +306,7 @@ int ISSCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
 
 
     double complex
+        a1,
         vir,
         old_vir,
         dt = - I  * dT; // pure imaginary time-step
@@ -308,6 +331,14 @@ int ISSCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
 
     CCSmat
         cnmat;
+
+
+
+    a2 = EQ->a2;
+    a1 = EQ->a1;
+    dx = EQ->dx;
+    inter = EQ->inter;
+    V = EQ->V;
 
 
 
@@ -451,21 +482,28 @@ int ISSCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
 
 
 
-int ISSCNLU(int M, int N, double dx, double dT, double a2, double complex a1,
-    double inter, Rarray V, int cyclic, Carray S, Carray E)
+int ISSCNLU(EqDataPkg EQ, int N, double dT, int cyclic, Carray S, Carray E)
 {
 
     unsigned int
+        M,
         i,
         j;
 
+    M = EQ->Mpos;
+
     double
+        a2,
+        dx,
+        inter,
+        * V,
         R2,
         norm,
         NormStep,   // to renormalize at each time-step
         Idt = - dT; // factor that multiplies in split-step exponentials
 
     double complex
+        a1,
         vir,
         old_vir,
         dt = - I  * dT;
@@ -489,6 +527,14 @@ int ISSCNLU(int M, int N, double dx, double dT, double a2, double complex a1,
 
     CCSmat
         cnmat;
+
+
+
+    a2 = EQ->a2;
+    a1 = EQ->a1;
+    dx = EQ->dx;
+    inter = EQ->inter;
+    V = EQ->V;
 
 
 
@@ -687,8 +733,7 @@ void NonLinearVIDDT(int M, double t, Carray Psi, Carray FullPot, Carray Dpsi)
 
 
 
-int ISSCNRK4(int M, int N, double dx, double dT, double a2, double complex a1,
-    double inter, Rarray V, int cyclic, Carray S, Carray E)
+int ISSCNRK4(EqDataPkg EQ, int N, double dT, int cyclic, Carray S, Carray E)
 {
 
 /** Evolve Gross-Pitaevskii using 4-th order Runge-Kutta
@@ -696,17 +741,26 @@ int ISSCNRK4(int M, int N, double dx, double dT, double a2, double complex a1,
   * linear system with Sherman-Morrison formula      **/
 
 
-    int i,
+    int
+        M,
+        i,
         j;
+
+    M = EQ->Mpos;
 
 
     double
+        a2,
+        dx,
+        inter,
+        * V,
         norm,     // initial norm to be kept constant
         NormStep, // renorm each time step
         R2;       // Monitor sqrt of mean quadratic radius
 
 
     double complex
+        a1,
         vir,
         old_vir,
         dt,
@@ -727,6 +781,14 @@ int ISSCNRK4(int M, int N, double dx, double dT, double a2, double complex a1,
 
     CCSmat
         cnmat;
+
+
+
+    a2 = EQ->a2;
+    a1 = EQ->a1;
+    dx = EQ->dx;
+    inter = EQ->inter;
+    V = EQ->V;
 
 
 
@@ -867,8 +929,7 @@ int ISSCNRK4(int M, int N, double dx, double dT, double a2, double complex a1,
 
 
 
-int ISSFFTRK4(int M, int N, double dx, double dT, double a2, doublec a1,
-    double inter, Rarray V, Carray S, Carray E)
+int ISSFFTRK4(EqDataPkg EQ, int N, double dT, Carray S, Carray E)
 {
 
 /** Evolve the wave-function given an initial condition in S
@@ -882,16 +943,24 @@ int ISSFFTRK4(int M, int N, double dx, double dT, double a2, doublec a1,
     int
         i,
         j,
-        m = M - 1;
-    
-    
-    
+        M,
+        m;
+
+    m = EQ->Mpos - 1;
+    M = EQ->Mpos;
+
+
+
     MKL_LONG
         s;
 
 
 
     double
+        a2,
+        dx,
+        inter,
+        * V,
         R2,
         freq,       // frequencies in Fourier space
         norm,       // initial norm
@@ -901,6 +970,7 @@ int ISSFFTRK4(int M, int N, double dx, double dT, double a2, doublec a1,
 
 
     double complex
+        a1,
         vir,
         old_vir,
         dt = - I * dT;
@@ -918,6 +988,14 @@ int ISSFFTRK4(int M, int N, double dx, double dT, double a2, doublec a1,
         back_fft = carrDef(m),    // go back to position space
         forward_fft = carrDef(m), // go to frequency space
         FullPot = carrDef(M + 1);
+
+
+
+    a2 = EQ->a2;
+    a1 = EQ->a1;
+    dx = EQ->dx;
+    inter = EQ->inter;
+    V = EQ->V;
 
 
 

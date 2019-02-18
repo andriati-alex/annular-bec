@@ -66,8 +66,8 @@
 
 
 
-void SSCNSM(int M, int N, double dx, double dt, double a2, double complex a1,
-     double inter, Rarray V, int cyclic, Carray S, char fname[], int n);
+void SSCNSM(EqDataPkg, int N, double dt, int cyclic, Carray S,
+     char fname[], int n);
 /* ---------------------------------------------------------
  * Crank-Nicolson with Sherman-Morrison to solve linear part
  * --------------------------------------------------------- */
@@ -76,8 +76,8 @@ void SSCNSM(int M, int N, double dx, double dt, double a2, double complex a1,
 
 
 
-void SSCNLU(int M, int N, double dx, double dt, double a2, double complex a1,
-     double inter, Rarray V, int cyclic, Carray S, char fname[], int n);
+void SSCNLU(EqDataPkg, int N, double dt, int cyclic, Carray S,
+     char fname[], int n);
 /* ---------------------------------------------------------
  * Crank-Nicolson with LU decomposition to solve linear part
  * --------------------------------------------------------- */
@@ -86,8 +86,7 @@ void SSCNLU(int M, int N, double dx, double dt, double a2, double complex a1,
 
 
 
-void SSFFT(int M, int N, double dx, double dt, double a2, double complex a1,
-     double inter, Rarray V, Carray S, char fname[], int n);
+void SSFFT(EqDataPkg, int N, double dt, Carray S, char fname[], int n);
 /* -------------------------------------------------------
  * Use MKL fourier tranform routine to compute derivatives
  * ------------------------------------------------------- */
@@ -114,8 +113,8 @@ void NonLinearVDDT(int M, double t, Carray Psi, Carray FullPot, Carray Dpsi);
 
 
 
-void SSCNRK4(int M, int N, double dx, double dt, double a2, double complex a1,
-     double inter, Rarray V, int cyclic, Carray S, char fname [], int n);
+void SSCNRK4(EqDataPkg, int N, double dt, int cyclic, Carray S,
+     char fname [], int n);
 /* ---------------------------------------
  * Crank-Nicolson with Sherman-Morrison to
  * solve linear part and RK4 to  nonlinear
@@ -125,8 +124,7 @@ void SSCNRK4(int M, int N, double dx, double dt, double a2, double complex a1,
 
 
 
-void SSFFTRK4(int M, int N, double dx, double dt, double a2, double complex a1,
-     double inter, Rarray V, Carray S, char fname[], int n);
+void SSFFTRK4(EqDataPkg, int N, double dt, Carray S, char fname [], int n);
 /* -----------------------------------------------------------
  * Use FFT to solve derivative part and RK4 for potential part
  * ----------------------------------------------------------- */
@@ -135,7 +133,7 @@ void SSFFTRK4(int M, int N, double dx, double dt, double a2, double complex a1,
 
 
 
-void CFDS(int M, int N, double dx, double dt, double a2, double complex a1,
-     double inter, Rarray V, int cyclic, Carray S, char fname [], int n);
+void CFDS(EqDataPkg, int N, double dt, int cyclic, Carray S,
+     char fname [], int n);
 
 #endif

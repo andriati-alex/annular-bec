@@ -138,11 +138,11 @@ void SaveConf(FILE * f, EqDataPkg EQ, double dt, double N)
 
     fprintf(f, "%d %.15lf %.15lf %.10lf %d ", EQ->Mpos, EQ->xi, EQ->xf, dt, N);
 
-    fprintf(confFileOut, "%.15lf %.15lf %.15lf ", EQ->a2, imag, EQ->inter);
+    fprintf(f, "%.15lf %.15lf %.15lf ", EQ->a2, imag, EQ->inter);
 
-    fprintf(confFileOut, "%.15lf %.15lf %.15lf", EQ->p[0], EQ->p[1], EQ->p[2]);
+    fprintf(f, "%.15lf %.15lf %.15lf", EQ->p[0], EQ->p[1], EQ->p[2]);
 
-    fprintf(confFileOut, "\n");
+    fprintf(f, "\n");
 
 }
 
@@ -151,7 +151,7 @@ void SaveConf(FILE * f, EqDataPkg EQ, double dt, double N)
 
 
 EqDataPkg SetupParams(FILE * paramFile, FILE * confFile,
-          char Vname[], double * dt, int * N,)
+          char Vname[], double * dt, int * N)
 {
 
 /** Read line by line of _domain file and _eq to setup a new integration **/
@@ -211,6 +211,7 @@ int main(int argc, char * argv[])
     int
         i,
         j,
+        rate,
         M,      // # of intervals in spacial domain (sizeof(x) - 1)
         N,      // # of time steps to evolve
         Nlines, // # of initial data to evolve
@@ -463,6 +464,8 @@ int main(int argc, char * argv[])
     M  = EQ->Mpos - 1;
     S  = carrDef(M + 1); // solution at discretized positions
 
+    rate = N / 1000 + 1;
+
 
 
 
@@ -519,37 +522,37 @@ int main(int argc, char * argv[])
         switch (method)
         {
             case 1:
-                SSCNRK4(EQ, N, dt, cyclic, S, fname, N / 1000);
+                SSCNRK4(EQ, N, dt, cyclic, S, fname, rate);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(RK4 nonlinear CN-SM linear)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
             case 2:
-                SSFFTRK4(EQ, N, dt, S, fname, N / 1000);
+                SSFFTRK4(EQ, N, dt, S, fname, rate);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(RK4 nonlinear / FFT linear)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
             case 3:
-                SSCNSM(EQ, N, dt, cyclic, S, fname, N / 1000);
+                SSCNSM(EQ, N, dt, cyclic, S, fname, rate);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(Crank-Nicolson-SM)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
             case 4:
-                SSCNLU(EQ, N, dt, cyclic, S, fname, N / 1000);
+                SSCNLU(EQ, N, dt, cyclic, S, fname, rate);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(Crank-Nicolson-LU)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
             case 5:
-                SSFFT(EQ, N, dt, S, fname, N / 1000);
+                SSFFT(EQ, N, dt, S, fname, rate);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(FFT)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
             case 6:
-                CFDS(EQ, N, dt, cyclic, S, fname, N / 1000);
+                CFDS(EQ, N, dt, cyclic, S, fname, rate);
                 time_used = (double) (omp_get_wtime() - start);
                 printf("\nTime taken to solve(CFDS)");
                 printf(" : %.3f seconds\n", time_used);
@@ -627,6 +630,8 @@ int main(int argc, char * argv[])
         // read new parameters(one more line) to do another time propagation
         EQ = SetupParams(eq_file, domain_file, potname, &dt, &N);
 
+        rate = N / 1000 + 1;
+
         E = carrDef(N + 1); // energy to record progress of convergence
 
         if (timeinfo == 'r' || timeinfo == 'R')
@@ -688,37 +693,37 @@ int main(int argc, char * argv[])
             switch (method)
             {
                 case 1:
-                    SSCNRK4(EQ, N, dt, cyclic, S, fname, N / 1000);
+                    SSCNRK4(EQ, N, dt, cyclic, S, fname, rate);
                     time_used = (double) (omp_get_wtime() - start);
                     printf("\nTime taken to solve(RK4 nonlinear CN-SM linear)");
                     printf(" : %.3f seconds\n", time_used);
                     break;
                 case 2:
-                    SSFFTRK4(EQ, N, dt, S, fname, N / 1000);
+                    SSFFTRK4(EQ, N, dt, S, fname, rate);
                     time_used = (double) (omp_get_wtime() - start);
                     printf("\nTime taken to solve(RK4 nonlinear / FFT linear)");
                     printf(" : %.3f seconds\n", time_used);
                     break;
                 case 3:
-                    SSCNSM(EQ, N, dt, cyclic, S, fname, N / 1000);
+                    SSCNSM(EQ, N, dt, cyclic, S, fname, rate);
                     time_used = (double) (omp_get_wtime() - start);
                     printf("\nTime taken to solve(Crank-Nicolson-SM)");
                     printf(" : %.3f seconds\n", time_used);
                     break;
                 case 4:
-                    SSCNLU(EQ, N, dt, cyclic, S, fname, N / 1000);
+                    SSCNLU(EQ, N, dt, cyclic, S, fname, rate);
                     time_used = (double) (omp_get_wtime() - start);
                     printf("\nTime taken to solve(Crank-Nicolson-LU)");
                     printf(" : %.3f seconds\n", time_used);
                     break;
                 case 5:
-                    SSFFT(EQ, N, dt, S, fname, N / 1000);
+                    SSFFT(EQ, N, dt, S, fname, rate);
                     time_used = (double) (omp_get_wtime() - start);
                     printf("\nTime taken to solve(FFT)");
                     printf(" : %.3f seconds\n", time_used);
                     break;
                 case 6:
-                    CFDS(EQ, N, dt, cyclic, S, fname, N / 1000);
+                    CFDS(EQ, N, dt, cyclic, S, fname, rate);
                     time_used = (double) (omp_get_wtime() - start);
                     printf("\nTime taken to solve(CFDS)");
                     printf(" : %.3f seconds\n", time_used);

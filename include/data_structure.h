@@ -2,6 +2,7 @@
 #define _data_structure_h
 
 #include <string.h>
+#include "array_memory.h"
 #include "linear_potential.h"
 
 
@@ -53,8 +54,7 @@ typedef struct _EquationDataPkg * EqDataPkg;
 
 
 
-EqDataPkg PackEqData(int,int,int,double,double,double,double,doublec,
-          char [],double []);
+EqDataPkg PackEqData(int,double,double,double,double,doublec,char [],double []);
 
 void ReleaseEqDataPkg (EqDataPkg);
 

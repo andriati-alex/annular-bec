@@ -67,8 +67,7 @@
 
 
 
-int ISSCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
-    double inter, Rarray V, int cyclic, Carray S, Carray E);
+int ISSCNSM(EqDataPkg, int N, double dT, int cyclic, Carray S, Carray E);
 /* ---------------------------------------------------------
  * Crank-Nicolson with Sherman-Morrison to solve linear part
  * --------------------------------------------------------- */
@@ -77,8 +76,7 @@ int ISSCNSM(int M, int N, double dx, double dT, double a2, double complex a1,
 
 
 
-int ISSCNLU(int M, int N, double dx, double dT, double a2, double complex a1,
-    double inter, Rarray V, int cyclic, Carray S, Carray E);
+int ISSCNLU(EqDataPkg, int N, double dT, int cyclic, Carray S, Carray E);
 /* ---------------------------------------------------------
  * Crank-Nicolson with LU decomposition to solve linear part
  * --------------------------------------------------------- */
@@ -87,8 +85,7 @@ int ISSCNLU(int M, int N, double dx, double dT, double a2, double complex a1,
 
 
 
-int ISSFFT(int M, int N, double dx, double dT, double a2, double complex a1,
-    double inter, Rarray V, Carray S, Carray E);
+int ISSFFT(EqDataPkg, int N, double dT, Carray S, Carray E);
 /* -------------------------------------------------------
  * Use MKL fourier tranform routine to compute derivatives
  * ------------------------------------------------------- */
@@ -115,8 +112,7 @@ void NonLinearVIDDT(int M, double t, Carray Psi, Carray FullPot, Carray Dpsi);
 
 
 
-int ISSCNRK4(int M, int N, double dx, double dT, double a2, double complex a1,
-    double inter, Rarray V, int cyclic, Carray S, Carray E);
+int ISSCNRK4(EqDataPkg, int N, double dT, int cyclic, Carray S, Carray E);
 /* ---------------------------------------
  * Crank-Nicolson with Sherman-Morrison to
  * solve linear part and RK4 to  nonlinear
@@ -126,8 +122,7 @@ int ISSCNRK4(int M, int N, double dx, double dT, double a2, double complex a1,
 
 
 
-int ISSFFTRK4(int M, int N, double dx, double dT, double a2, double complex a1,
-    double inter, Rarray V, Carray S, Carray E);
+int ISSFFTRK4(EqDataPkg, int N, double dT, Carray S, Carray E);
 /* ------------------------------------------------------------
  * Use FFT to solve linear part and RK4 for nonderivatives part
  * ------------------------------------------------------------ */

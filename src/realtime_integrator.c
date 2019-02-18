@@ -44,8 +44,7 @@
 
 
 
-void SSFFT(int M, int N, double dx, double dt, double a2, double complex a1,
-     double inter, Rarray V, Carray S, char fname[], int n)
+void SSFFT(EqDataPkg EQ, int N, double dt, Carray S, char fname[], int n)
 {
 
 /** Evolve the wave-function given an initial condition in S
@@ -53,6 +52,18 @@ void SSFFT(int M, int N, double dx, double dt, double a2, double complex a1,
   * recorded in a file named 'fname' on every 'n' steps. Use
   * FFT to compute linear derivatives part of  PDE hence the
   * boundary is consider to be periodic in the last position **/
+
+
+
+    int
+        k,
+        i,
+        j,
+        M,
+        m;
+
+    m = EQ->Mpos - 1;
+    M = EQ->Mpos;
 
 
     // File to write every n step the time-step solution
@@ -74,11 +85,6 @@ void SSFFT(int M, int N, double dx, double dt, double a2, double complex a1,
     sepline();
 
 
-    int
-        k,
-        i,
-        j,
-        m = M - 1;
 
 
     MKL_LONG
@@ -86,11 +92,16 @@ void SSFFT(int M, int N, double dx, double dt, double a2, double complex a1,
 
 
     double
+        a2,
+        dx,
+        inter,
+        * V,
         freq;
 
 
     double complex
         E,
+        a1,
         Idt = 0.0 - dt * I;
 
 
@@ -107,6 +118,14 @@ void SSFFT(int M, int N, double dx, double dt, double a2, double complex a1,
         forward_fft = carrDef(m), // go to frequency space
         back_fft = carrDef(m),    // back to position space
         Sstep = carrDef(M);       // hold one step to integrate by trapezium
+
+
+
+    a2 = EQ->a2;
+    a1 = EQ->a1;
+    dx = EQ->dx;
+    inter = EQ->inter;
+    V = EQ->V;
 
 
 
@@ -241,8 +260,8 @@ void SSFFT(int M, int N, double dx, double dt, double a2, double complex a1,
 
 
 
-void SSCNLU(int M, int N, double dx, double dt, double a2, double complex a1,
-     double inter, Rarray V, int cyclic, Carray S, char fname[], int n)
+void SSCNLU(EqDataPkg EQ, int N, double dt, int cyclic, Carray S,
+     char fname[], int n)
 {
 
 /** Evolve the wave-function given an initial condition  in S
@@ -253,6 +272,15 @@ void SSCNLU(int M, int N, double dx, double dt, double a2, double complex a1,
   * a boolean argument define  whether  the  boundary is zero
   * or periodic on last position point.                   **/
 
+
+
+    unsigned int
+        k,
+        i,
+        M,
+        j;
+
+    M = EQ->Mpos;
 
     // File to write every n step the time-step solution
     FILE * out_data = fopen(fname, "w");
@@ -276,16 +304,19 @@ void SSCNLU(int M, int N, double dx, double dt, double a2, double complex a1,
     sepline();
 
 
-    unsigned int
-        k,
-        i,
-        j;
+
+    double
+        a2,
+        dx,
+        inter,
+        * V;
 
 
 
     // Factor to multiply in nonlinear exponential part after split-step
     double complex
         E,
+        a1,
         Idt = 0.0 - dt * I;
 
 
@@ -313,6 +344,14 @@ void SSCNLU(int M, int N, double dx, double dt, double a2, double complex a1,
     
     CCSmat
         cnmat;
+
+
+
+    a2 = EQ->a2;
+    a1 = EQ->a1;
+    dx = EQ->dx;
+    inter = EQ->inter;
+    V = EQ->V;
 
 
 
@@ -464,8 +503,8 @@ void SSCNLU(int M, int N, double dx, double dt, double a2, double complex a1,
 
 
 
-void SSCNSM(int M, int N, double dx, double dt, double a2, double complex a1,
-     double inter, Rarray V, int cyclic, Carray S, char fname [], int n)
+void SSCNSM(EqDataPkg EQ, int N, double dt, int cyclic, Carray S,
+     char fname[], int n)
 {
 
 /** Evolve the wave-function given an initial condition in S
@@ -475,6 +514,16 @@ void SSCNSM(int M, int N, double dx, double dt, double a2, double complex a1,
   * part of potential and derivatives of the PDE.   'Cyclic'
   * is a boolean argument define  whether  the  boundary  is
   * zero or periodic on last position point.             **/
+
+
+
+    unsigned int
+        k,
+        i,
+        M,
+        j;
+
+    M = EQ->Mpos;
 
 
     // File to write every n step the time-step solution
@@ -500,16 +549,18 @@ void SSCNSM(int M, int N, double dx, double dt, double a2, double complex a1,
 
 
 
-    unsigned int
-        k,
-        i,
-        j;
+    double
+        a2,
+        dx,
+        inter,
+        * V;
 
 
 
     // Factor to multiply in nonlinear exponential part after split-step
     double complex
         E,
+        a1,
         Idt = 0.0 - dt * I;
 
 
@@ -537,6 +588,14 @@ void SSCNSM(int M, int N, double dx, double dt, double a2, double complex a1,
     
     CCSmat
         cnmat;
+
+
+
+    a2 = EQ->a2;
+    a1 = EQ->a1;
+    dx = EQ->dx;
+    inter = EQ->inter;
+    V = EQ->V;
 
 
 
@@ -746,12 +805,21 @@ void NonLinearVDDT(int M, double t, Carray Psi, Carray FullPot, Carray Dpsi)
 
 
 
-void SSCNRK4(int M, int N, double dx, double dt, double a2, double complex a1,
-     double inter, Rarray V, int cyclic, Carray S, char fname [], int n)
+void SSCNRK4(EqDataPkg EQ, int N, double dt, int cyclic, Carray S,
+     char fname[], int n)
 {
 
 /** Evolve Gross-Pitaevskii using 4-th order Runge-Kutta to deal
   * with nonlinear part and Crank-Nicolson to the linear part **/
+
+
+
+    int k,
+        i,
+        M,
+        j;
+
+    M = EQ->Mpos;
 
 
     // File to write every n step the time-step solution
@@ -777,14 +845,17 @@ void SSCNRK4(int M, int N, double dx, double dt, double a2, double complex a1,
 
 
 
-    int k,
-        i,
-        j;
+    double
+        a2,
+        dx,
+        inter,
+        * V;
 
 
 
     double complex
         E,
+        a1,
         interv[1];
 
 
@@ -807,6 +878,14 @@ void SSCNRK4(int M, int N, double dx, double dt, double a2, double complex a1,
 
     CCSmat
         cnmat;
+
+
+
+    a2 = EQ->a2;
+    a1 = EQ->a1;
+    dx = EQ->dx;
+    inter = EQ->inter;
+    V = EQ->V;
 
 
 
@@ -923,8 +1002,7 @@ void SSCNRK4(int M, int N, double dx, double dt, double a2, double complex a1,
 
 
 
-void SSFFTRK4(int M, int N, double dx, double dt, double a2, double complex a1,
-     double inter, Rarray V, Carray S, char fname[], int n)
+void SSFFTRK4(EqDataPkg EQ, int N, double dt, Carray S, char fname[], int n)
 {
 
 /** Evolve the wave-function given an initial condition in S
@@ -933,6 +1011,18 @@ void SSFFTRK4(int M, int N, double dx, double dt, double a2, double complex a1,
   * FFT to compute linear derivatives part of  PDE hence the
   * boundary is consider to be periodic in the last position
   * Solve nonlinear part using 4th order Runge-Kutta     **/
+
+
+
+    int
+        k,
+        i,
+        j,
+        M,
+        m;
+
+    M = EQ->Mpos;
+    m = EQ->Mpos - 1;
 
 
 
@@ -959,26 +1049,23 @@ void SSFFTRK4(int M, int N, double dx, double dt, double a2, double complex a1,
 
 
 
-    int
-        k,
-        i,
-        j,
-        m = M - 1;
-
-
-
     MKL_LONG
         s;
 
 
 
     double
+        a2,
+        dx,
+        inter,
+        * V,
         freq;
 
 
 
     double complex
         E,
+        a1,
         Idt = 0 - dt * I;
 
 
@@ -993,6 +1080,14 @@ void SSFFTRK4(int M, int N, double dx, double dt, double a2, double complex a1,
         forward_fft = carrDef(m), // go to frequency space
         back_fft = carrDef(m),    // back to position space
         FullPot = carrDef(M + 1);
+
+
+
+    a2 = EQ->a2;
+    a1 = EQ->a1;
+    dx = EQ->dx;
+    inter = EQ->inter;
+    V = EQ->V;
 
 
 
@@ -1093,9 +1188,21 @@ void SSFFTRK4(int M, int N, double dx, double dt, double a2, double complex a1,
 
 
 
-void CFDS(int M, int N, double dx, double dt, double a2, double complex a1,
-     double inter, Rarray V, int cyclic, Carray S, char fname [], int n)
+void CFDS(EqDataPkg EQ, int N, double dt, int cyclic, Carray S,
+     char fname [], int n)
 {
+
+
+
+    unsigned int
+        k,
+        i,
+        j,
+        M,
+        iter,
+        condition;
+
+    M = EQ->Mpos;
 
 
     // File to write every n step the time-step solution
@@ -1121,22 +1228,18 @@ void CFDS(int M, int N, double dx, double dt, double a2, double complex a1,
 
 
 
-    unsigned int
-        k,
-        i,
-        j,
-        iter,
-        condition;
-
-
-
     double
+        a2,
+        dx,
+        inter,
+        * V,
         tol;
 
 
 
     // Factor to multiply in nonlinear exponential part after split-step
     double complex
+        a1,
         aux,
         Idt = 0.0 - dt * I;
 
@@ -1165,6 +1268,14 @@ void CFDS(int M, int N, double dx, double dt, double a2, double complex a1,
 
     CCSmat
         cnmat;
+
+
+
+    a2 = EQ->a2;
+    a1 = EQ->a1;
+    dx = EQ->dx;
+    inter = EQ->inter;
+    V = EQ->V;
 
 
 
