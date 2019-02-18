@@ -87,10 +87,11 @@ def NormBrightSoliton(x, a, c):
 
 
 
-def Ring(x, a, b, c, n):
+def Ring(x, a, b, n):
     n = int(n);
     k = np.arange(1, n + 1) * 2 * np.pi / (x[-1] - x[0]);
-    t = (np.random.random(int(n)) - 0.5);
+    t = (np.random.random(int(n)) - 0.5) / 0.5;
+    c = (x[-1] - x[0]) / 10;
     S = np.sqrt(a + b * (np.tanh(x / c) ** 2)) * np.exp(2 * np.pi * t[0]);
     shape = np.sqrt(a + b * (np.tanh(x / c) ** 2));
     weights = 0.5 * b / ( np.arange(1, int(n) + 1) );
@@ -98,7 +99,7 @@ def Ring(x, a, b, c, n):
         plus  =  1.0j * (k[i] * x);
         minus = -1.0j * (k[i] * x);
         S = S + t[i] * shape * weights[i] * np.exp(plus);
-        S = S - t[n-1-i] * shape * weights[i] * np.exp(minus);
+        S = S + t[n-1-i] * shape * weights[i] * np.exp(minus);
     return S / np.sqrt( simps(abs(S)**2, dx = x[1] - x[0] ) );
 
 
