@@ -382,6 +382,8 @@ int main(int argc, char * argv[])
     strcat(fname, infname);
     strcat(fname, "_domain.dat");
 
+    printf("\nLooking for %s", fname);
+
     domain_file = fopen(fname, "r");
 
     if (domain_file == NULL)  // impossible to open file
