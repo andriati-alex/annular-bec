@@ -466,7 +466,7 @@ int main(int argc, char * argv[])
     M  = EQ->Mpos - 1;
     S  = carrDef(M + 1); // solution at discretized positions
 
-    rate = N / 1000 + 1;
+    rate = 10;
 
 
 
@@ -632,7 +632,7 @@ int main(int argc, char * argv[])
         // read new parameters(one more line) to do another time propagation
         EQ = SetupParams(eq_file, domain_file, potname, &dt, &N);
 
-        rate = N / 1000 + 1;
+        rate = 10;
 
         E = carrDef(N + 1); // energy to record progress of convergence
 

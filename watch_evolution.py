@@ -24,11 +24,11 @@ from pathlib import Path;
 
 # IMPORT PLOT MODULES #
 import matplotlib.pyplot as plt;
-from matplotlib import animation;
+from matplotlib.animation import FuncAnimation;
 
 folder = str(Path.home()) + '/AndriatiLibrary/annular-bec/output/';
 
-fname = folder + sys.argv[1] + '_line-1_function_realtime.dat';
+fname = folder + sys.argv[1] + '_line-1_orb_realtime.dat';
 fstep = int(sys.argv[2]); # how much time-steps a frame jumps
 
 S = np.loadtxt(fname, dtype=np.complex128);
@@ -42,21 +42,30 @@ y1 = Smod2.min() - 0.1 * (Smod2.max() - Smod2.min());
 
 x1 = domain[1];
 x2 = domain[2];
-x  = np.linspace(x1, x2, int(domain[0]) + 1);
+grid = int(domain[0]);
+x = np.linspace(-1, 1, grid);
 
-fig   = plt.figure(figsize=(10, 8));
-ax    = plt.axes(xlim=(x1, x2), ylim=(y1, y2));
-line, = ax.plot([], [], lw=2);
+
+
+
+
+fig   = plt.figure();
+ax    = plt.axes();
+line, = ax.plot([], [], '-');
 
 def init():
     line.set_data([], []);
+    ax.set_xlim(x1,x2);
+    ax.set_ylim(y1,y2);
     return line,
 
-def anim_frame(i):
-    line.set_data(x, Smod2[i,:]);
+def update(frame):
+    line.set_data(x, Smod2[frame]);
     return line,
 
-anim = animation.FuncAnimation(fig, anim_frame, init_func=init,
-       frames=Smod2.shape[0], interval=20, blit=True);
+frames = np.arange(Smod2.shape[0], dtype=np.int32);
+
+anim = FuncAnimation(fig, update, init_func=init, frames=frames,
+       interval=20, blit=True);
 
 plt.show();
