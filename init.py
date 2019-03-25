@@ -48,15 +48,15 @@ lc = np.complex256;
 
 
 
-def HarmonicTrap(x, a, c, n):
+def HarmonicTrap(x, a, n):
     n = int(n);
-    S = BrightSoliton(x, a, c);
     # generate random numbers in the range [-0.5, 0.5]
     noise = (np.random.random(int(n)) - 0.5);
     # Localized by a Gaussian like-shape
     sig = 0.14 * (x[-1] - x[0]);
     mid = (x[-1] + x[0]) / 2;
     # Fourier modes with some noise
+    S = BrightSoliton(x, a, 1.0 / sig);
     k = (np.arange(0, int(n)) + noise) * 2 * np.pi / sig;
     weights = a / np.arange(1, n + 1)**1.5;
     for i in range(int(n)):

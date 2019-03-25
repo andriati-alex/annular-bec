@@ -116,8 +116,7 @@ void SSFFT(EqDataPkg EQ, int N, double dt, Carray S, char fname[], int n)
         exp_der = carrDef(m),     // exponential of derivative operator
         stepexp = carrDef(M),     // Exponential of potential
         forward_fft = carrDef(m), // go to frequency space
-        back_fft = carrDef(m),    // back to position space
-        Sstep = carrDef(M);       // hold one step to integrate by trapezium
+        back_fft = carrDef(m);    // back to position space
 
 
 
@@ -142,7 +141,8 @@ void SSFFT(EqDataPkg EQ, int N, double dt, Carray S, char fname[], int n)
 
     /* setup Fourier Frequencies and the exponential of derivative operator
      * -------------------------------------------------------------------- */
-    for (i = 0; i < m; i++) {
+    for (i = 0; i < m; i++)
+    {
         if (i <= (m - 1) / 2) { freq = (2 * PI * i) / (m * dx);       }
         else                  { freq = (2 * PI * (i - m)) / (m * dx); }
         // exponential of derivative operators
@@ -164,9 +164,12 @@ void SSFFT(EqDataPkg EQ, int N, double dt, Carray S, char fname[], int n)
 
         // Print in screen to quality and progress control
         E = Energy(M, dx, a2, a1, inter, V, S);
-        printf(" \n  %7d          ", i);
-        printf("%15.7E          ", creal(E));
-        printf("%15.7E          ", Rsimps(M, abs2, dx));
+        if ( i % 50 == 0 )
+        {
+            printf(" \n  %7d          ", i);
+            printf("%15.7E          ", creal(E));
+            printf("%15.7E          ", Rsimps(M, abs2, dx));
+        }
 
 
 
@@ -182,52 +185,15 @@ void SSFFT(EqDataPkg EQ, int N, double dt, Carray S, char fname[], int n)
         // go back to position space
         s = DftiComputeBackward(desc, back_fft);
 
-        carrCopy(m, back_fft, Sstep);
-        Sstep[m] = Sstep[0];
+        carrCopy(m, back_fft, S);
+        S[m] = S[0]; //boundary
 
-        carrAbs2(M, Sstep, abs2);
+        carrAbs2(M, S, abs2);
         rarrUpdate(M, V, inter, abs2, out);
         rcarrExp(M, Idt / 2, out, stepexp);
 
-        carrMultiply(m, stepexp, back_fft, Sstep);
-        Sstep[m] = Sstep[0];
-
-
-
-        /* IMPROVEMENT
-         * -----------
-         *
-         * The steps above use rectangular integration of the nonlinear
-         * part,  thus with an approximate solution to the next step we
-         * can improve by using trapezium method in the nonlinear  part.
-         *
-         * ------------------------------------------------------------ */
-
-
-
-        // Trapezium rule in the nonlinear exponential part
-        carrAbs2(M, S, abs2);
-        for (j = 0; j < M; j++)
-        {
-            abs2[j] += creal(Sstep[j]) * creal(Sstep[j]);
-            abs2[j] += cimag(Sstep[j]) * cimag(Sstep[j]);
-        }
-
-        // factor / 2 due to trapezium rule
-        rarrUpdate(M, V, inter / 2, abs2, out);
-        rcarrExp(M, Idt / 2, out, stepexp);
-        carrMultiply(m, stepexp, S, forward_fft);
-
-        // go to momentum space
-        s = DftiComputeForward(desc, forward_fft);
-        // apply exponential of derivatives
-        carrMultiply(m, exp_der, forward_fft, back_fft);
-        // go back to position space
-        s = DftiComputeBackward(desc, back_fft);
         carrMultiply(m, stepexp, back_fft, S);
-        S[m] = S[0];
-
-
+        S[m] = S[0]; //boundary
 
         // RECORD solution
 
@@ -251,7 +217,6 @@ void SSFFT(EqDataPkg EQ, int N, double dt, Carray S, char fname[], int n)
     free(stepexp);
     free(forward_fft);
     free(back_fft);
-    free(Sstep);
     free(abs2);
     free(out);
 }
@@ -327,8 +292,6 @@ void SSCNLU(EqDataPkg EQ, int N, double dt, int cyclic, Carray S,
 
 
     Carray
-        // go back and integrate nonlinear part by trapezium
-        Sstep = carrDef(M),
         // Used to apply nonlinear part
         stepexp = carrDef(M),
         // hold solution of linear system
@@ -419,9 +382,13 @@ void SSCNLU(EqDataPkg EQ, int N, double dt, int cyclic, Carray S,
 
         // Print in screen to quality and progress control
         E = Energy(M, dx, a2, a1, inter, V, S);
-        printf(" \n  %7d          ", i);
-        printf("%15.7E          ", creal(E));
-        printf("%15.7E          ", Rsimps(M, abs2, dx));
+
+        if ( i % 50 == 0 )
+        {
+            printf(" \n  %7d          ", i);
+            printf("%15.7E          ", creal(E));
+            printf("%15.7E          ", Rsimps(M, abs2, dx));
+        }
 
 
 
@@ -434,43 +401,12 @@ void SSCNLU(EqDataPkg EQ, int N, double dt, int cyclic, Carray S,
         triCyclicLU(M - 1, upper, lower, mid, rhs, linpart);
         if (cyclic) { linpart[M-1] = linpart[0]; } // Cyclic system
         else        { linpart[M-1] = 0;          } // zero boundary
-        
+
         // Apply exponential with nonlinear part again
         carrAbs2(M, linpart, abs2);
         rcarrExp(M, inter * Idt / 2, abs2, stepexp);
-        carrMultiply(M, stepexp, linpart, Sstep);
+        carrMultiply(M, stepexp, linpart, S);
 
-
-
-        /* IMPROVEMENT
-         * -----------
-         *
-         * The steps above use rectangular integration of the nonlinear
-         * part,  thus with an approximate solution to the next step we
-         * can improve by using trapezium method in the  nonlinear part
-         *
-         * ------------------------------------------------------------ */
-
-
-
-        // Trapezium rule in the nonlinear exponential part
-        carrAbs2(M, S, abs2);
-        for (j = 0; j < M; j++)
-        {
-            abs2[j] += creal(Sstep[j]) * creal(Sstep[j]);
-            abs2[j] += cimag(Sstep[j]) * cimag(Sstep[j]);
-        }
-
-        // Extra factor 1/2 due to trapezium rule
-        rcarrExp(M, inter * Idt / 4, abs2, stepexp);
-        carrMultiply(M, stepexp, S, linpart);
-
-        CCSvec(M - 1, cnmat->vec, cnmat->col, cnmat->m, linpart, rhs);
-        triCyclicLU(M - 1, upper, lower, mid, rhs, linpart);
-        if (cyclic) { linpart[M-1] = linpart[0]; } // Cyclic system
-        else        { linpart[M-1] = 0;          } // zero boundary
-
-        carrMultiply(M, linpart, stepexp, S);
 
         // record data every n steps
         if (k == n) { carr_inline(out_data, M, S); k = 1; }
@@ -495,7 +431,6 @@ void SSCNLU(EqDataPkg EQ, int N, double dt, int cyclic, Carray S,
     free(lower);
     free(mid);
     free(rhs);
-    free(Sstep);
     CCSFree(cnmat);
 }
 
@@ -571,8 +506,6 @@ void SSCNSM(EqDataPkg EQ, int N, double dt, int cyclic, Carray S,
 
 
     Carray
-        // go back and integrate nonlinear part by trapezium
-        Sstep = carrDef(M),
         // Used to apply nonlinear part
         stepexp = carrDef(M),
         // hold solution of linear system
@@ -663,9 +596,13 @@ void SSCNSM(EqDataPkg EQ, int N, double dt, int cyclic, Carray S,
 
         // Print in screen to quality and progress control
         E = Energy(M, dx, a2, a1, inter, V, S);
-        printf(" \n  %7d          ", i);
-        printf("%15.7E          ", creal(E));
-        printf("%15.7E          ", Rsimps(M, abs2, dx));
+
+        if ( i % 50 == 0 )
+        {
+            printf(" \n  %7d          ", i);
+            printf("%15.7E          ", creal(E));
+            printf("%15.7E          ", Rsimps(M, abs2, dx));
+        }
 
 
 
@@ -682,38 +619,6 @@ void SSCNSM(EqDataPkg EQ, int N, double dt, int cyclic, Carray S,
         // Apply exponential with nonlinear part again
         carrAbs2(M, linpart, abs2);
         rcarrExp(M, inter * Idt / 2, abs2, stepexp);
-        carrMultiply(M, linpart, stepexp, Sstep);
-
-
-
-        /* IMPROVEMENT
-         * -----------
-         *
-         * The steps above use rectangular integration of the nonlinear
-         * part,  thus with an approximate solution to the next step we
-         * can improve by using trapezium method in the nonlinear part.
-         *
-         * ------------------------------------------------------------ */
-
-
-
-        carrAbs2(M, S, abs2);
-        // Trapezium rule in the nonlinear exponential part
-        for (j = 0; j < M; j++)
-        {
-            abs2[j] += creal(Sstep[j]) * creal(Sstep[j]);
-            abs2[j] += cimag(Sstep[j]) * cimag(Sstep[j]);
-        }
-
-        // Extra factor 1/2 due to trapezium rule
-        rcarrExp(M, inter * Idt / 4, abs2, stepexp);
-        carrMultiply(M, stepexp, S, linpart);
-
-        CCSvec(M - 1, cnmat->vec, cnmat->col, cnmat->m, linpart, rhs);
-        triCyclicSM(M - 1, upper, lower, mid, rhs, linpart);
-        if (cyclic) { linpart[M-1] = linpart[0]; } // Cyclic system
-        else        { linpart[M-1] = 0;          } // zero boundary
-
         carrMultiply(M, linpart, stepexp, S);
 
         // record data every n steps
@@ -738,7 +643,6 @@ void SSCNSM(EqDataPkg EQ, int N, double dt, int cyclic, Carray S,
     free(lower);
     free(mid);
     free(rhs);
-    free(Sstep);
     CCSFree(cnmat);
 }
 
@@ -956,9 +860,12 @@ void SSCNRK4(EqDataPkg EQ, int N, double dt, int cyclic, Carray S,
 
         // Print in screen to quality and progress control
         E = Energy(M, dx, a2, a1, inter, V, S);
-        printf(" \n  %7d          ", i);
-        printf("%15.7E          ", creal(E));
-        printf("%15.7E          ", Rsimps(M, abs2, dx));
+        if ( i % 50 == 0 )
+        {
+            printf(" \n  %7d          ", i);
+            printf("%15.7E          ", creal(E));
+            printf("%15.7E          ", Rsimps(M, abs2, dx));
+        }
 
 
 
@@ -1133,9 +1040,12 @@ void SSFFTRK4(EqDataPkg EQ, int N, double dt, Carray S, char fname[], int n)
 
         // Print in screen to quality and progress control
         E = Energy(M, dx, a2, a1, inter, V, S);
-        printf(" \n  %7d          ", i);
-        printf("%15.7E          ", creal(E));
-        printf("%15.7E          ", Rsimps(M, abs2, dx));
+        if ( i % 50 == 0 )
+        {
+            printf(" \n  %7d          ", i);
+            printf("%15.7E          ", creal(E));
+            printf("%15.7E          ", Rsimps(M, abs2, dx));
+        }
 
 
 
@@ -1251,7 +1161,7 @@ void CFDS(EqDataPkg EQ, int N, double dt, int cyclic, Carray S,
 
 
     Carray
-        // go back and integrate nonlinear part by trapezium
+        // Fixed point iteratively solve
         Sstep = carrDef(M),
         // Used to apply nonlinear part
         stepexp = carrDef(M),
@@ -1343,9 +1253,12 @@ void CFDS(EqDataPkg EQ, int N, double dt, int cyclic, Carray S,
 
         // Print in screen to quality and progress control
         aux = Energy(M, dx, a2, a1, inter, V, S);
-        printf(" \n  %7d          ", i);
-        printf("%15.7E          ", creal(aux));
-        printf("%15.7E          ", Rsimps(M, abs2, dx));
+        if ( i % 50 == 0 )
+        {
+            printf(" \n  %7d          ", i);
+            printf("%15.7E          ", creal(aux));
+            printf("%15.7E          ", Rsimps(M, abs2, dx));
+        }
 
 
 

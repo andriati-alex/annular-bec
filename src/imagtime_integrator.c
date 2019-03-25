@@ -208,8 +208,12 @@ int ISSFFT(EqDataPkg EQ, int N, double dT, Carray S, Carray E)
         vir = Virial(M, a2, a1, inter, V, dx, S);
         R2 = MeanQuadraticR(M, S, dx);
 
-        printf("\n\t%6d       %15.7E", i + 1, creal(E[i + 1]));
-        printf("         %15.7E       %7.4lf", creal(vir), R2);
+
+        if ( (i+1) % 50 == 0)
+        {
+            printf("\n\t%6d       %15.7E", i + 1, creal(E[i + 1]));
+            printf("         %15.7E       %7.4lf", creal(vir), R2);
+        }
 
 
 
@@ -220,7 +224,7 @@ int ISSFFT(EqDataPkg EQ, int N, double dT, Carray S, Carray E)
 
             j = i - 199;
 
-            if (j > 0 && fabs(creal(E[i+1] - E[j]) / creal(E[j])) < 1E-12 )
+            if (j > 0 && fabs(creal(E[i+1] - E[j]) / creal(E[j])) < 1E-11 )
             {
 
                 s = DftiFreeDescriptor(&desc);
@@ -403,8 +407,12 @@ int ISSCNSM(EqDataPkg EQ, int N, double dT, int cyclic, Carray S, Carray E)
         vir = Virial(M, a2, a1, inter, V, dx, S);
         R2 = MeanQuadraticR(M, S, dx);
 
-        printf("\n\t%6d       %15.7E", i + 1, creal(E[i + 1]));
-        printf("         %15.7E       %7.4lf", creal(vir), R2);
+
+        if ( (i+1) % 50 == 0 )
+        {
+            printf("\n\t%6d       %15.7E", i + 1, creal(E[i + 1]));
+            printf("         %15.7E       %7.4lf", creal(vir), R2);
+        }
 
 
 
@@ -415,7 +423,7 @@ int ISSCNSM(EqDataPkg EQ, int N, double dT, int cyclic, Carray S, Carray E)
 
             j = i - 199;
 
-            if (j > 0 && fabs(creal(E[i+1] - E[j]) / creal(E[j])) < 1E-12 )
+            if (j > 0 && fabs(creal(E[i+1] - E[j]) / creal(E[j])) < 1E-11 )
             {
 
                 // Enter here if energy has stabilized. If that
@@ -596,9 +604,13 @@ int ISSCNLU(EqDataPkg EQ, int N, double dT, int cyclic, Carray S, Carray E)
         E[i + 1] = Energy(M, dx, a2, a1, inter, V, S);
         vir = Virial(M, a2, a1, inter, V, dx, S);
         R2 = MeanQuadraticR(M, S, dx);
-        
-        printf("\n\t%6d       %15.7E", i + 1, creal(E[i + 1]));
-        printf("         %15.7E       %7.4lf", creal(vir), R2);
+
+
+        if ( (i+1) % 50 == 0 )
+        {
+            printf("\n\t%6d       %15.7E", i + 1, creal(E[i + 1]));
+            printf("         %15.7E       %7.4lf", creal(vir), R2);
+        }
 
 
 
@@ -609,7 +621,7 @@ int ISSCNLU(EqDataPkg EQ, int N, double dT, int cyclic, Carray S, Carray E)
 
             j = i - 199;
 
-            if (j > 0 && fabs(creal(E[i+1] - E[j]) / creal(E[j])) < 1E-12 )
+            if (j > 0 && fabs(creal(E[i+1] - E[j]) / creal(E[j])) < 1E-11 )
             {
 
                 free(stepexp);
@@ -854,8 +866,11 @@ int ISSCNRK4(EqDataPkg EQ, int N, double dT, int cyclic, Carray S, Carray E)
         vir = Virial(M, a2, a1, inter, V, dx, S);
         R2 = MeanQuadraticR(M, S, dx);
 
-        printf("\n\t%6d       %15.7E", i + 1, creal(E[i + 1]));
-        printf("         %15.7E       %7.4lf", creal(vir), R2);
+        if ( (i+1) % 50 == 0 )
+        {
+            printf("\n\t%6d       %15.7E", i + 1, creal(E[i + 1]));
+            printf("         %15.7E       %7.4lf", creal(vir), R2);
+        }
 
 
 
@@ -866,7 +881,7 @@ int ISSCNRK4(EqDataPkg EQ, int N, double dT, int cyclic, Carray S, Carray E)
 
             j = i - 199;
 
-            if (j > 0 && fabs(creal(E[i+1] - E[j]) / creal(E[j])) < 1E-12 )
+            if (j > 0 && fabs(creal(E[i+1] - E[j]) / creal(E[j])) < 1E-11 )
             {
 
                 free(linpart);
@@ -1084,9 +1099,12 @@ int ISSFFTRK4(EqDataPkg EQ, int N, double dT, Carray S, Carray E)
         E[i + 1] = Energy(M, dx, a2, a1, inter, V, S);
         vir = Virial(M, a2, a1, inter, V, dx, S);
         R2 = MeanQuadraticR(M, S, dx);
-        
-        printf("\n\t%6d       %15.7E", i + 1, creal(E[i + 1]));
-        printf("         %15.7E       %7.4lf", creal(vir), R2);
+
+        if ( (i+1) % 50 == 0 )
+        {
+            printf("\n\t%6d       %15.7E", i + 1, creal(E[i + 1]));
+            printf("         %15.7E       %7.4lf", creal(vir), R2);
+        }
 
 
 
@@ -1097,7 +1115,7 @@ int ISSFFTRK4(EqDataPkg EQ, int N, double dT, Carray S, Carray E)
 
             j = i - 199;
 
-            if (j > 0 && fabs(creal(E[i+1] - E[j]) / creal(E[j])) < 1E-12 )
+            if (j > 0 && fabs(creal(E[i+1] - E[j]) / creal(E[j])) < 1E-11 )
             {
 
                 s = DftiFreeDescriptor(&desc);
