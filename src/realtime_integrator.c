@@ -51,7 +51,7 @@ void SSFFT(EqDataPkg EQ, int N, double dt, Carray S, char fname[], int n)
   * that is overwritten at each time-step.  The  results are
   * recorded in a file named 'fname' on every 'n' steps. Use
   * FFT to compute linear derivatives part of  PDE hence the
-  * boundary is consider to be periodic in the last position **/
+  * boundary is demanded to be periodic in the last position **/
 
 
 
@@ -62,85 +62,86 @@ void SSFFT(EqDataPkg EQ, int N, double dt, Carray S, char fname[], int n)
         M,
         m;
 
-    m = EQ->Mpos - 1;
-    M = EQ->Mpos;
-
-
-    // File to write every n step the time-step solution
-    FILE * out_data = fopen(fname, "w");
-
-    if (out_data == NULL)
-    {
-        printf("\n\n\tERROR: impossible to open file %s\n", fname);
-        exit(EXIT_FAILURE);
-    }
-
-    // Record initial data as first line
-    carr_inline(out_data, M, S);
-
-
-    // Reader of screen printing
-    printf("\n\n\n");
-    printf("     step            Energy                   Norm");
-    sepline();
-
-
-
-
     MKL_LONG
-        s; // status of called MKL FFT functions
-
+        s;
 
     double
         a2,
         dx,
-        inter,
-        * V,
+        g,
         freq;
-
 
     double complex
         E,
         a1,
         Idt = 0.0 - dt * I;
 
-
+    DFTI_DESCRIPTOR_HANDLE
+        desc;
 
     Rarray
-        abs2 = rarrDef(M), // abs square of wave function
-        out  = rarrDef(M); // output of linear + nonlinear potential
-
-
+        V,
+        abs2,
+        step_pot;
 
     Carray
-        exp_der = carrDef(m),     // exponential of derivative operator
-        stepexp = carrDef(M),     // Exponential of potential
-        forward_fft = carrDef(m), // go to frequency space
-        back_fft = carrDef(m);    // back to position space
+        exp_der,
+        exp_pot,
+        forward_fft,
+        back_fft;
+
+    FILE
+        * out_data = fopen(fname, "w");
 
 
+
+    M = EQ->Mpos;   // grid size including boudaries
+    m = M - 1;      // grid size excluding boudaries
+
+    abs2 = rarrDef(M);      // abs square of wave function
+    step_pot  = rarrDef(M); // time-dependent potential (nonlinear+linear)
+
+    exp_der = carrDef(m);     // Exponential of derivative operators
+    exp_pot = carrDef(M);     // Exponential of potential
+    forward_fft = carrDef(m);
+    back_fft = carrDef(m);
+
+    // Open file to write solution at every n time steps
+
+    out_data = fopen(fname, "w");
+
+    if (out_data == NULL)
+    {
+        printf("\n\nERROR: impossible to open file %s\n", fname);
+        exit(EXIT_FAILURE);
+    }
+
+    // Record initial data as first line
+
+    carr_inline(out_data, M, S);
+
+    // unpack equation parameters from structure
 
     a2 = EQ->a2;
     a1 = EQ->a1;
     dx = EQ->dx;
-    inter = EQ->inter;
+    g = EQ->inter;
     V = EQ->V;
 
 
 
-    /* setup descriptor (MKL implementation of FFT)
-     * -------------------------------------------------------------------- */
-    DFTI_DESCRIPTOR_HANDLE desc;
+    // setup descriptor (MKL implementation of FFT)
     s = DftiCreateDescriptor(&desc, DFTI_DOUBLE, DFTI_COMPLEX, 1, m);
     s = DftiSetValue(desc, DFTI_FORWARD_SCALE, 1.0 / sqrt(m));
     s = DftiSetValue(desc, DFTI_BACKWARD_SCALE, 1.0 / sqrt(m));
     s = DftiCommitDescriptor(desc);
-    /* -------------------------------------------------------------------- */
 
 
 
-    /* setup Fourier Frequencies and the exponential of derivative operator
-     * -------------------------------------------------------------------- */
+    // setup Fourier Frequencies and the exponential of derivative operator
+    // The convention for ordering the frequencies is starting from zero go
+    // over positive frequencies and after reached the max. start from  the
+    // max. negative frequency going back to zero.
     for (i = 0; i < m; i++)
     {
         if (i <= (m - 1) / 2) { freq = (2 * PI * i) / (m * dx);       }
@@ -148,12 +149,13 @@ void SSFFT(EqDataPkg EQ, int N, double dt, Carray S, char fname[], int n)
         // exponential of derivative operators
         exp_der[i] = cexp(Idt * a1 * freq * I - Idt * a2 * freq * freq);
     }
-    /* -------------------------------------------------------------------- */
 
 
 
-    /*  Apply Split step and solve separately nonlinear and linear part  *
-     *  ===============================================================  */
+    // Header of screen printing
+    printf("\n\n\n");
+    printf("     time            Energy                   Norm");
+    sepline();
 
 
 
@@ -163,20 +165,25 @@ void SSFFT(EqDataPkg EQ, int N, double dt, Carray S, char fname[], int n)
         carrAbs2(M, S, abs2);
 
         // Print in screen to quality and progress control
-        E = Energy(M, dx, a2, a1, inter, V, S);
+
+        E = Energy(M, dx, a2, a1, g, V, S);
         if ( i % 50 == 0 )
         {
-            printf(" \n  %7d          ", i);
+            printf(" \n  %.4lf          ", i*dt);
             printf("%15.7E          ", creal(E));
             printf("%15.7E          ", Rsimps(M, abs2, dx));
         }
 
 
 
-        // Apply exponential of potential together with nonlinear part
-        rarrUpdate(M, V, inter, abs2, out);
-        rcarrExp(M, Idt / 2, out, stepexp);
-        carrMultiply(m, stepexp, S, forward_fft);
+        // Apply exponential of potential part (linear and nonlinear)
+        // When copying data to use Fourier transform it is not used
+        // the boundary grid point assumed to be periodic
+        rarrUpdate(M, V, g, abs2, step_pot);
+        rcarrExp(M, Idt / 2, step_pot, exp_pot);
+        carrMultiply(m, exp_pot, S, forward_fft);
+
+
 
         // go to momentum space
         s = DftiComputeForward(desc, forward_fft);
@@ -184,29 +191,31 @@ void SSFFT(EqDataPkg EQ, int N, double dt, Carray S, char fname[], int n)
         carrMultiply(m, exp_der, forward_fft, back_fft);
         // go back to position space
         s = DftiComputeBackward(desc, back_fft);
-
         carrCopy(m, back_fft, S);
         S[m] = S[0]; //boundary
 
-        carrAbs2(M, S, abs2);
-        rarrUpdate(M, V, inter, abs2, out);
-        rcarrExp(M, Idt / 2, out, stepexp);
 
-        carrMultiply(m, stepexp, back_fft, S);
+
+        // Apply again the full potential part
+        carrAbs2(M, S, abs2);
+        rarrUpdate(M, V, g, abs2, step_pot);
+        rcarrExp(M, Idt / 2, step_pot, exp_pot);
+        carrMultiply(m, exp_pot, back_fft, S);
         S[m] = S[0]; //boundary
 
-        // RECORD solution
 
+
+        // RECORD solution if required
         if (k == n) { carr_inline(out_data, M, S); k = 1; }
-        else        { k = k + 1;                          }
+        else        { k = k + 1; }
     }
 
     carrAbs2(M, S, abs2);
-    E = Energy(M, dx, a2, a1, inter, V, S);
-    printf(" \n  %7d          ", N);
+    E = Energy(M, dx, a2, a1, g, V, S);
+    printf(" \n  %.4lf          ", N*dt);
     printf("%15.7E          ", creal(E));
     printf("%15.7E          ", Rsimps(M, abs2, dx));
-    
+
     sepline();
 
     fclose(out_data);
@@ -214,11 +223,11 @@ void SSFFT(EqDataPkg EQ, int N, double dt, Carray S, char fname[], int n)
     s = DftiFreeDescriptor(&desc);
 
     free(exp_der);
-    free(stepexp);
+    free(exp_pot);
     free(forward_fft);
     free(back_fft);
     free(abs2);
-    free(out);
+    free(step_pot);
 }
 
 

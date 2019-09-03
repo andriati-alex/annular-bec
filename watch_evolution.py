@@ -43,7 +43,7 @@ y1 = Smod2.min() - 0.1 * (Smod2.max() - Smod2.min());
 x1 = domain[1];
 x2 = domain[2];
 grid = int(domain[0]);
-x = np.linspace(-1, 1, grid);
+x = np.linspace(x1, x2, grid);
 
 
 

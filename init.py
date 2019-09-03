@@ -81,7 +81,7 @@ def BrightSoliton(x, a, c):
 
 def NormBrightSoliton(x, a, c):
     BS = BrightSoliton(x, a, c);
-    return BS / np.sqrt( simps( abs(S)**2, dx = x[1] - x[0] ) );
+    return BS / np.sqrt( simps( abs(BS)**2, dx = x[1] - x[0] ) );
 
 
 
