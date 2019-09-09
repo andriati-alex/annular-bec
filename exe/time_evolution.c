@@ -559,6 +559,12 @@ int main(int argc, char * argv[])
                 printf("\nTime taken to solve(CFDS)");
                 printf(" : %.3f seconds\n", time_used);
                 break;
+            case 7:
+                sineDVR(EQ, N, dt, S, fname, rate);
+                time_used = (double) (omp_get_wtime() - start);
+                printf("\nTime taken to solve(sine DVR)");
+                printf(" : %.3f seconds\n", time_used);
+                break;
         }
     }
 

@@ -17,7 +17,7 @@ EqDataPkg PackEqData(int Mpos,double xi,double xf,double a2,double inter,
 
     if (gp == NULL)
     {
-        printf("\n\n\n\tMEMORY ERROR : malloc fail for EqData structure\n\n");
+        printf("\n\n\nMEMORY ERROR : malloc fail for EqData structure\n\n");
         exit(EXIT_FAILURE);
     }
 

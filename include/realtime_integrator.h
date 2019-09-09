@@ -136,4 +136,7 @@ void SSFFTRK4(EqDataPkg, int N, double dt, Carray S, char fname [], int n);
 void CFDS(EqDataPkg, int N, double dt, int cyclic, Carray S,
      char fname [], int n);
 
+void sinedvrDDT(int M, double t, Carray a, Carray args, Carray Da);
+void sineDVR(EqDataPkg EQ, int N, double dt, Carray S, char fname[], int n);
+
 #endif
